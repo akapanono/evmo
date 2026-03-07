@@ -1,0 +1,292 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>朋友档案 App UI v1</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app-stage">
+    <section class="phone-app" aria-label="朋友档案手机界面">
+      <header class="status-bar">
+        <span>9:41</span>
+        <span>朋友档案</span>
+        <span>5G 92%</span>
+      </header>
+
+      <section class="app-screen is-active" data-screen="home">
+        <div class="topbar">
+          <div>
+            <p class="eyebrow">首页</p>
+            <h1>朋友档案</h1>
+          </div>
+        </div>
+
+        <label class="search-box">
+          <span>搜索朋友姓名、昵称、偏好、状态</span>
+        </label>
+
+        <section class="section-block">
+          <div class="section-head">
+            <h3>我的朋友</h3>
+            <span>24 位</span>
+          </div>
+
+          <div class="friend-grid">
+            <article class="grid-card coral-card" data-target-screen="detail">
+              <div class="grid-top">
+                <div class="avatar xl coral">林</div>
+                <span class="mini-chip">今天生日</span>
+              </div>
+              <h3>林语</h3>
+              <p>大学同学</p>
+              <div class="inline-tags">
+                <span>手作</span>
+                <span>乌龙茶</span>
+              </div>
+            </article>
+
+            <article class="grid-card teal-card">
+              <div class="grid-top">
+                <div class="avatar xl teal">周</div>
+                <span class="mini-chip">提醒</span>
+              </div>
+              <h3>周宁</h3>
+              <p>最近在搬家</p>
+              <div class="inline-tags">
+                <span>夜间勿扰</span>
+                <span>借车</span>
+              </div>
+            </article>
+
+            <article class="grid-card gold-card">
+              <div class="grid-top">
+                <div class="avatar xl gold">沈</div>
+                <span class="mini-chip muted">47 天未联系</span>
+              </div>
+              <h3>沈一</h3>
+              <p>跑步搭子</p>
+              <div class="inline-tags">
+                <span>马拉松</span>
+                <span>周末晨跑</span>
+              </div>
+            </article>
+
+            <article class="grid-card ink-card">
+              <div class="grid-top">
+                <div class="avatar xl ink">阿</div>
+                <span class="mini-chip muted">备考中</span>
+              </div>
+              <h3>阿哲</h3>
+              <p>状态需关注</p>
+              <div class="inline-tags">
+                <span>考研</span>
+                <span>晚间联系</span>
+              </div>
+            </article>
+          </div>
+        </section>
+      </section>
+
+      <section class="app-screen" data-screen="detail">
+        <div class="topbar compact">
+          <button class="back-link" type="button" data-back="home">返回</button>
+          <div class="topbar-title">
+            <p class="eyebrow">朋友详情</p>
+            <h1>林语</h1>
+          </div>
+          <button class="icon-btn soft" type="button" data-target-screen="add-friend">编辑</button>
+        </div>
+
+        <article class="hero-profile">
+          <div class="avatar xxl coral">林</div>
+          <h2>林语</h2>
+          <p>大学同学 · 3 月 7 日生日</p>
+        </article>
+
+        <section class="section-block">
+          <div class="section-head">
+            <h3>基本信息</h3>
+          </div>
+          <article class="info-card">
+            <div class="info-row">
+              <strong>昵称</strong>
+              <span>小语</span>
+            </div>
+            <div class="info-row">
+              <strong>关系</strong>
+              <span>大学同学</span>
+            </div>
+            <div class="info-row">
+              <strong>生日</strong>
+              <span>3 月 7 日</span>
+            </div>
+            <div class="info-row">
+              <strong>最近联系</strong>
+              <span>5 天前</span>
+            </div>
+          </article>
+        </section>
+
+        <section class="section-block">
+          <div class="section-head">
+            <h3>自定义信息</h3>
+          </div>
+          <article class="custom-card">
+            <div class="tag-group">
+              <span>喜欢乌龙茶</span>
+              <span>喜欢手作礼物</span>
+              <span>不吃香菜</span>
+              <span>不喜欢临时改约</span>
+              <span>最近在换工作</span>
+              <span>情绪偏紧绷</span>
+            </div>
+          </article>
+          <article class="note-card">
+            <p class="mini-label">最近记录</p>
+            <p>她最近在准备新工作的终面，适合轻松关心，别连续追问细节。</p>
+          </article>
+        </section>
+      </section>
+
+      <section class="app-screen" data-screen="ask">
+        <div class="topbar compact">
+          <button class="back-link" type="button" data-back="detail">返回</button>
+          <div class="topbar-title">
+            <p class="eyebrow">AI 查询</p>
+            <h1>问问林语</h1>
+          </div>
+        </div>
+
+        <article class="ask-context-card">
+          <p class="mini-label">AI 已读取该朋友档案</p>
+          <div class="tag-group compact-tags">
+            <span>生日</span>
+            <span>偏好</span>
+            <span>禁忌</span>
+            <span>近期状态</span>
+            <span>历史记录</span>
+          </div>
+        </article>
+
+        <article class="question-card">
+          <p class="mini-label">当前问题</p>
+          <h2>她最近适合聊什么？</h2>
+        </article>
+
+        <article class="answer-card warm-answer">
+          <p class="mini-label">AI 回答</p>
+          <p>
+            林语最近在换工作，建议从面试进展、休息得怎么样、周末有没有放松这些轻话题切入。
+            她不喜欢临时改约，所以如果你想约她，最好先确认时间。今天是她生日，也可以先发一句轻松的祝福。
+          </p>
+        </article>
+
+        <div class="quick-questions">
+          <button type="button" class="chip">她最近最需要被关心的点是什么？</button>
+          <button type="button" class="chip">送她什么更合适？</button>
+          <button type="button" class="chip">我现在联系她合适吗？</button>
+        </div>
+
+        <label class="composer fixed-composer">
+          <span>输入自然语言问题，例如：她不喜欢什么？</span>
+          <button type="button" class="primary small">发送</button>
+        </label>
+      </section>
+
+      <section class="app-screen" data-screen="me">
+        <div class="topbar">
+          <div>
+            <p class="eyebrow">我的</p>
+            <h1>账号与设置</h1>
+          </div>
+        </div>
+
+        <article class="profile-panel">
+          <div class="avatar xxl ink">我</div>
+          <div>
+            <h2>你的账号</h2>
+            <p>用于管理提醒策略、隐私设置和 AI 使用偏好。</p>
+          </div>
+        </article>
+
+        <div class="settings-list">
+          <article>
+            <strong>账号信息</strong>
+            <span>手机号、昵称、登录设备</span>
+          </article>
+          <article>
+            <strong>提醒设置</strong>
+            <span>生日提醒、久未联系提醒、重要事件提醒</span>
+          </article>
+          <article>
+            <strong>隐私与安全</strong>
+            <span>锁屏隐藏、敏感信息展示、数据保护</span>
+          </article>
+          <article>
+            <strong>AI 设置</strong>
+            <span>回答风格、摘要长短、默认提问模式</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="app-screen" data-screen="add-friend">
+        <div class="topbar compact">
+          <button class="back-link" type="button" data-back="home">返回</button>
+          <div class="topbar-title">
+            <p class="eyebrow">添加朋友</p>
+            <h1>建立基础档案</h1>
+          </div>
+        </div>
+
+        <article class="form-card">
+          <div class="field-grid">
+            <label class="field">
+              <span>姓名</span>
+              <input type="text" value="林语" />
+            </label>
+            <label class="field">
+              <span>昵称</span>
+              <input type="text" value="小语" />
+            </label>
+            <label class="field">
+              <span>关系</span>
+              <input type="text" value="大学同学" />
+            </label>
+            <label class="field">
+              <span>生日</span>
+              <input type="text" value="03-07" />
+            </label>
+          </div>
+        </article>
+
+        <article class="form-card soft-panel">
+          <p class="mini-label">自定义信息</p>
+          <textarea rows="5">她喜欢手作和乌龙茶，不喜欢别人临时改约。</textarea>
+        </article>
+
+        <div class="sticky-actions">
+          <button type="button" class="action-btn" data-back="home">取消</button>
+          <button type="button" class="action-btn primary" data-target-screen="detail">保存</button>
+        </div>
+      </section>
+      <button class="floating-ask" type="button" data-target-screen="ask" hidden>问问我</button>
+
+      <button class="floating-add" type="button" data-target-screen="add-friend">+</button>
+
+      <nav class="bottom-nav" aria-label="底部导航">
+        <button class="nav-item is-active" type="button" data-target="home">
+          <span>首页</span>
+        </button>
+        <button class="nav-item" type="button" data-target="me">
+          <span>我的</span>
+        </button>
+      </nav>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
+
