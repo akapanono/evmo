@@ -1,6 +1,10 @@
 ﻿export interface AppSettings {
+  aiAccessMode: 'direct' | 'proxy';
   openaiApiKey?: string;
+  openaiBaseUrl?: string;
   openaiModel: string;
+  proxyServerUrl?: string;
+  proxyProviderId?: string;
 
   birthdayReminder: {
     enabled: boolean;
@@ -16,7 +20,11 @@
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  openaiModel: 'gpt-3.5-turbo',
+  aiAccessMode: 'direct',
+  openaiBaseUrl: 'https://api.openai.com/v1',
+  openaiModel: 'gpt-4o-mini',
+  proxyServerUrl: 'http://localhost:8787',
+  proxyProviderId: 'openai',
   birthdayReminder: {
     enabled: true,
     daysBefore: 1,
@@ -26,8 +34,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   hideSensitiveInfo: false,
   aiStyle: 'friendly',
   defaultQuestions: [
-    '她最近适合聊什么？',
-    '送她什么更合适？',
-    '我现在联系她合适吗？',
+    '你最近在忙什么？',
+    '你现在最想聊什么？',
+    '我现在联系你合适吗？',
   ],
 };

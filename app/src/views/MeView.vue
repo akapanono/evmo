@@ -30,7 +30,7 @@
       </article>
       <article @click="openSection('ai')">
         <strong>AI 设置</strong>
-        <span>API Key、回答风格、默认提问</span>
+        <span>{{ connectionText }}</span>
       </article>
     </div>
 
@@ -40,34 +40,60 @@
       </div>
 
       <article class="form-card">
+        <div :class="['connection-status', connectionSummary.configured ? 'connected' : 'disconnected']">
+          <strong>{{ connectionSummary.configured ? '已配置 AI 接入' : '尚未配置 AI 接入' }}</strong>
+          <span>{{ summaryLine }}</span>
+        </div>
+
         <div class="field-grid">
           <label class="field">
-            <span>OpenAI API Key</span>
-            <input v-model="apiKey" type="password" placeholder="sk-..." />
-            <p class="field-hint warning">
-              API Key 当前保存在浏览器本地，仅适合原型验证，不建议用于正式发布版本。
-            </p>
+            <span>接入方式</span>
+            <select v-model="accessMode" class="model-select">
+              <option value="direct">前端直连</option>
+              <option value="proxy">代理服务</option>
+            </select>
+            <p class="field-hint">测试豆包或其他兼容服务时，两种方式都支持直接填写地址、API Key 和模型。</p>
           </label>
 
           <label class="field">
-            <span>模型</span>
-            <select v-model="model" class="model-select">
-              <optgroup label="OpenAI">
-                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                <option value="gpt-4">GPT-4</option>
-                <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                <option value="gpt-4o">GPT-4o</option>
-                <option value="gpt-4o-mini">GPT-4o Mini</option>
-              </optgroup>
-              <optgroup label="兼容模型">
-                <option value="claude-3-opus">Claude 3 Opus</option>
-                <option value="claude-3-sonnet">Claude 3 Sonnet</option>
-                <option value="claude-3-haiku">Claude 3 Haiku</option>
-                <option value="gemini-pro">Gemini Pro</option>
-              </optgroup>
-            </select>
-            <p class="field-hint">建议优先使用 GPT-4o 或 GPT-4o Mini。</p>
+            <span>API Key</span>
+            <input v-model="apiKey" type="password" placeholder="填你的服务 API Key" />
+            <p class="field-hint warning" v-if="accessMode === 'direct'">当前为前端直连模式，API Key 保存在浏览器本地，只适合测试。</p>
+            <p class="field-hint" v-else>代理模式下，如果不填中转站标识，就会直接使用这里填写的 API Key 转发。</p>
           </label>
+
+          <label class="field">
+            <span>Base URL</span>
+            <input v-model="baseUrl" type="text" placeholder="例如：https://ark.cn-beijing.volces.com/api/v3" />
+            <p class="field-hint">填写 OpenAI 兼容地址即可，豆包和多数中转站都可这样接。</p>
+          </label>
+
+          <label class="field">
+            <span>模型名</span>
+            <input v-model="model" type="text" placeholder="例如：doubao-1-5-pro-32k-250115" list="model-suggestions" />
+            <datalist id="model-suggestions">
+              <option value="gpt-4o-mini"></option>
+              <option value="gpt-4o"></option>
+              <option value="doubao-1-5-pro-32k-250115"></option>
+              <option value="doubao-1-5-lite-32k-250115"></option>
+              <option value="claude-3-5-sonnet"></option>
+              <option value="gemini-2.0-flash"></option>
+            </datalist>
+          </label>
+
+          <template v-if="accessMode === 'proxy'">
+            <label class="field">
+              <span>代理地址</span>
+              <input v-model="proxyServerUrl" type="text" placeholder="http://localhost:8787" />
+              <p class="field-hint">本地代理默认监听 `http://localhost:8787`。</p>
+            </label>
+
+            <label class="field">
+              <span>中转站标识</span>
+              <input v-model="proxyProviderId" type="text" placeholder="可留空；留空则直接使用上面的 API Key 和 Base URL" />
+              <p class="field-hint">只有在你想使用服务端预置配置时才填写。</p>
+            </label>
+          </template>
 
           <label class="field">
             <span>回答风格</span>
@@ -80,27 +106,21 @@
         </div>
 
         <div class="ai-actions">
-          <button type="button" class="action-btn" @click="showAISettings = false">
-            取消
-          </button>
-          <button type="button" class="action-btn" @click="testAPI" :disabled="!apiKey.trim() || testing">
+          <button type="button" class="action-btn" @click="showAISettings = false">取消</button>
+          <button type="button" class="action-btn" @click="testConnection" :disabled="testing || !canTestConnection">
             {{ testing ? '测试中...' : '测试连接' }}
           </button>
-          <button type="button" class="action-btn primary" @click="saveAISettings">
-            保存
-          </button>
+          <button type="button" class="action-btn primary" @click="saveAISettings">保存</button>
         </div>
 
-        <p v-if="testResult" :class="['test-result', testResult.success ? 'success' : 'error']">
-          {{ testResult.message }}
-        </p>
+        <p v-if="testResult" :class="['test-result', testResult.success ? 'success' : 'error']">{{ testResult.message }}</p>
       </article>
     </section>
   </section>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import Avatar from '@/components/common/Avatar.vue';
 import { aiService } from '@/services/aiService';
 import { useSettingsStore } from '@/stores/settings';
@@ -108,45 +128,85 @@ import { useSettingsStore } from '@/stores/settings';
 const settingsStore = useSettingsStore();
 
 const showAISettings = ref(false);
+const accessMode = ref<'direct' | 'proxy'>('direct');
 const apiKey = ref('');
-const model = ref('gpt-3.5-turbo');
+const baseUrl = ref('https://api.openai.com/v1');
+const proxyServerUrl = ref('http://localhost:8787');
+const proxyProviderId = ref('');
+const model = ref('gpt-4o-mini');
 const aiStyle = ref<'friendly' | 'professional' | 'concise'>('friendly');
 const testing = ref(false);
 const testResult = ref<{ success: boolean; message: string } | null>(null);
 
+const connectionSummary = computed(() => aiService.getConnectionSummary());
+const summaryLine = computed(() => {
+  if (connectionSummary.value.mode === 'proxy') {
+    const provider = connectionSummary.value.providerId?.trim() || '前端填写配置';
+    return `${connectionSummary.value.baseUrl || '未配置代理地址'} · ${provider} · ${connectionSummary.value.model}`;
+  }
+  return `${connectionSummary.value.baseUrl || '未配置地址'} · ${connectionSummary.value.model}`;
+});
+const connectionText = computed(() => {
+  if (connectionSummary.value.mode === 'proxy') {
+    return connectionSummary.value.providerId?.trim() ? '代理服务 / 预置中转站' : '代理服务 / 前端填写';
+  }
+  return connectionSummary.value.configured ? `${connectionSummary.value.model} · 已配置` : '未配置 API Key';
+});
+const canTestConnection = computed(() => {
+  if (!apiKey.value.trim() || !baseUrl.value.trim() || !model.value.trim()) {
+    return false;
+  }
+
+  if (accessMode.value === 'proxy') {
+    return Boolean(proxyServerUrl.value.trim());
+  }
+
+  return true;
+});
+
 onMounted(() => {
+  accessMode.value = settingsStore.settings.aiAccessMode;
   apiKey.value = settingsStore.settings.openaiApiKey || '';
+  baseUrl.value = settingsStore.settings.openaiBaseUrl || 'https://api.openai.com/v1';
+  proxyServerUrl.value = settingsStore.settings.proxyServerUrl || 'http://localhost:8787';
+  proxyProviderId.value = settingsStore.settings.proxyProviderId || '';
   model.value = settingsStore.settings.openaiModel;
   aiStyle.value = settingsStore.settings.aiStyle;
 });
 
 function openSection(section: string): void {
-  if (section !== 'ai') {
-    return;
-  }
+  if (section !== 'ai') return;
 
   showAISettings.value = true;
+  accessMode.value = settingsStore.settings.aiAccessMode;
   apiKey.value = settingsStore.settings.openaiApiKey || '';
+  baseUrl.value = settingsStore.settings.openaiBaseUrl || 'https://api.openai.com/v1';
+  proxyServerUrl.value = settingsStore.settings.proxyServerUrl || 'http://localhost:8787';
+  proxyProviderId.value = settingsStore.settings.proxyProviderId || '';
   model.value = settingsStore.settings.openaiModel;
   aiStyle.value = settingsStore.settings.aiStyle;
   testResult.value = null;
 }
 
-async function testAPI(): Promise<void> {
-  if (!apiKey.value.trim()) {
-    return;
-  }
-
+async function testConnection(): Promise<void> {
   testing.value = true;
   testResult.value = null;
 
   try {
-    testResult.value = await aiService.testAPIKey(apiKey.value, model.value);
+    settingsStore.updateSettings({
+      aiAccessMode: accessMode.value,
+      openaiApiKey: apiKey.value || undefined,
+      openaiBaseUrl: baseUrl.value.trim() || undefined,
+      openaiModel: model.value.trim() || 'gpt-4o-mini',
+      proxyServerUrl: proxyServerUrl.value.trim() || undefined,
+      proxyProviderId: proxyProviderId.value.trim() || undefined,
+    });
+
+    testResult.value = accessMode.value === 'proxy'
+      ? await aiService.testProxyConnection()
+      : await aiService.testAPIKey(apiKey.value, model.value, baseUrl.value);
   } catch (err) {
-    testResult.value = {
-      success: false,
-      message: `测试失败：${(err as Error).message}`,
-    };
+    testResult.value = { success: false, message: `测试失败：${(err as Error).message}` };
   } finally {
     testing.value = false;
   }
@@ -154,8 +214,12 @@ async function testAPI(): Promise<void> {
 
 function saveAISettings(): void {
   settingsStore.updateSettings({
+    aiAccessMode: accessMode.value,
     openaiApiKey: apiKey.value || undefined,
-    openaiModel: model.value,
+    openaiBaseUrl: baseUrl.value.trim() || undefined,
+    openaiModel: model.value.trim() || 'gpt-4o-mini',
+    proxyServerUrl: proxyServerUrl.value.trim() || undefined,
+    proxyProviderId: proxyProviderId.value.trim() || undefined,
     aiStyle: aiStyle.value,
   });
   showAISettings.value = false;
@@ -186,6 +250,28 @@ function saveAISettings(): void {
   padding: 8px 12px;
   border-radius: 8px;
   margin-top: 8px;
+}
+
+.connection-status {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  margin-bottom: 14px;
+}
+
+.connection-status.connected {
+  background: rgba(47, 138, 130, 0.1);
+  color: #2f8a82;
+}
+
+.connection-status.disconnected {
+  background: rgba(255, 107, 107, 0.1);
+  color: var(--coral);
+}
+
+.connection-status span {
+  font-size: 12px;
 }
 
 .ai-actions {

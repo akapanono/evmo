@@ -22,12 +22,13 @@
       </p>
     </article>
 
-    <section class="section-block">
+    <section ref="supplementSection" class="section-block">
       <div class="section-head">
         <h3>一句话补充信息</h3>
       </div>
       <article class="form-card soft-panel">
         <textarea
+          ref="supplementTextarea"
           v-model="quickNote"
           rows="3"
           placeholder="例如：他最近在准备考研；她下周要出差；她不吃香菜"
@@ -187,7 +188,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import Avatar from '@/components/common/Avatar.vue';
 import InfoRow from '@/components/friend/InfoRow.vue';
@@ -204,6 +205,8 @@ const friendsStore = useFriendsStore();
 const friend = ref<Friend | null>(null);
 const deleting = ref(false);
 const quickNote = ref('');
+const supplementSection = ref<HTMLElement | null>(null);
+const supplementTextarea = ref<HTMLTextAreaElement | null>(null);
 const savingSupplement = ref(false);
 const aiSavingSupplement = ref(false);
 const supplementMessage = ref('');
@@ -255,13 +258,40 @@ onMounted(async () => {
   await friendsStore.loadFriends();
   const id = route.params.id as string;
   friend.value = friendsStore.friends.find((item) => item.id === id) ?? null;
+  await applySuggestionFromRoute();
 });
+
+watch(
+  () => route.query.suggestion,
+  async () => {
+    await applySuggestionFromRoute();
+  },
+);
+
+async function applySuggestionFromRoute(): Promise<void> {
+  const suggestion = typeof route.query.suggestion === 'string' ? route.query.suggestion.trim() : '';
+  if (!suggestion) {
+    return;
+  }
+
+  quickNote.value = suggestion;
+  await nextTick();
+  supplementSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  supplementTextarea.value?.focus();
+  supplementTextarea.value?.setSelectionRange(quickNote.value.length, quickNote.value.length);
+
+  await router.replace({
+    name: 'friend-detail',
+    params: { id: route.params.id as string },
+    query: {},
+  });
+}
 
 function semanticTypeText(type: SemanticType): string {
   const map: Record<SemanticType, string> = {
     preference: '偏好',
     restriction: '禁忌',
-    status: '近况',
+    status: '事件',
     event: '事件',
     milestone: '重要信息',
     note: '重要信息',
@@ -733,5 +763,7 @@ async function handleDelete(): Promise<void> {
   line-height: 1.6;
 }
 </style>
+
+
 
 

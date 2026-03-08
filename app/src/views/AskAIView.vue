@@ -36,7 +36,7 @@
           <p class="mini-label">开始提问</p>
           <h2>{{ defaultQuestions[0] }}</h2>
           <p>
-            你可以像和 ChatGPT 聊天一样连续提问。发送后，消息会以聊天气泡显示在这里。
+            你可以像和朋友聊天一样连续提问。发送后，消息会以聊天气泡显示在这里。
           </p>
         </div>
 
@@ -45,6 +45,22 @@
             <p>{{ msg.content }}</p>
           </article>
         </div>
+
+        <article v-if="aiStore.followupSuggestions.length > 0" class="suggestion-card">
+          <p class="mini-label">建议补充</p>
+          <p v-if="aiStore.lowInfoMode" class="suggestion-lead">这份档案信息还比较少，补充下面这些内容后，AI 会更像这位朋友本人。</p>
+          <div class="suggestion-list">
+            <button
+              v-for="suggestion in aiStore.followupSuggestions"
+              :key="suggestion"
+              type="button"
+              class="suggestion-chip"
+              @click="goToSupplementInput(suggestion)"
+            >
+              {{ suggestion }}
+            </button>
+          </div>
+        </article>
 
         <div v-if="aiStore.loading" class="bubble-row assistant">
           <article class="message-bubble assistant-bubble loading-bubble">
@@ -62,7 +78,7 @@
           <textarea
             v-model="question"
             rows="2"
-            placeholder="输入你的问题，例如：她最近适合聊什么？"
+            placeholder="输入你想对他说的话，例如：你最近在忙什么？"
             @keydown.enter.exact.prevent="handleSend"
             :disabled="aiStore.loading"
           ></textarea>
@@ -123,10 +139,10 @@ const contextTags = computed(() => {
   }
 
   const tags: string[] = [];
-
   if (friend.value.birthday) tags.push('生日');
   if (friend.value.preferences.length > 0) tags.push('偏好');
-  if (friend.value.notes) tags.push('备注');
+  if (friend.value.customFields.some((field) => field.temporalScope === 'timebound')) tags.push('事件');
+  if (friend.value.customFields.some((field) => field.temporalScope === 'stable')) tags.push('稳定信息');
   if (friend.value.relationship) tags.push(friend.value.relationship);
 
   return tags.length > 0 ? tags : ['基础档案'];
@@ -144,7 +160,7 @@ onBeforeUnmount(() => {
 });
 
 watch(
-  () => [aiStore.messages.length, aiStore.loading],
+  () => [aiStore.messages.length, aiStore.loading, aiStore.followupSuggestions.length],
   async () => {
     await nextTick();
     if (messagesContainer.value) {
@@ -172,6 +188,18 @@ async function handleSend(): Promise<void> {
   } catch (err) {
     console.error(err);
   }
+}
+
+function goToSupplementInput(suggestion: string): void {
+  if (!friend.value) {
+    return;
+  }
+
+  router.push({
+    name: 'friend-detail',
+    params: { id: friend.value.id },
+    query: { suggestion },
+  });
 }
 
 function goBack(): void {
@@ -274,6 +302,35 @@ function goBack(): void {
 .loading-bubble {
   background: rgba(255, 255, 255, 0.88);
   color: var(--muted);
+}
+
+.suggestion-card {
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--line);
+}
+
+.suggestion-lead {
+  margin-top: 8px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.suggestion-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.suggestion-chip {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: rgba(29, 40, 49, 0.08);
+  color: var(--ink);
+  text-align: left;
 }
 
 .composer-dock {
