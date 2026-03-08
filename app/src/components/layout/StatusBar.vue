@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <header class="status-bar">
     <span>{{ time }}</span>
     <span>朋友档案</span>

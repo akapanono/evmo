@@ -63,6 +63,32 @@ function buildFriendContext(friend: Friend): string {
   return parts.join('\n');
 }
 
+function buildExtractionContext(friend: Friend): string {
+  const parts: string[] = [];
+
+  if (friend.relationship) parts.push(`关系: ${friend.relationship}`);
+  if (friend.birthday) parts.push(`生日: ${formatBirthday(friend.birthday)}`);
+  if (friend.preferences.length > 0) parts.push(`偏好: ${friend.preferences.slice(0, 6).join('、')}`);
+
+  const stableFields = friend.customFields
+    .filter((field) => field.temporalScope === 'stable')
+    .slice(0, 2)
+    .map((field) => field.value);
+  if (stableFields.length > 0) {
+    parts.push(`稳定信息: ${stableFields.join('；')}`);
+  }
+
+  const timeboundFields = friend.customFields
+    .filter((field) => field.temporalScope === 'timebound')
+    .slice(0, 2)
+    .map((field) => field.eventTimeText ? `${field.eventTimeText} ${field.value}` : field.value);
+  if (timeboundFields.length > 0) {
+    parts.push(`近期事件: ${timeboundFields.join('；')}`);
+  }
+
+  return parts.join('\n');
+}
+
 function getSystemPrompt(style: 'friendly' | 'professional' | 'concise'): string {
   const basePrompt = '你要扮演档案中的这位朋友本人，用第一人称“我”说话，把提问者称为“你”。回答时不要跳出角色，不要说自己是 AI，也不要说“根据档案显示”。如果信息充足，就像这位朋友本人一样自然回应；如果信息不足，可以基于已有线索做温和推测，但必须克制，不能编造过于具体的事实。如果实在不知道，就直接以朋友口吻承认自己也不太确定，并顺手给出一两个你希望对方了解你的方向。';
 
@@ -131,41 +157,15 @@ async function postToProxy<T>(path: string, body: Record<string, unknown>, setti
 }
 
 function buildExtractionPrompt(friend: Friend, text: string): string {
-  const context = buildFriendContext(friend);
+  const context = buildExtractionContext(friend);
 
   return [
-    '你要把一句中文补充描述，抽取为朋友档案结构化 JSON。',
-    '只返回 JSON，不要返回解释，不要使用 Markdown 代码块。',
-    '档案上下文：',
-    context || '无',
-    `用户输入：${text}`,
-    '输出 JSON schema：',
-    JSON.stringify({
-      birthday: 'string | undefined，格式 MM-DD',
-      preferences: ['string'],
-      records: [
-        {
-          label: 'string',
-          value: 'string',
-          includeInTimeline: true,
-          semanticType: 'preference | restriction | status | event | milestone | note',
-          temporalScope: 'stable | timebound',
-          extractionMethod: 'llm',
-          sourceText: text,
-          eventTimeText: 'string | undefined',
-          normalizedValue: 'string | undefined',
-          confidence: 0.95,
-        },
-      ],
-      noteLine: text,
-      rawText: text,
-      model: 'string | optional',
-    }),
-    '规则：',
-    '1. 只有有时限、阶段性、近期发生的事情，includeInTimeline 才为 true，temporalScope 才为 timebound。',
-    '2. 生日、忌口、长期偏好、稳定特征都必须是 stable，且不能进入时间线。',
-    '3. 例如“最近准备考研”“下周出差”“明天考试”属于时间线。',
-    '4. 例如“生日是12月27日”“不吃香菜”“喜欢乌龙茶”不属于时间线。',
+    '把这句中文补充描述抽取成朋友档案 JSON。只返回 JSON，不要解释，不要代码块。',
+    `上下文: ${context || '无'}`,
+    `输入: ${text}`,
+    '返回格式:',
+    '{"birthday":"MM-DD 或空","preferences":["字符串"],"records":[{"label":"事件或重要信息","value":"原句或精炼短句","includeInTimeline":true,"semanticType":"event|note|milestone|preference|restriction|status","temporalScope":"timebound|stable","eventTimeText":"时间词或空","sourceText":"原句","normalizedValue":"归一化值或空","confidence":0.9}],"noteLine":"原句","rawText":"原句"}',
+    '规则: 只有有时限、阶段性、近期事项才进时间线并设为 timebound；生日、忌口、长期偏好、稳定特征一律 stable 且不进时间线；像“最近准备考研”“下周出差”“明天考试”进时间线；像“生日是12月27日”“不吃香菜”“不喜欢猫”不进时间线。',
   ].join('\n');
 }
 
@@ -319,7 +319,7 @@ export const aiService = {
         ],
         model: getActiveModel(settings),
         temperature: guidance.lowInfoMode ? 0.85 : 0.7,
-        max_tokens: 1000,
+        max_tokens: 700,
       }, settings);
       return {
         content: result.content,
@@ -336,7 +336,7 @@ export const aiService = {
         { role: 'user', content: userPrompt },
       ],
       temperature: guidance.lowInfoMode ? 0.85 : 0.7,
-      max_tokens: 1000,
+      max_tokens: 700,
     });
 
     const answer = completion.choices[0]?.message?.content;
@@ -354,6 +354,11 @@ export const aiService = {
     if (!normalizedText) throw new Error('请输入要解析的内容。');
 
     const settings = storageService.getSettings();
+    const quickParsed = parseSupplementInput(normalizedText);
+    if (quickParsed.birthday || quickParsed.preferences.length > 0) {
+      return quickParsed;
+    }
+
     if (settings.aiAccessMode === 'proxy') {
       const result = await postToProxy<{ content: string }>('/api/ai/chat', {
         messages: [
@@ -362,7 +367,7 @@ export const aiService = {
         ],
         model: getActiveModel(settings),
         temperature: 0.2,
-        max_tokens: 1200,
+        max_tokens: 420,
       }, settings);
       const payload = JSON.parse(stripJsonWrapper(result.content)) as Partial<LlmExtractionPayload>;
       return normalizeExtractionPayload(payload, normalizedText);
@@ -380,7 +385,7 @@ export const aiService = {
         { role: 'user', content: buildExtractionPrompt(friend, normalizedText) },
       ],
       temperature: 0.2,
-      max_tokens: 1200,
+      max_tokens: 420,
     });
 
     const content = completion.choices[0]?.message?.content;

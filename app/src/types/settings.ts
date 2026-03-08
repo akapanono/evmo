@@ -1,4 +1,8 @@
 ﻿export interface AppSettings {
+  profileName?: string;
+  profilePhone?: string;
+  profileDeviceName?: string;
+
   aiAccessMode: 'direct' | 'proxy';
   openaiApiKey?: string;
   openaiBaseUrl?: string;
@@ -20,6 +24,9 @@
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  profileName: '我的账号',
+  profilePhone: '',
+  profileDeviceName: '当前设备',
   aiAccessMode: 'direct',
   openaiBaseUrl: 'https://api.openai.com/v1',
   openaiModel: 'gpt-4o-mini',

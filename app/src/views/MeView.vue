@@ -10,23 +10,23 @@
     <article class="profile-panel">
       <Avatar size="xxl" color="ink">我</Avatar>
       <div>
-        <h2>你的账号</h2>
+        <h2>{{ settingsStore.settings.profileName || '你的账号' }}</h2>
         <p>用于管理生日提醒、隐私设置和 AI 使用偏好。</p>
       </div>
     </article>
 
     <div class="settings-list">
-      <article>
+      <article @click="openSection('account')">
         <strong>账号信息</strong>
-        <span>手机号、昵称、登录设备</span>
+        <span>{{ accountSummary }}</span>
       </article>
-      <article>
+      <article @click="openSection('reminder')">
         <strong>提醒设置</strong>
-        <span>生日提醒、重要事件提醒</span>
+        <span>{{ reminderSummary }}</span>
       </article>
-      <article>
+      <article @click="openSection('privacy')">
         <strong>隐私与安全</strong>
-        <span>锁屏隐藏、敏感信息展示、数据保护</span>
+        <span>{{ privacySummary }}</span>
       </article>
       <article @click="openSection('ai')">
         <strong>AI 设置</strong>
@@ -34,7 +34,114 @@
       </article>
     </div>
 
-    <section v-if="showAISettings" class="section-block">
+    <section v-if="activeSection === 'account'" class="section-block">
+      <div class="section-head">
+        <h3>账号信息</h3>
+      </div>
+
+      <article class="form-card">
+        <div class="field-grid">
+          <label class="field">
+            <span>显示名称</span>
+            <input v-model="profileName" type="text" placeholder="例如：我的账号" />
+          </label>
+
+          <label class="field">
+            <span>手机号</span>
+            <input v-model="profilePhone" type="text" placeholder="仅本地保存，例如：138****1234" />
+            <p class="field-hint">这里只做本地记录，不接真实登录系统。</p>
+          </label>
+
+          <label class="field">
+            <span>设备备注</span>
+            <input v-model="profileDeviceName" type="text" placeholder="例如：Pixel 9 / iPhone 15" />
+          </label>
+        </div>
+
+        <div class="section-actions-row">
+          <button type="button" class="action-btn" @click="closeSection">取消</button>
+          <button type="button" class="action-btn primary" @click="saveAccountSettings">保存</button>
+        </div>
+      </article>
+    </section>
+
+    <section v-if="activeSection === 'reminder'" class="section-block">
+      <div class="section-head">
+        <h3>提醒设置</h3>
+      </div>
+
+      <article class="form-card">
+        <div class="toggle-row">
+          <div>
+            <strong>生日提醒</strong>
+            <p>用于后续接入系统通知时作为默认规则。</p>
+          </div>
+          <label class="switch">
+            <input v-model="birthdayReminderEnabled" type="checkbox" />
+            <span></span>
+          </label>
+        </div>
+
+        <div class="field-grid two-col">
+          <label class="field">
+            <span>提前天数</span>
+            <select v-model.number="birthdayReminderDaysBefore" class="model-select">
+              <option :value="0">当天</option>
+              <option :value="1">提前 1 天</option>
+              <option :value="3">提前 3 天</option>
+              <option :value="7">提前 7 天</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>提醒时间</span>
+            <input v-model="birthdayReminderTime" type="time" />
+          </label>
+        </div>
+
+        <div class="section-actions-row">
+          <button type="button" class="action-btn" @click="closeSection">取消</button>
+          <button type="button" class="action-btn primary" @click="saveReminderSettings">保存</button>
+        </div>
+      </article>
+    </section>
+
+    <section v-if="activeSection === 'privacy'" class="section-block">
+      <div class="section-head">
+        <h3>隐私与安全</h3>
+      </div>
+
+      <article class="form-card">
+        <div class="toggle-row">
+          <div>
+            <strong>锁屏隐藏</strong>
+            <p>后续接入手机端后，可作为锁屏或切后台时的隐藏策略。</p>
+          </div>
+          <label class="switch">
+            <input v-model="lockScreen" type="checkbox" />
+            <span></span>
+          </label>
+        </div>
+
+        <div class="toggle-row compact-gap">
+          <div>
+            <strong>隐藏敏感信息</strong>
+            <p>开启后，档案中的生日等信息可在后续版本做默认弱化显示。</p>
+          </div>
+          <label class="switch">
+            <input v-model="hideSensitiveInfo" type="checkbox" />
+            <span></span>
+          </label>
+        </div>
+
+        <div class="section-actions-row">
+          <button type="button" class="action-btn" @click="closeSection">取消</button>
+          <button type="button" class="action-btn primary" @click="savePrivacySettings">保存</button>
+        </div>
+      </article>
+    </section>
+
+    <section v-if="activeSection === 'ai'" class="section-block">
       <div class="section-head">
         <h3>AI 设置</h3>
       </div>
@@ -105,8 +212,8 @@
           </label>
         </div>
 
-        <div class="ai-actions">
-          <button type="button" class="action-btn" @click="showAISettings = false">取消</button>
+        <div class="section-actions-row">
+          <button type="button" class="action-btn" @click="closeSection">取消</button>
           <button type="button" class="action-btn" @click="testConnection" :disabled="testing || !canTestConnection">
             {{ testing ? '测试中...' : '测试连接' }}
           </button>
@@ -127,7 +234,7 @@ import { useSettingsStore } from '@/stores/settings';
 
 const settingsStore = useSettingsStore();
 
-const showAISettings = ref(false);
+const activeSection = ref<'account' | 'reminder' | 'privacy' | 'ai' | null>(null);
 const accessMode = ref<'direct' | 'proxy'>('direct');
 const apiKey = ref('');
 const baseUrl = ref('https://api.openai.com/v1');
@@ -137,6 +244,15 @@ const model = ref('gpt-4o-mini');
 const aiStyle = ref<'friendly' | 'professional' | 'concise'>('friendly');
 const testing = ref(false);
 const testResult = ref<{ success: boolean; message: string } | null>(null);
+
+const profileName = ref('');
+const profilePhone = ref('');
+const profileDeviceName = ref('');
+const birthdayReminderEnabled = ref(true);
+const birthdayReminderDaysBefore = ref(1);
+const birthdayReminderTime = ref('09:00');
+const lockScreen = ref(false);
+const hideSensitiveInfo = ref(false);
 
 const connectionSummary = computed(() => aiService.getConnectionSummary());
 const summaryLine = computed(() => {
@@ -152,6 +268,24 @@ const connectionText = computed(() => {
   }
   return connectionSummary.value.configured ? `${connectionSummary.value.model} · 已配置` : '未配置 API Key';
 });
+const accountSummary = computed(() => {
+  const name = settingsStore.settings.profileName?.trim() || '未命名账号';
+  const phone = settingsStore.settings.profilePhone?.trim() || '未填写手机号';
+  return `${name} · ${phone}`;
+});
+const reminderSummary = computed(() => {
+  const reminder = settingsStore.settings.birthdayReminder;
+  if (!reminder.enabled) {
+    return '生日提醒已关闭';
+  }
+  return `提前 ${reminder.daysBefore} 天 · ${reminder.time}`;
+});
+const privacySummary = computed(() => {
+  const labels: string[] = [];
+  if (settingsStore.settings.lockScreen) labels.push('锁屏隐藏');
+  if (settingsStore.settings.hideSensitiveInfo) labels.push('隐藏敏感信息');
+  return labels.length > 0 ? labels.join(' · ') : '当前为标准显示';
+});
 const canTestConnection = computed(() => {
   if (!apiKey.value.trim() || !baseUrl.value.trim() || !model.value.trim()) {
     return false;
@@ -165,19 +299,18 @@ const canTestConnection = computed(() => {
 });
 
 onMounted(() => {
-  accessMode.value = settingsStore.settings.aiAccessMode;
-  apiKey.value = settingsStore.settings.openaiApiKey || '';
-  baseUrl.value = settingsStore.settings.openaiBaseUrl || 'https://api.openai.com/v1';
-  proxyServerUrl.value = settingsStore.settings.proxyServerUrl || 'http://localhost:8787';
-  proxyProviderId.value = settingsStore.settings.proxyProviderId || '';
-  model.value = settingsStore.settings.openaiModel;
-  aiStyle.value = settingsStore.settings.aiStyle;
+  loadAllSettings();
 });
 
-function openSection(section: string): void {
-  if (section !== 'ai') return;
-
-  showAISettings.value = true;
+function loadAllSettings(): void {
+  profileName.value = settingsStore.settings.profileName || '我的账号';
+  profilePhone.value = settingsStore.settings.profilePhone || '';
+  profileDeviceName.value = settingsStore.settings.profileDeviceName || '当前设备';
+  birthdayReminderEnabled.value = settingsStore.settings.birthdayReminder.enabled;
+  birthdayReminderDaysBefore.value = settingsStore.settings.birthdayReminder.daysBefore;
+  birthdayReminderTime.value = settingsStore.settings.birthdayReminder.time;
+  lockScreen.value = settingsStore.settings.lockScreen;
+  hideSensitiveInfo.value = settingsStore.settings.hideSensitiveInfo;
   accessMode.value = settingsStore.settings.aiAccessMode;
   apiKey.value = settingsStore.settings.openaiApiKey || '';
   baseUrl.value = settingsStore.settings.openaiBaseUrl || 'https://api.openai.com/v1';
@@ -185,7 +318,46 @@ function openSection(section: string): void {
   proxyProviderId.value = settingsStore.settings.proxyProviderId || '';
   model.value = settingsStore.settings.openaiModel;
   aiStyle.value = settingsStore.settings.aiStyle;
+}
+
+function openSection(section: 'account' | 'reminder' | 'privacy' | 'ai'): void {
+  activeSection.value = section;
+  loadAllSettings();
   testResult.value = null;
+}
+
+function closeSection(): void {
+  activeSection.value = null;
+  testResult.value = null;
+  loadAllSettings();
+}
+
+function saveAccountSettings(): void {
+  settingsStore.updateSettings({
+    profileName: profileName.value.trim() || '我的账号',
+    profilePhone: profilePhone.value.trim(),
+    profileDeviceName: profileDeviceName.value.trim() || '当前设备',
+  });
+  activeSection.value = null;
+}
+
+function saveReminderSettings(): void {
+  settingsStore.updateSettings({
+    birthdayReminder: {
+      enabled: birthdayReminderEnabled.value,
+      daysBefore: birthdayReminderDaysBefore.value,
+      time: birthdayReminderTime.value || '09:00',
+    },
+  });
+  activeSection.value = null;
+}
+
+function savePrivacySettings(): void {
+  settingsStore.updateSettings({
+    lockScreen: lockScreen.value,
+    hideSensitiveInfo: hideSensitiveInfo.value,
+  });
+  activeSection.value = null;
 }
 
 async function testConnection(): Promise<void> {
@@ -222,11 +394,15 @@ function saveAISettings(): void {
     proxyProviderId: proxyProviderId.value.trim() || undefined,
     aiStyle: aiStyle.value,
   });
-  showAISettings.value = false;
+  activeSection.value = null;
 }
 </script>
 
 <style scoped>
+.settings-list article {
+  cursor: pointer;
+}
+
 .model-select {
   width: 100%;
   border: 1px solid var(--line);
@@ -274,10 +450,70 @@ function saveAISettings(): void {
   font-size: 12px;
 }
 
-.ai-actions {
+.section-actions-row {
   margin-top: 14px;
   display: flex;
   gap: 10px;
+}
+
+.toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 12px 0;
+}
+
+.toggle-row p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+.compact-gap {
+  border-top: 1px solid var(--line);
+}
+
+.switch {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch span {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgba(29, 40, 49, 0.14);
+  transition: background 0.2s ease;
+}
+
+.switch span::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s ease;
+}
+
+.switch input:checked + span {
+  background: var(--ink);
+}
+
+.switch input:checked + span::after {
+  transform: translateX(20px);
 }
 
 .test-result {
@@ -296,5 +532,21 @@ function saveAISettings(): void {
 .test-result.error {
   background: rgba(255, 107, 107, 0.1);
   color: var(--coral);
+}
+
+.two-col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 520px) {
+  .section-actions-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .two-col,
+  .toggle-row {
+    display: grid;
+  }
 }
 </style>

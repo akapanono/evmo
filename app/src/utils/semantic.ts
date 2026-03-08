@@ -36,22 +36,70 @@ function extractBirthday(text: string): string | undefined {
   return undefined;
 }
 
+function normalizePreferenceValue(value: string): string {
+  return value
+    .trim()
+    .replace(/^(对|很|太|比较|有点|特别)/, '')
+    .replace(/(这件事|这个|这种|这一类)$/, '')
+    .trim();
+}
+
 function extractPreference(text: string): string | undefined {
-  const patterns = [
-    /喜欢([^，。；,]+)/,
-    /爱吃([^，。；,]+)/,
-    /不喜欢([^，。；,]+)/,
-    /不吃([^，。；,]+)/,
-    /讨厌([^，。；,]+)/,
+  const patterns: Array<{ pattern: RegExp; formatter: (value: string) => string }> = [
+    {
+      pattern: /不喜欢([^，。；,]+)/,
+      formatter: (value) => `不喜欢${value}`,
+    },
+    {
+      pattern: /讨厌([^，。；,]+)/,
+      formatter: (value) => `不喜欢${value}`,
+    },
+    {
+      pattern: /不吃([^，。；,]+)/,
+      formatter: (value) => `不吃${value}`,
+    },
+    {
+      pattern: /禁忌([^，。；,]+)/,
+      formatter: (value) => `禁忌${value}`,
+    },
+    {
+      pattern: /忌口([^，。；,]+)/,
+      formatter: (value) => `忌口${value}`,
+    },
+    {
+      pattern: /雷区([^，。；,]+)/,
+      formatter: (value) => `雷区${value}`,
+    },
+    {
+      pattern: /喜欢([^，。；,]+)/,
+      formatter: (value) => value,
+    },
+    {
+      pattern: /爱吃([^，。；,]+)/,
+      formatter: (value) => value,
+    },
+    {
+      pattern: /偏好([^，。；,]+)/,
+      formatter: (value) => value,
+    },
+    {
+      pattern: /爱好([^，。；,]+)/,
+      formatter: (value) => value,
+    },
   ];
 
-  for (const pattern of patterns) {
+  for (const { pattern, formatter } of patterns) {
     const matched = text.match(pattern);
-    if (matched?.[1]) {
-      const prefix = matched[0].startsWith('不') || matched[0].startsWith('讨厌') ? '不' : '喜欢';
-      const value = matched[1].trim();
-      return prefix === '不' ? `不${value}` : value;
+    if (!matched?.[1]) {
+      continue;
     }
+
+    const value = normalizePreferenceValue(matched[1]);
+    if (!value) {
+      continue;
+    }
+
+    return formatter(value);
   }
 
   return undefined;

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <nav class="bottom-nav" aria-label="底部导航">
     <button
       v-for="item in items"

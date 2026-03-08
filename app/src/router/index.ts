@@ -1,4 +1,4 @@
-import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router';
+﻿import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -10,6 +10,11 @@ const routes: RouteRecordRaw[] = [
     path: '/friend/:id',
     name: 'friend-detail',
     component: () => import('@/views/FriendDetailView.vue'),
+  },
+  {
+    path: '/friend/:id/list/:section',
+    name: 'friend-record-list',
+    component: () => import('@/views/FriendRecordListView.vue'),
   },
   {
     path: '/friend/:id/ask',

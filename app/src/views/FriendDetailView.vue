@@ -31,7 +31,10 @@
           ref="supplementTextarea"
           v-model="quickNote"
           rows="3"
-          placeholder="例如：他最近在准备考研；她下周要出差；她不吃香菜"
+          placeholder="每行写一条，例如：
+他最近在准备考研
+她下周要出差
+她不喜欢香菜"
           :disabled="isSubmittingSupplement"
         ></textarea>
         <p class="field-hint">
@@ -73,21 +76,40 @@
     <section class="section-block">
       <div class="section-head">
         <h3>补充信息</h3>
+        <div v-if="hasSupplementContent" class="section-actions">
+          <button v-if="friend.preferences.length > 0" type="button" class="more-link" @click="togglePreferenceEditMode">
+            {{ preferenceEditMode ? '完成' : '编辑' }}
+          </button>
+          <button v-if="hasSupplementOverflow" type="button" class="more-link" @click="openRecordList('stable')">
+            更多
+          </button>
+        </div>
       </div>
       <article v-if="friend.preferences.length > 0" class="custom-card">
         <p class="mini-label">偏好标签</p>
-        <div class="tag-group compact-tags">
-          <span v-for="pref in friend.preferences" :key="pref">{{ pref }}</span>
+        <div class="tag-group compact-tags compact-tags-preview">
+          <div v-for="pref in friend.preferences" :key="pref" class="editable-tag">
+            <span>{{ pref }}</span>
+            <button
+              v-if="preferenceEditMode"
+              type="button"
+              class="tag-remove-btn"
+              @click="removePreference(pref)"
+              :disabled="busyPreferenceValue === pref"
+              aria-label="删除偏好标签"
+            >
+              ×
+            </button>
+          </div>
         </div>
       </article>
 
       <article v-if="stableFields.length > 0" class="info-card custom-fields-card">
         <p class="mini-label">稳定信息</p>
-        <div v-for="field in stableFields" :key="field.id" class="custom-field-row">
+        <div v-for="field in stableFields.slice(0, stablePreviewLimit)" :key="field.id" class="custom-field-row">
           <div class="record-head">
-            <div class="custom-field-meta">
+            <div v-if="showStableFieldTitle(field)" class="custom-field-meta">
               <strong>{{ field.label }}</strong>
-              <span>{{ semanticTypeText(field.semanticType) }}</span>
             </div>
             <div class="record-actions">
               <button type="button" class="mini-action" @click="startEditField(field)">编辑</button>
@@ -105,7 +127,7 @@
               </button>
             </div>
           </div>
-          <span v-else>{{ field.value }}</span>
+          <span v-else class="clamped-text">{{ field.value }}</span>
         </div>
       </article>
 
@@ -117,9 +139,12 @@
     <section class="section-block">
       <div class="section-head">
         <h3>记录时间线</h3>
+        <button v-if="timelineItems.length > timelinePreviewLimit" type="button" class="more-link" @click="openRecordList('timeline')">
+          更多
+        </button>
       </div>
       <article v-if="timelineItems.length > 0" class="info-card timeline-card">
-        <div v-for="item in timelineItems" :key="item.id" class="timeline-item">
+        <div v-for="item in timelineItems.slice(0, timelinePreviewLimit)" :key="item.id" class="timeline-item">
           <div class="timeline-dot"></div>
           <div class="timeline-content">
             <div class="timeline-meta timeline-meta-top">
@@ -213,6 +238,10 @@ const supplementMessage = ref('');
 const supplementError = ref('');
 const editingFieldId = ref<string | null>(null);
 const busyFieldId = ref<string | null>(null);
+const preferenceEditMode = ref(false);
+const busyPreferenceValue = ref<string | null>(null);
+const stablePreviewLimit = 3;
+const timelinePreviewLimit = 3;
 const fieldDraft = ref({
   label: '',
   value: '',
@@ -252,6 +281,15 @@ const timelineItems = computed(() => {
   return friend.value.customFields
     .filter((field) => field.temporalScope === 'timebound' && field.includeInTimeline)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+});
+
+const hasSupplementContent = computed(() => Boolean(friend.value && (friend.value.preferences.length > 0 || stableFields.value.length > 0)));
+const hasSupplementOverflow = computed(() => {
+  if (!friend.value) {
+    return false;
+  }
+
+  return stableFields.value.length > stablePreviewLimit || friend.value.preferences.length > 6;
 });
 
 onMounted(async () => {
@@ -309,9 +347,91 @@ function editFriend(): void {
   }
 }
 
+function openRecordList(section: 'stable' | 'timeline'): void {
+  if (!friend.value) {
+    return;
+  }
+
+  router.push({
+    name: 'friend-record-list',
+    params: { id: friend.value.id, section },
+  });
+}
+
+function togglePreferenceEditMode(): void {
+  preferenceEditMode.value = !preferenceEditMode.value;
+}
+
+function showStableFieldTitle(field: CustomField): boolean {
+  const normalizedLabel = field.label.trim();
+  if (!normalizedLabel) {
+    return false;
+  }
+
+  return normalizedLabel !== semanticTypeText(field.semanticType);
+}
+
 async function refreshCurrentFriend(id: string): Promise<void> {
   await friendsStore.loadFriends();
   friend.value = friendsStore.friends.find((item) => item.id === id) ?? null;
+}
+
+function splitSupplementLines(value: string): string[] {
+  return value
+    .split(/\r?\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function mergeParsedResults(results: SemanticExtractionResult[], rawText: string): SemanticExtractionResult {
+  const preferenceSet = new Set<string>();
+  const records = [] as SemanticExtractionResult['records'];
+  let birthday: string | undefined;
+
+  for (const result of results) {
+    if (result.birthday) {
+      birthday = result.birthday;
+    }
+
+    for (const pref of result.preferences) {
+      preferenceSet.add(pref);
+    }
+
+    records.push(...result.records);
+  }
+
+  return {
+    birthday,
+    preferences: Array.from(preferenceSet),
+    records,
+    noteLine: rawText,
+    rawText,
+  };
+}
+
+async function removePreference(value: string): Promise<void> {
+  if (!friend.value || busyPreferenceValue.value === value) {
+    return;
+  }
+
+  busyPreferenceValue.value = value;
+  supplementMessage.value = '';
+  supplementError.value = '';
+
+  try {
+    const currentId = friend.value.id;
+    const nextPreferences = friend.value.preferences.filter((item) => item !== value);
+    await friendsStore.updateFriend(currentId, { preferences: nextPreferences });
+    await refreshCurrentFriend(currentId);
+    if (nextPreferences.length === 0) {
+      preferenceEditMode.value = false;
+    }
+    supplementMessage.value = '偏好标签已删除。';
+  } catch (err) {
+    supplementError.value = `删除失败：${(err as Error).message}`;
+  } finally {
+    busyPreferenceValue.value = null;
+  }
 }
 
 async function applyParsedResult(parsed: SemanticExtractionResult, mode: 'rule' | 'llm'): Promise<void> {
@@ -385,9 +505,17 @@ async function saveSupplement(mode: 'rule' | 'llm'): Promise<void> {
   }
 
   try {
-    const parsed = mode === 'llm'
-      ? await aiService.extractSupplement(friend.value, quickNote.value)
-      : parseSupplementInput(quickNote.value);
+    const lines = splitSupplementLines(quickNote.value);
+    const parsedList: SemanticExtractionResult[] = [];
+
+    for (const line of lines) {
+      const parsed = mode === 'llm'
+        ? await aiService.extractSupplement(friend.value, line)
+        : parseSupplementInput(line);
+      parsedList.push(parsed);
+    }
+
+    const parsed = mergeParsedResults(parsedList, quickNote.value.trim());
     await applyParsedResult(parsed, mode);
   } catch (err) {
     supplementError.value = `保存失败：${(err as Error).message}`;
@@ -526,6 +654,27 @@ async function handleDelete(): Promise<void> {
   line-height: 1.6;
 }
 
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.more-link {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  padding: 0;
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .detail-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -545,8 +694,39 @@ async function handleDelete(): Promise<void> {
   grid-column: 1 / -1;
 }
 
+.soft-panel > textarea {
+  min-height: 148px;
+}
+
 .custom-fields-card {
   margin-top: 10px;
+}
+
+.compact-tags-preview {
+  max-height: 152px;
+  overflow: hidden;
+}
+
+.editable-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px 0 0;
+  border-radius: 999px;
+  background: rgba(29, 40, 49, 0.06);
+}
+
+.editable-tag > span {
+  padding: 9px 14px;
+}
+
+.tag-remove-btn {
+  border: 0;
+  background: transparent;
+  color: #a63a3a;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 10px 0 0;
 }
 
 .custom-field-row {
@@ -569,7 +749,7 @@ async function handleDelete(): Promise<void> {
 
 .custom-field-meta {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   align-items: baseline;
   flex: 1;
@@ -579,14 +759,16 @@ async function handleDelete(): Promise<void> {
   font-size: 14px;
 }
 
-.custom-field-meta span {
-  font-size: 12px;
-  color: var(--muted);
-}
-
 .custom-field-row > span:last-child {
   color: var(--muted);
   line-height: 1.55;
+}
+
+.clamped-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .record-actions {
@@ -763,7 +945,3 @@ async function handleDelete(): Promise<void> {
   line-height: 1.6;
 }
 </style>
-
-
-
-
