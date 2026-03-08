@@ -1,7 +1,7 @@
-import { defineStore } from 'pinia';
+﻿import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import type { Friend } from '@/types/friend';
 import { aiService } from '@/services/aiService';
+import type { Friend } from '@/types/friend';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -18,7 +18,6 @@ export const useAIStore = defineStore('ai', () => {
     loading.value = true;
     error.value = null;
 
-    // 添加用户消息
     messages.value.push({
       role: 'user',
       content: question,
@@ -28,7 +27,6 @@ export const useAIStore = defineStore('ai', () => {
     try {
       const answer = await aiService.askAI(friend, question);
 
-      // 添加 AI 回复
       messages.value.push({
         role: 'assistant',
         content: answer,
@@ -37,7 +35,7 @@ export const useAIStore = defineStore('ai', () => {
 
       return answer;
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '发生未知错误';
+      error.value = err instanceof Error ? err.message : '发生未知错误。';
       throw err;
     } finally {
       loading.value = false;

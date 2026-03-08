@@ -1,7 +1,8 @@
-/* Phone App Container */
+﻿/* Phone App Container */
 .phone-app {
-  width: min(100vw, 390px);
-  height: min(100vh - 20px, 844px);
+  margin-inline: auto;
+  width: min(100vw, 375px);
+  height: min(100vh, 812px);
   background: linear-gradient(180deg, rgba(255, 251, 246, 0.96), rgba(248, 240, 231, 0.98));
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 38px;
@@ -25,6 +26,7 @@
 
 @media (max-width: 430px) {
   .phone-app {
+  margin-inline: auto;
     width: 100vw;
     height: 100vh;
     border-radius: 0;
@@ -53,6 +55,7 @@
   inset: 48px 0 82px;
   padding: 14px 18px 18px;
   overflow-y: auto;
+  overflow-x: hidden;
   display: none;
 }
 
@@ -521,3 +524,8 @@ button:active {
 .floating-ask:active {
   transform: translateX(-50%) scale(1.08);
 }
+
+
+
+
+

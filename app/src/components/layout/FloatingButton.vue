@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <button
     v-if="visible"
     :class="isAsk ? 'floating-ask' : 'floating-add'"
@@ -15,7 +15,7 @@ interface Props {
   isAsk?: boolean;
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   visible: true,
   isAsk: false,
 });

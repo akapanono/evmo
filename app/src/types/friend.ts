@@ -1,7 +1,18 @@
+﻿export type SemanticType = 'preference' | 'restriction' | 'status' | 'event' | 'milestone' | 'note';
+export type TemporalScope = 'stable' | 'timebound';
+export type ExtractionMethod = 'rule' | 'llm' | 'manual';
+
 export interface CustomField {
   id: string;
   label: string;
   value: string;
+  createdAt: string;
+  includeInTimeline: boolean;
+  semanticType: SemanticType;
+  temporalScope: TemporalScope;
+  extractionMethod: ExtractionMethod;
+  sourceText: string;
+  eventTimeText?: string;
 }
 
 export type AvatarColor = 'coral' | 'teal' | 'gold' | 'ink';
@@ -11,17 +22,13 @@ export interface Friend {
   name: string;
   nickname?: string;
   relationship: string;
-  birthday?: string; // 格式: "MM-DD"
+  birthday?: string;
   avatarColor: AvatarColor;
-  lastContactDate?: string; // ISO date string
+  lastContactDate?: string;
   isImportant: boolean;
-
-  // 自定义信息
-  preferences: string[]; // 偏好标签
-  notes: string; // 自由文本记录
+  preferences: string[];
+  notes: string;
   customFields: CustomField[];
-
-  // 元数据
   createdAt: string;
   updatedAt: string;
   contactCount: number;

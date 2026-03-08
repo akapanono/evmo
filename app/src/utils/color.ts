@@ -1,22 +1,19 @@
-import type { AvatarColor } from '@/types/friend';
+﻿import type { AvatarColor } from '@/types/friend';
 
-const COLORS: AvatarColor[] = ['coral', 'teal', 'gold', 'ink'];
+const COLORS = ['coral', 'teal', 'gold', 'ink'] as const satisfies readonly AvatarColor[];
 
-/**
- * 根据名字生成头像颜色
- */
 export function getAvatarColorFromName(name: string): AvatarColor {
   let hash = 0;
-  for (let i = 0; i < name.length; i++) {
+
+  for (let i = 0; i < name.length; i += 1) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return COLORS[Math.abs(hash) % COLORS.length];
+
+  return COLORS[Math.abs(hash) % COLORS.length]!;
 }
 
-/**
- * 获取下一个颜色
- */
 export function getNextColor(current: AvatarColor): AvatarColor {
   const index = COLORS.indexOf(current);
-  return COLORS[(index + 1) % COLORS.length];
+  const nextIndex = index === -1 ? 0 : (index + 1) % COLORS.length;
+  return COLORS[nextIndex]!;
 }
