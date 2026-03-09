@@ -182,9 +182,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
+import { friendService } from '@/services/friendService';
 import { useFriendsStore } from '@/stores/friends';
 import type { CustomField, Friend, SemanticType } from '@/types/friend';
 import { formatDate } from '@/utils/dateHelpers';
@@ -246,10 +247,18 @@ const records = computed(() => {
 });
 
 onMounted(async () => {
-  await friendsStore.loadFriends();
   const id = route.params.id as string;
-  friend.value = friendsStore.friends.find((item) => item.id === id) ?? null;
+  await loadCurrentFriend(id);
 });
+
+watch(
+  () => route.params.id,
+  async (nextId) => {
+    if (typeof nextId === 'string' && nextId) {
+      await loadCurrentFriend(nextId);
+    }
+  },
+);
 
 function semanticTypeText(type: SemanticType): string {
   const map: Record<SemanticType, string> = {
@@ -338,8 +347,7 @@ async function runConfirmedAction(): Promise<void> {
 }
 
 async function refreshCurrentFriend(id: string): Promise<void> {
-  await friendsStore.loadFriends();
-  friend.value = friendsStore.friends.find((item) => item.id === id) ?? null;
+  await loadCurrentFriend(id);
 }
 
 async function saveFieldEdit(fieldId: string): Promise<void> {
@@ -472,6 +480,11 @@ function goBack(): void {
   }
 
   router.push('/');
+}
+
+async function loadCurrentFriend(id: string): Promise<void> {
+  await friendsStore.loadFriends();
+  friend.value = friendsStore.friends.find((item) => item.id === id) ?? await friendService.getFriendById(id) ?? null;
 }
 </script>
 

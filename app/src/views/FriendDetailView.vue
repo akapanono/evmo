@@ -27,10 +27,10 @@
         <h3>分身资料</h3>
       </div>
       <article class="ask-context-card intake-entry-card">
-        <p class="mini-label">引导补充</p>
-        <p>通过画像型问答补齐互动距离、表达方式、决策偏好、环境偏好、边界和关注点，让 AI 读到更抽象的人物画像。</p>
+        <p class="mini-label">资料补充</p>
+        <p>除了基础信息，还可以继续补充相处方式、表达习惯和选择偏好。这些内容会影响分身回答时的语气和判断。</p>
         <button type="button" class="action-btn primary intake-entry-btn" @click="openProfileIntake">
-          开始问答补充
+          继续补充
         </button>
       </article>
     </section>
@@ -51,14 +51,14 @@
           :disabled="isSubmittingSupplement"
         ></textarea>
         <p class="field-hint">
-          可直接本地保存，也可以走 AI 结构化解析。AI 未配置时会自动回退到本地规则。
+          可以直接写自然语言。系统会尽量把内容整理到基础信息、偏好和事件中。
         </p>
         <div class="detail-actions supplement-actions supplement-grid">
           <button type="button" class="action-btn" @click="quickNote = ''" :disabled="isSubmittingSupplement || !quickNote.trim()">
             清空
           </button>
           <button type="button" class="action-btn" @click="saveSupplement('llm')" :disabled="isSubmittingSupplement || !quickNote.trim()">
-            {{ aiSavingSupplement ? 'AI解析中...' : 'AI解析保存' }}
+            {{ aiSavingSupplement ? '整理中...' : 'AI 整理后保存' }}
           </button>
           <button type="button" class="action-btn primary full-span" @click="saveSupplement('rule')" :disabled="isSubmittingSupplement || !quickNote.trim()">
             {{ savingSupplement ? '保存中...' : '直接保存' }}
@@ -114,6 +114,52 @@
           {{ friend.major || '-' }}
         </InfoRow>
       </article>
+      <article class="info-card custom-basic-card">
+        <div class="section-inline-head">
+          <p class="mini-label">自定义基础信息</p>
+          <button type="button" class="more-link" @click="toggleBasicInfoCreator">
+            {{ showBasicInfoCreator ? '收起' : '新增' }}
+          </button>
+        </div>
+
+        <div v-if="showBasicInfoCreator" class="record-editor basic-info-editor">
+          <input v-model="basicInfoDraft.label" type="text" placeholder="词条名，例如：宠物、籍贯、爱用品牌" />
+          <input v-model="basicInfoDraft.value" type="text" placeholder="词条内容" />
+          <div class="record-editor-actions">
+            <button type="button" class="mini-action" @click="resetBasicInfoDraft">取消</button>
+            <button type="button" class="mini-action solid" @click="saveNewBasicInfoField" :disabled="!basicInfoDraft.label.trim() || !basicInfoDraft.value.trim() || busyBasicInfoId === '__creating__'">
+              保存
+            </button>
+          </div>
+        </div>
+
+        <div v-if="friend.basicInfoFields.length > 0" class="custom-basic-list">
+          <div v-for="field in friend.basicInfoFields" :key="field.id" class="custom-field-row">
+            <div class="record-head">
+              <div class="custom-field-meta">
+                <strong>{{ field.label }}</strong>
+              </div>
+              <div class="record-actions">
+                <button type="button" class="mini-action" @click="startEditBasicInfo(field)">编辑</button>
+                <button type="button" class="mini-action danger-text" @click="removeBasicInfoField(field.id)" :disabled="busyBasicInfoId === field.id">删除</button>
+              </div>
+            </div>
+
+            <div v-if="editingBasicInfoId === field.id" class="record-editor basic-info-editor">
+              <input v-model="basicInfoDraft.label" type="text" placeholder="词条名" />
+              <input v-model="basicInfoDraft.value" type="text" placeholder="词条内容" />
+              <div class="record-editor-actions">
+                <button type="button" class="mini-action" @click="cancelEditBasicInfo">取消</button>
+                <button type="button" class="mini-action solid" @click="saveExistingBasicInfoField(field.id)" :disabled="busyBasicInfoId === field.id || !basicInfoDraft.label.trim() || !basicInfoDraft.value.trim()">
+                  保存
+                </button>
+              </div>
+            </div>
+            <span v-else class="clamped-text">{{ field.value }}</span>
+          </div>
+        </div>
+        <p v-else-if="!showBasicInfoCreator" class="field-hint">还没有自定义基础信息。</p>
+      </article>
     </section>
 
     <section class="section-block">
@@ -122,7 +168,7 @@
       </div>
       <article class="note-card ai-profile-card">
         <p class="mini-label">画像摘要</p>
-        <p>{{ friend.aiProfile.overview || '当前资料还不足以生成稳定画像。' }}</p>
+        <p>{{ friend.aiProfile.overview || '当前资料还不足以形成稳定画像，补充更多信息后会更完整。' }}</p>
 
         <div v-if="friend.aiProfile.traits.length > 0" class="ai-profile-group">
           <p class="mini-label">性格与表达</p>
@@ -146,7 +192,7 @@
         </div>
 
         <div v-if="friend.aiProfile.inferenceHints.length > 0" class="ai-profile-group">
-          <p class="mini-label">可做的轻度推断</p>
+          <p class="mini-label">可参考的延展判断</p>
           <div class="tag-group compact-tags">
             <span v-for="item in friend.aiProfile.inferenceHints" :key="item">{{ item }}</span>
           </div>
@@ -318,6 +364,7 @@ import { useRoute, useRouter } from 'vue-router';
 import Avatar from '@/components/common/Avatar.vue';
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
 import InfoRow from '@/components/friend/InfoRow.vue';
+import { friendService } from '@/services/friendService';
 import { useFriendsStore } from '@/stores/friends';
 import { aiService } from '@/services/aiService';
 import type { Friend, CustomField, SemanticType } from '@/types/friend';
@@ -325,6 +372,7 @@ import type { SemanticExtractionResult } from '@/types/extraction';
 import { formatBirthday, formatDate } from '@/utils/dateHelpers';
 import { parseSupplementInput } from '@/utils/semantic';
 import { PROFILE_INTAKE_FIELD_LABELS } from '@/utils/profileIntake';
+import { applyBasicInfoExtraction, removeBasicInfoField as pruneBasicInfoField, upsertBasicInfoField } from '@/utils/basicInfo';
 
 const route = useRoute();
 const router = useRouter();
@@ -340,8 +388,12 @@ const supplementMessage = ref('');
 const supplementError = ref('');
 const editingFieldId = ref<string | null>(null);
 const busyFieldId = ref<string | null>(null);
+const editingBasicInfoId = ref<string | null>(null);
+const busyBasicInfoId = ref<string | null>(null);
+const showBasicInfoCreator = ref(false);
 const preferenceEditMode = ref(false);
 const busyPreferenceValue = ref<string | null>(null);
+const personaRefreshAttemptedId = ref<string | null>(null);
 const confirmState = ref({
   open: false,
   eyebrow: '提示',
@@ -359,6 +411,10 @@ const fieldDraft = ref({
   value: '',
   eventTimeText: '',
   includeInTimeline: false,
+});
+const basicInfoDraft = ref({
+  label: '',
+  value: '',
 });
 
 const isSubmittingSupplement = computed(() => savingSupplement.value || aiSavingSupplement.value);
@@ -409,11 +465,19 @@ const hasSupplementOverflow = computed(() => {
 });
 
 onMounted(async () => {
-  await friendsStore.loadFriends();
   const id = route.params.id as string;
-  friend.value = friendsStore.friends.find((item) => item.id === id) ?? null;
+  await loadCurrentFriend(id);
   await applySuggestionFromRoute();
 });
+
+watch(
+  () => route.params.id,
+  async (nextId) => {
+    if (typeof nextId === 'string' && nextId) {
+      await loadCurrentFriend(nextId);
+    }
+  },
+);
 
 watch(
   () => route.query.suggestion,
@@ -489,6 +553,35 @@ function togglePreferenceEditMode(): void {
   preferenceEditMode.value = !preferenceEditMode.value;
 }
 
+function toggleBasicInfoCreator(): void {
+  showBasicInfoCreator.value = !showBasicInfoCreator.value;
+  if (!showBasicInfoCreator.value) {
+    resetBasicInfoDraft();
+  }
+}
+
+function resetBasicInfoDraft(): void {
+  basicInfoDraft.value = {
+    label: '',
+    value: '',
+  };
+  editingBasicInfoId.value = null;
+  busyBasicInfoId.value = null;
+}
+
+function startEditBasicInfo(field: Friend['basicInfoFields'][number]): void {
+  editingBasicInfoId.value = field.id;
+  showBasicInfoCreator.value = false;
+  basicInfoDraft.value = {
+    label: field.label,
+    value: field.value,
+  };
+}
+
+function cancelEditBasicInfo(): void {
+  resetBasicInfoDraft();
+}
+
 function showStableFieldTitle(field: CustomField): boolean {
   const normalizedLabel = field.label.trim();
   if (!normalizedLabel) {
@@ -499,8 +592,30 @@ function showStableFieldTitle(field: CustomField): boolean {
 }
 
 async function refreshCurrentFriend(id: string): Promise<void> {
+  await loadCurrentFriend(id);
+}
+
+async function loadCurrentFriend(id: string): Promise<void> {
   await friendsStore.loadFriends();
-  friend.value = friendsStore.friends.find((item) => item.id === id) ?? null;
+  friend.value = friendsStore.friends.find((item) => item.id === id) ?? await friendService.getFriendById(id) ?? null;
+
+  if (
+    friend.value
+    && friend.value.aiProfile.source !== 'llm'
+    && personaRefreshAttemptedId.value !== friend.value.id
+  ) {
+    personaRefreshAttemptedId.value = friend.value.id;
+    void refreshPersonaFromAI(friend.value.id);
+  }
+}
+
+async function refreshPersonaFromAI(id: string): Promise<void> {
+  try {
+    await friendsStore.updateFriend(id, {});
+    await refreshCurrentFriend(id);
+  } catch {
+    // Keep the current fallback persona when AI refresh fails.
+  }
 }
 
 function splitSupplementLines(value: string): string[] {
@@ -512,6 +627,7 @@ function splitSupplementLines(value: string): string[] {
 
 function mergeParsedResults(results: SemanticExtractionResult[], rawText: string): SemanticExtractionResult {
   const preferenceSet = new Set<string>();
+  const basicInfoFields = [] as SemanticExtractionResult['basicInfoFields'];
   const records = [] as SemanticExtractionResult['records'];
   let birthday: string | undefined;
 
@@ -524,12 +640,14 @@ function mergeParsedResults(results: SemanticExtractionResult[], rawText: string
       preferenceSet.add(pref);
     }
 
+    basicInfoFields.push(...result.basicInfoFields);
     records.push(...result.records);
   }
 
   return {
     birthday,
     preferences: Array.from(preferenceSet),
+    basicInfoFields,
     records,
     noteLine: rawText,
     rawText,
@@ -589,9 +707,21 @@ async function applyParsedResult(parsed: SemanticExtractionResult, mode: 'rule' 
   ].slice(0, 20);
 
   const currentId = friend.value.id;
+  const basicInfoUpdates = applyBasicInfoExtraction(friend.value, parsed.basicInfoFields);
   await friendsStore.updateFriend(currentId, {
     birthday: parsed.birthday ?? friend.value.birthday,
     preferences: Array.from(existingPreferenceSet),
+    gender: basicInfoUpdates.gender,
+    age: basicInfoUpdates.age,
+    heightCm: basicInfoUpdates.heightCm,
+    weightKg: basicInfoUpdates.weightKg,
+    city: basicInfoUpdates.city,
+    hometown: basicInfoUpdates.hometown,
+    occupation: basicInfoUpdates.occupation,
+    company: basicInfoUpdates.company,
+    school: basicInfoUpdates.school,
+    major: basicInfoUpdates.major,
+    basicInfoFields: basicInfoUpdates.basicInfoFields,
     customFields: nextFields,
   });
   await refreshCurrentFriend(currentId);
@@ -606,6 +736,11 @@ async function applyParsedResult(parsed: SemanticExtractionResult, mode: 'rule' 
 
   if (parsed.preferences.length > 0) {
     supplementMessage.value = '已保存到偏好标签。';
+    return;
+  }
+
+  if (parsed.basicInfoFields.length > 0) {
+    supplementMessage.value = '已保存到基础信息。';
     return;
   }
 
@@ -653,6 +788,76 @@ async function saveSupplement(mode: 'rule' | 'llm'): Promise<void> {
       savingSupplement.value = false;
     }
   }
+}
+
+async function saveBasicInfoField(fieldId?: string): Promise<void> {
+  if (!friend.value || !basicInfoDraft.value.label.trim() || !basicInfoDraft.value.value.trim()) {
+    return;
+  }
+
+  busyBasicInfoId.value = fieldId ?? '__creating__';
+  supplementMessage.value = '';
+  supplementError.value = '';
+
+  try {
+    const currentId = friend.value.id;
+    const nextBasicInfoFields = upsertBasicInfoField(friend.value.basicInfoFields, {
+      label: basicInfoDraft.value.label,
+      value: basicInfoDraft.value.value,
+    }, fieldId);
+    await friendsStore.updateFriend(currentId, { basicInfoFields: nextBasicInfoFields });
+    await refreshCurrentFriend(currentId);
+    supplementMessage.value = '基础信息已更新。';
+    resetBasicInfoDraft();
+    showBasicInfoCreator.value = false;
+  } catch (err) {
+    supplementError.value = `保存失败：${(err as Error).message}`;
+    busyBasicInfoId.value = null;
+  }
+}
+
+async function saveNewBasicInfoField(): Promise<void> {
+  await saveBasicInfoField();
+}
+
+async function saveExistingBasicInfoField(fieldId: string): Promise<void> {
+  await saveBasicInfoField(fieldId);
+}
+
+async function removeBasicInfoField(fieldId: string): Promise<void> {
+  if (!friend.value || busyBasicInfoId.value === fieldId) {
+    return;
+  }
+
+  openConfirmDialog({
+    eyebrow: '删除基础信息',
+    title: '确认删除这条基础信息？',
+    message: '删除后不会保留在基础信息区域。',
+    confirmText: '删除',
+    cancelText: '保留',
+    danger: true,
+    onConfirm: async () => {
+      busyBasicInfoId.value = fieldId;
+      supplementMessage.value = '';
+      supplementError.value = '';
+
+      try {
+        const currentId = friend.value!.id;
+        const nextBasicInfoFields = pruneBasicInfoField(friend.value!.basicInfoFields, fieldId);
+        await friendsStore.updateFriend(currentId, { basicInfoFields: nextBasicInfoFields });
+        await refreshCurrentFriend(currentId);
+        supplementMessage.value = '基础信息已删除。';
+        if (editingBasicInfoId.value === fieldId) {
+          resetBasicInfoDraft();
+        } else {
+          busyBasicInfoId.value = null;
+        }
+      } catch (err) {
+        supplementError.value = `删除失败：${(err as Error).message}`;
+        busyBasicInfoId.value = null;
+      }
+    },
+  });
 }
 
 function startEditField(field: CustomField): void {
@@ -826,6 +1031,14 @@ async function handleDelete(): Promise<void> {
   line-height: 1.6;
 }
 
+.section-inline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
 .section-head {
   display: flex;
   align-items: center;
@@ -871,6 +1084,19 @@ async function handleDelete(): Promise<void> {
 .ai-profile-group {
   display: grid;
   gap: 8px;
+}
+
+.custom-basic-card {
+  margin-top: 10px;
+}
+
+.custom-basic-list {
+  display: grid;
+  gap: 0;
+}
+
+.basic-info-editor input {
+  width: 100%;
 }
 
 .supplement-actions {

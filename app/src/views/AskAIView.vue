@@ -5,13 +5,13 @@
         <div class="topbar compact">
           <button class="back-link" type="button" @click="goBack">返回</button>
           <div class="topbar-title">
-            <p class="eyebrow">AI 查询</p>
+            <p class="eyebrow">朋友对话</p>
             <h1>问问 {{ friend.name }}</h1>
           </div>
         </div>
 
-        <article class="ask-context-card">
-          <p class="mini-label">AI 已读取这份朋友档案</p>
+        <article class="ask-context-card" :class="{ 'is-compact': hasMessages }">
+          <p class="mini-label">当前参考信息</p>
           <div class="tag-group compact-tags">
             <span v-for="tag in contextTags" :key="tag">{{ tag }}</span>
           </div>
@@ -33,10 +33,10 @@
 
       <div ref="messagesContainer" class="messages-panel">
         <div v-if="!hasMessages" class="empty-chat-state">
-          <p class="mini-label">开始提问</p>
+          <p class="mini-label">开始对话</p>
           <h2>{{ defaultQuestions[0] }}</h2>
           <p>
-            你可以像和朋友聊天一样连续提问。发送后，消息会以聊天气泡显示在这里。
+            你可以像平时聊天一样继续问下去。系统会结合已记录的资料，尽量按这位朋友的语气和习惯作答。
           </p>
         </div>
 
@@ -47,15 +47,15 @@
         </div>
 
         <article v-if="aiStore.followupSuggestions.length > 0" class="suggestion-card">
-          <p class="mini-label">建议补充</p>
-          <p v-if="aiStore.lowInfoMode" class="suggestion-lead">这份档案信息还比较少，补充下面这些内容后，AI 会更像这位朋友本人。</p>
+          <p class="mini-label">可继续补充</p>
+          <p v-if="aiStore.lowInfoMode" class="suggestion-lead">当前资料还不够完整，补充下面这些信息后，回答会更贴近这位朋友本人的表达方式。</p>
           <button
             v-if="aiStore.lowInfoMode"
             type="button"
             class="action-btn primary intake-link-btn"
             @click="goToProfileIntake"
           >
-            进入引导补充
+            补充资料
           </button>
           <div class="suggestion-list">
             <button
@@ -72,7 +72,7 @@
 
         <div v-if="aiStore.loading" class="bubble-row assistant">
           <article class="message-bubble assistant-bubble loading-bubble">
-            <p>思考中...</p>
+            <p>正在整理回复...</p>
           </article>
         </div>
       </div>
@@ -86,7 +86,7 @@
           <textarea
             v-model="question"
             rows="2"
-            placeholder="输入你想对他说的话，例如：你最近在忙什么？"
+            placeholder="输入你想说的话"
             @keydown.enter.exact.prevent="handleSend"
             :disabled="aiStore.loading"
           ></textarea>
@@ -96,7 +96,7 @@
             @click="handleSend"
             :disabled="!question.trim() || aiStore.loading"
           >
-            {{ aiStore.loading ? '发送中' : '发送' }}
+            {{ aiStore.loading ? '发送中...' : '发送' }}
           </button>
         </label>
       </div>
@@ -126,6 +126,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { friendService } from '@/services/friendService';
 import { useAIStore } from '@/stores/ai';
 import { useFriendsStore } from '@/stores/friends';
 import type { Friend } from '@/types/friend';
@@ -158,9 +159,8 @@ const contextTags = computed(() => {
 });
 
 onMounted(async () => {
-  await friendsStore.loadFriends();
   const id = route.params.id as string;
-  friend.value = friendsStore.friends.find((item) => item.id === id) ?? null;
+  await loadCurrentFriend(id);
   aiStore.clearMessages();
 });
 
@@ -177,6 +177,16 @@ watch(
     }
   },
   { deep: true },
+);
+
+watch(
+  () => route.params.id,
+  async (nextId) => {
+    if (typeof nextId === 'string' && nextId) {
+      await loadCurrentFriend(nextId);
+      aiStore.clearMessages();
+    }
+  },
 );
 
 async function askPresetQuestion(preset: string): Promise<void> {
@@ -231,12 +241,17 @@ function goBack(): void {
 
   router.push('/');
 }
+
+async function loadCurrentFriend(id: string): Promise<void> {
+  await friendsStore.loadFriends();
+  friend.value = friendsStore.friends.find((item) => item.id === id) ?? await friendService.getFriendById(id) ?? null;
+}
 </script>
 
 <style scoped>
 .ask-screen {
-  inset: 48px 0 0;
-  padding: 14px 18px 0;
+  inset: 0;
+  padding: 12px 18px 0;
   overflow: hidden;
 }
 
@@ -249,13 +264,18 @@ function goBack(): void {
 
 .ask-header {
   display: grid;
-  gap: 12px;
+  gap: 10px;
+}
+
+.ask-context-card.is-compact {
+  padding: 10px 12px;
+  border-radius: 20px;
 }
 
 .messages-panel {
   min-height: 0;
   overflow-y: auto;
-  padding: 14px 0 18px;
+  padding: 10px 0 18px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -360,7 +380,7 @@ function goBack(): void {
 
 .composer-dock {
   margin-top: auto;
-  padding: 10px 0 16px;
+  padding: 8px 0 12px;
   background: linear-gradient(180deg, rgba(248, 240, 231, 0), rgba(248, 240, 231, 0.96) 24%, rgba(248, 240, 231, 1) 100%);
 }
 

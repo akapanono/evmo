@@ -3,14 +3,14 @@
     <div class="topbar compact">
       <button class="back-link" type="button" @click="handleBack">返回</button>
       <div class="topbar-title">
-        <p class="eyebrow">资料引导</p>
-        <h1>补全 {{ friend.name }} 的画像层</h1>
+        <p class="eyebrow">资料补充</p>
+        <h1>补充 {{ friend.name }} 的资料</h1>
       </div>
       <button class="icon-btn soft" type="button" @click="skipForNow">稍后</button>
     </div>
 
     <article class="profile-panel intake-hero">
-      <p class="mini-label">第 {{ currentStep + 1 }} / {{ questions.length }} 题</p>
+      <p class="mini-label">第 {{ currentStep + 1 }} / {{ questions.length }} 项</p>
       <h2>{{ currentQuestion.title }}</h2>
       <p>{{ currentQuestion.prompt }}</p>
       <div class="progress-track" aria-hidden="true">
@@ -30,13 +30,13 @@
     </article>
 
     <article class="ask-context-card summary-card">
-      <p class="mini-label">为什么先问这些</p>
-      <p>这 {{ questions.length }} 个问题不会重复追问生日、年龄这类基础字段，而是优先补齐互动距离、表达风格、决策偏好、环境偏好、边界和关注点，让 AI 形成更像本人的抽象画像。</p>
+      <p class="mini-label">为什么问这些</p>
+      <p>这里优先补充相处方式、表达习惯和选择偏好。这些信息比基础字段更能帮助系统理解这个人本身。</p>
     </article>
 
     <div class="sticky-actions intake-actions">
       <button type="button" class="action-btn" @click="goPrev" :disabled="currentStep === 0 || saving">
-        上一题
+        上一项
       </button>
       <button
         v-if="!isLastStep"
@@ -45,7 +45,7 @@
         @click="goNext"
         :disabled="saving"
       >
-        下一题
+        下一项
       </button>
       <button
         v-if="!isLastStep"
@@ -54,7 +54,7 @@
         @click="skipCurrent"
         :disabled="saving"
       >
-        跳过这题
+        跳过
       </button>
       <button
         v-else
@@ -63,7 +63,7 @@
         @click="saveAnswers"
         :disabled="saving"
       >
-        {{ saving ? '保存中...' : '完成并写入档案' }}
+        {{ saving ? '保存中...' : '写入档案' }}
       </button>
     </div>
 
@@ -94,6 +94,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { friendService } from '@/services/friendService';
 import { useFriendsStore } from '@/stores/friends';
 import type { Friend } from '@/types/friend';
 import {
@@ -122,14 +123,25 @@ const isLastStep = computed(() => currentStep.value === questions.length - 1);
 const progressPercent = computed(() => ((currentStep.value + 1) / questions.length) * 100);
 
 onMounted(async () => {
-  await friendsStore.loadFriends();
   const id = route.params.id as string;
-  friend.value = friendsStore.friends.find((item) => item.id === id) ?? null;
+  await loadCurrentFriend(id);
   if (friend.value) {
     answers.value = getProfileIntakeAnswersFromFriend(friend.value);
   }
   await focusAnswer();
 });
+
+watch(
+  () => route.params.id,
+  async (nextId) => {
+    if (typeof nextId === 'string' && nextId) {
+      await loadCurrentFriend(nextId);
+      if (friend.value) {
+        answers.value = getProfileIntakeAnswersFromFriend(friend.value);
+      }
+    }
+  },
+);
 
 watch(currentStep, async () => {
   message.value = '';
@@ -205,13 +217,18 @@ async function saveAnswers(): Promise<void> {
     await friendsStore.updateFriend(friend.value.id, updates);
     await friendsStore.loadFriends();
     friend.value = friendsStore.friends.find((item) => item.id === friend.value!.id) ?? friend.value;
-    message.value = '引导资料已写入档案。';
+    message.value = '资料已写入档案。';
     await router.push(getReturnRoute());
   } catch (err) {
     errorMessage.value = `保存失败：${(err as Error).message}`;
   } finally {
     saving.value = false;
   }
+}
+
+async function loadCurrentFriend(id: string): Promise<void> {
+  await friendsStore.loadFriends();
+  friend.value = friendsStore.friends.find((item) => item.id === id) ?? await friendService.getFriendById(id) ?? null;
 }
 </script>
 

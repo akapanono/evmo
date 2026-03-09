@@ -1,4 +1,12 @@
-﻿import type { ExtractionMethod, SemanticType, TemporalScope } from '@/types/friend';
+import type { ExtractionMethod, SemanticType, TemporalScope } from '@/types/friend';
+
+export interface BasicInfoExtractionField {
+  label: string;
+  value: string;
+  sourceText: string;
+  normalizedKey?: string;
+  confidence?: number;
+}
 
 export interface SemanticExtractionRecord {
   label: string;
@@ -16,6 +24,7 @@ export interface SemanticExtractionRecord {
 export interface SemanticExtractionResult {
   birthday?: string;
   preferences: string[];
+  basicInfoFields: BasicInfoExtractionField[];
   records: SemanticExtractionRecord[];
   noteLine: string;
   rawText: string;

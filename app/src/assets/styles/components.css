@@ -478,6 +478,12 @@ h3 {
   -webkit-user-select: none;
 }
 
+.floating-add.is-trash {
+  background: #d65f5f;
+  color: #fffaf4;
+  box-shadow: 0 14px 30px rgba(214, 95, 95, 0.24);
+}
+
 .floating-ask {
   position: absolute;
   left: 50%;
@@ -582,6 +588,11 @@ button:active {
 .floating-ask.is-pressing {
   box-shadow: 0 14px 28px rgba(29, 40, 49, 0.14);
   filter: brightness(0.96);
+}
+
+.floating-add.is-trash:hover,
+.floating-add.is-trash.is-pressing {
+  box-shadow: 0 14px 28px rgba(214, 95, 95, 0.2);
 }
 
 .floating-add.is-pressing,

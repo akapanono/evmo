@@ -1,10 +1,10 @@
-﻿import { defineStore } from 'pinia';
+import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { aiService } from '@/services/aiService';
 import type { AskAIResult } from '@/services/aiService';
 import type { Friend } from '@/types/friend';
 
-interface ChatMessage {
+export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
@@ -23,6 +23,9 @@ export const useAIStore = defineStore('ai', () => {
     followupSuggestions.value = [];
     lowInfoMode.value = false;
 
+    const history = messages.value.slice(-12);
+    const runtimeContext = await aiService.prepareAskRuntimeContext();
+
     messages.value.push({
       role: 'user',
       content: question,
@@ -30,7 +33,7 @@ export const useAIStore = defineStore('ai', () => {
     });
 
     try {
-      const result = await aiService.askAI(friend, question);
+      const result = await aiService.askAI(friend, question, history, runtimeContext);
 
       messages.value.push({
         role: 'assistant',

@@ -20,7 +20,7 @@
         <FloatingButton
           v-if="floatingAction"
           :key="floatingAction"
-          :is-ask="floatingAction === 'ask'"
+          :variant="floatingAction"
           @click="handleFloatingAction"
         />
       </Transition>
@@ -39,13 +39,32 @@ import { computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import BottomNav from '@/components/layout/BottomNav.vue';
 import FloatingButton from '@/components/layout/FloatingButton.vue';
+import { useFriendsStore } from '@/stores/friends';
 
 const route = useRoute();
 const router = useRouter();
+const friendsStore = useFriendsStore();
 const isNativeApp = Capacitor.isNativePlatform();
 
 const mainTabs = new Set(['/', '/me']);
 let removeBackButtonListener: (() => Promise<void>) | null = null;
+
+const currentFriendId = computed(() => {
+  const rawId = route.params.id;
+  if (typeof rawId === 'string') {
+    return decodeURIComponent(rawId).trim();
+  }
+
+  return '';
+});
+
+const currentRouteHasFriend = computed(() => {
+  if (!currentFriendId.value) {
+    return false;
+  }
+
+  return friendsStore.friends.some((friend) => String(friend.id).trim() === currentFriendId.value);
+});
 
 const showBottomNav = computed(() => mainTabs.has(route.path));
 const floatingAction = computed<'add' | 'ask' | null>(() => {
@@ -53,7 +72,7 @@ const floatingAction = computed<'add' | 'ask' | null>(() => {
     return 'add';
   }
 
-  if (route.path.startsWith('/friend/') && !route.path.includes('/ask')) {
+  if (route.name === 'friend-detail' && currentRouteHasFriend.value) {
     return 'ask';
   }
 

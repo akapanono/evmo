@@ -1,5 +1,5 @@
 ﻿<template>
-  <section class="app-screen is-active home-screen">
+  <section class="app-screen is-active home-screen" @click="handleScreenClick">
     <div class="home-content">
       <div class="topbar">
         <div>
@@ -27,9 +27,27 @@
           <article
             v-for="friend in displayFriends"
             :key="friend.id"
-            :class="['grid-card', `${friend.avatarColor}-card`]"
+            :class="[
+              'grid-card',
+              `${friend.avatarColor}-card`,
+              {
+                'is-home-editing': isDeleteMode,
+              },
+            ]"
             @click="openFriend(friend.id)"
+            @pointerdown="handleCardPointerDown(friend.id, $event)"
+            @pointerup="cancelLongPress"
+            @pointercancel="cancelLongPress"
+            @pointermove="handleCardPointerMove"
           >
+            <button
+              v-if="isDeleteMode"
+              type="button"
+              class="home-delete-badge"
+              @click.stop="deleteFriend(friend.id)"
+            >
+              ×
+            </button>
             <div class="grid-top">
               <Avatar size="xl" :color="friend.avatarColor">
                 {{ friend.name.charAt(0) }}
@@ -60,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import Avatar from '@/components/common/Avatar.vue';
 import { useFriendsStore } from '@/stores/friends';
@@ -72,6 +90,13 @@ const router = useRouter();
 const searchQuery = ref('');
 const searchResults = ref<Friend[]>([]);
 const isSearching = ref(false);
+const isDeleteMode = ref(false);
+const longPressTargetId = ref<string | null>(null);
+let longPressTimer: number | null = null;
+let longPressStartX = 0;
+let longPressStartY = 0;
+const LONG_PRESS_DELAY = 460;
+const LONG_PRESS_MOVE_LIMIT = 12;
 
 const displayFriends = computed(() => {
   if (isSearching.value && searchQuery.value.trim()) {
@@ -99,12 +124,88 @@ async function handleSearch(): Promise<void> {
 }
 
 function openFriend(friendId: string): void {
-  router.push(`/friend/${friendId}`);
+  if (isDeleteMode.value) {
+    return;
+  }
+
+  router.push({
+    name: 'friend-detail',
+    params: { id: friendId },
+  });
 }
 
 function isFriendBirthdayToday(birthday: string | undefined): boolean {
   return birthday ? isBirthdayToday(birthday) : false;
 }
+
+function clearLongPressTimer(): void {
+  if (longPressTimer !== null) {
+    window.clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}
+
+function cancelLongPress(): void {
+  clearLongPressTimer();
+  longPressTargetId.value = null;
+}
+
+function handleCardPointerDown(friendId: string, event: PointerEvent): void {
+  if (isDeleteMode.value) {
+    return;
+  }
+
+  cancelLongPress();
+  longPressTargetId.value = friendId;
+  longPressStartX = event.clientX;
+  longPressStartY = event.clientY;
+  longPressTimer = window.setTimeout(() => {
+    longPressTimer = null;
+    isDeleteMode.value = true;
+  }, LONG_PRESS_DELAY);
+}
+
+function handleCardPointerMove(event: PointerEvent): void {
+  if (!longPressTargetId.value || longPressTimer === null) {
+    return;
+  }
+
+  const movedX = Math.abs(event.clientX - longPressStartX);
+  const movedY = Math.abs(event.clientY - longPressStartY);
+  if (movedX > LONG_PRESS_MOVE_LIMIT || movedY > LONG_PRESS_MOVE_LIMIT) {
+    cancelLongPress();
+  }
+}
+
+async function deleteFriend(friendId: string): Promise<void> {
+  await friendsStore.deleteFriend(friendId);
+
+  if (friendsStore.friends.length === 0) {
+    isDeleteMode.value = false;
+  }
+}
+
+function handleScreenClick(event: MouseEvent): void {
+  if (!isDeleteMode.value) {
+    return;
+  }
+
+  const target = event.target;
+  if (!(target instanceof Element)) {
+    isDeleteMode.value = false;
+    return;
+  }
+
+  if (target.closest('.grid-card') || target.closest('.home-delete-badge')) {
+    return;
+  }
+
+  isDeleteMode.value = false;
+}
+
+onBeforeUnmount(() => {
+  cancelLongPress();
+});
 </script>
 
 <style scoped>
@@ -129,6 +230,34 @@ function isFriendBirthdayToday(birthday: string | undefined): boolean {
   text-shadow: 0 8px 18px rgba(38, 64, 74, 0.06);
 }
 
+.friend-grid {
+  overflow: visible;
+}
+
+.grid-card {
+  position: relative;
+}
+
+.grid-card.is-home-editing {
+  animation: home-card-wiggle 220ms ease-in-out infinite alternate;
+}
+
+.home-delete-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  z-index: 2;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: #d65f5f;
+  color: #fffaf4;
+  font-size: 20px;
+  line-height: 1;
+  box-shadow: 0 10px 18px rgba(214, 95, 95, 0.28);
+}
+
 .compact-empty {
   margin-top: 16px;
   padding: 28px 20px;
@@ -142,5 +271,15 @@ function isFriendBirthdayToday(birthday: string | undefined): boolean {
 .compact-empty p {
   color: var(--muted);
   line-height: 1.6;
+}
+
+@keyframes home-card-wiggle {
+  from {
+    transform: rotate(-0.55deg);
+  }
+
+  to {
+    transform: rotate(0.55deg);
+  }
 }
 </style>

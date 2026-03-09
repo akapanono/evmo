@@ -1,11 +1,14 @@
 import OpenAI from 'openai';
-import type { Friend } from '@/types/friend';
+import { createEmptyAIPersona, type Friend, type FriendAIPersona } from '@/types/friend';
 import type { LlmExtractionPayload, SemanticExtractionRecord, SemanticExtractionResult } from '@/types/extraction';
 import type { AppSettings } from '@/types/settings';
+import type { ChatMessage } from '@/stores/ai';
 import { storageService } from './storageService';
+import { runtimeContextService, type RuntimePromptContext } from './runtimeContextService';
 import { formatBirthday } from '@/utils/dateHelpers';
 import { parseSupplementInput } from '@/utils/semantic';
-import { buildAIPersonaContext } from '@/utils/friendAIPersona';
+import { buildAIPersonaContext, compileFriendAIPersona } from '@/utils/friendAIPersona';
+import { getStandardBasicInfoEntries } from '@/utils/basicInfo';
 
 interface ProxyResponse<T> {
   ok: boolean;
@@ -47,45 +50,113 @@ function buildBasicInfoContext(friend: Friend): string {
   const parts: string[] = [];
 
   parts.push(`姓名: ${friend.name}`);
-  if (friend.nickname) parts.push(`昵称: ${friend.nickname}`);
-  if (friend.relationship) parts.push(`关系: ${friend.relationship}`);
-  if (friend.birthday) parts.push(`生日: ${formatBirthday(friend.birthday)}`);
-  if (friend.gender) parts.push(`性别: ${friend.gender}`);
-  if (friend.age !== undefined) parts.push(`年龄: ${friend.age}`);
-  if (friend.heightCm !== undefined) parts.push(`身高: ${friend.heightCm}cm`);
-  if (friend.weightKg !== undefined) parts.push(`体重: ${friend.weightKg}kg`);
-  if (friend.city) parts.push(`常住城市: ${friend.city}`);
-  if (friend.hometown) parts.push(`家乡: ${friend.hometown}`);
-  if (friend.occupation) parts.push(`职业: ${friend.occupation}`);
-  if (friend.company) parts.push(`公司: ${friend.company}`);
-  if (friend.school) parts.push(`学校: ${friend.school}`);
-  if (friend.major) parts.push(`专业: ${friend.major}`);
+  for (const entry of getStandardBasicInfoEntries(friend)) {
+    if (entry.key === 'birthday') {
+      parts.push(`${entry.label}: ${formatBirthday(entry.value)}`);
+      continue;
+    }
+
+    const suffix = entry.key === 'heightCm' ? 'cm' : entry.key === 'weightKg' ? 'kg' : '';
+    parts.push(`${entry.label}: ${entry.value}${suffix}`);
+  }
+
+  if (friend.basicInfoFields.length > 0) {
+    parts.push(`自定义基础信息: ${friend.basicInfoFields.map((field) => `${field.label}-${field.value}`).join('；')}`);
+  }
+
   if (friend.preferences.length > 0) parts.push(`明确偏好/特点: ${friend.preferences.join('、')}`);
 
   return parts.join('\n');
 }
 
-function buildFriendContext(friend: Friend): string {
+function isGiftQuestion(question: string): boolean {
+  return /礼物|送什么|送啥|送点|生日|惊喜|挑什么|买什么/.test(question);
+}
+
+function isFoodQuestion(question: string): boolean {
+  return /吃什么|吃啥|香菜|蒜|忌口|口味|饭店|餐厅|聚餐|点菜|火锅|奶茶|零食|蛋糕|饮料/.test(question);
+}
+
+function isRecentQuestion(question: string): boolean {
+  return /最近|近况|这几天|这阵子|最近在忙|什么时候|何时|哪天|安排|有空|下周|明天|今天/.test(question);
+}
+
+function isGreetingQuestion(question: string): boolean {
+  return /你好|在吗|还记得我吗|最近好吗|想你|在干嘛/.test(question);
+}
+
+function isDateQuestion(question: string): boolean {
+  return /今天几号|今天星期几|今天周几|明天几号|明天是不是|后天|日期|几月几号|哪一天|星期/.test(question);
+}
+
+function sliceRelevant<T>(items: T[], limit: number): T[] {
+  return items.slice(0, limit);
+}
+
+function buildFriendContext(friend: Friend, question: string): string {
   const parts: string[] = [];
   const basicInfo = buildBasicInfoContext(friend);
-  const personaContext = buildAIPersonaContext(friend);
+  const persona = friend.aiProfile;
+  const isGift = isGiftQuestion(question);
+  const isFood = isFoodQuestion(question);
+  const wantsRecent = isRecentQuestion(question);
+  const isGreeting = isGreetingQuestion(question);
 
   if (basicInfo) {
     parts.push(basicInfo);
   }
 
-  if (personaContext) {
-    parts.push(personaContext);
+  const personaLines: string[] = [];
+  if (persona.overview && !isGreeting) {
+    personaLines.push(`画像摘要: ${persona.overview}`);
+  }
+  if (persona.traits.length > 0 && !isGift) {
+    personaLines.push(`性格与表达: ${sliceRelevant(persona.traits, 3).join('；')}`);
+  }
+  if (persona.interactionStyle.length > 0) {
+    personaLines.push(`互动方式: ${sliceRelevant(persona.interactionStyle, isGreeting ? 2 : 3).join('；')}`);
+  }
+  if (persona.tasteProfile.length > 0 && (isGift || isFood || !isGreeting)) {
+    personaLines.push(`审美与偏好倾向: ${sliceRelevant(persona.tasteProfile, isGift ? 4 : 2).join('；')}`);
+  }
+  if (persona.inferenceHints.length > 0 && (isGift || isFood)) {
+    personaLines.push(`仅在相关时可参考的延展倾向: ${sliceRelevant(persona.inferenceHints, 3).join('；')}`);
+  }
+  if (persona.boundaries.length > 0 && (isFood || /相处|介意|雷区|别/.test(question))) {
+    personaLines.push(`边界与雷区: ${sliceRelevant(persona.boundaries, 3).join('；')}`);
   }
 
-  const stableFields = friend.customFields.filter((field) => field.temporalScope === 'stable').slice(0, 4);
+  if (personaLines.length > 0) {
+    parts.push(personaLines.join('\n'));
+  }
+
+  const stableFields = friend.customFields
+    .filter((field) => field.temporalScope === 'stable')
+    .filter((field) => {
+      if (isGift) {
+        return /礼物|审美|风格|习惯|称呼|表达|偏好|边界|在意|关注/.test(field.label + field.value);
+      }
+
+      if (isFood) {
+        return /吃|喝|口味|忌口|偏好|习惯|边界/.test(field.label + field.value);
+      }
+
+      if (isGreeting) {
+        return /称呼|互动|表达/.test(field.label + field.value);
+      }
+
+      return true;
+    })
+    .slice(0, 4);
   if (stableFields.length > 0) {
     parts.push(`稳定资料: ${stableFields.map((field) => `${field.label}-${field.value}`).join('；')}`);
   }
 
-  const timeboundFields = friend.customFields.filter((field) => field.temporalScope === 'timebound').slice(0, 4);
-  if (timeboundFields.length > 0) {
-    parts.push(`近期事件: ${timeboundFields.map((field) => field.value).join('；')}`);
+  const timeboundFields = wantsRecent
+    ? friend.customFields.filter((field) => field.temporalScope === 'timebound').slice(0, 4)
+    : [];
+  if (wantsRecent && timeboundFields.length > 0) {
+    parts.push(`近期事件（仅在问题直接相关时参考）: ${timeboundFields.map((field) => field.value).join('；')}`);
   }
 
   return parts.join('\n');
@@ -123,8 +194,16 @@ function buildExtractionContext(friend: Friend): string {
   return parts.join('\n');
 }
 
+function canUseDirectModel(settings: AppSettings): boolean {
+  return Boolean(settings.openaiApiKey && getActiveModel(settings));
+}
+
+function canUseProxyModel(settings: AppSettings): boolean {
+  return Boolean(settings.proxyServerUrl && getActiveModel(settings));
+}
+
 function getSystemPrompt(style: 'friendly' | 'professional' | 'concise'): string {
-  const basePrompt = '你要扮演档案中的这位朋友本人，相当于这个人的数字分身。始终用第一人称“我”说话，把提问者称为“你”。回答时不要跳出角色，不要说自己是 AI，不要说“根据档案显示”或“从资料看”。你的目标不是背诵档案，而是像本人正常聊天一样自然回应。你会同时看到事实资料和一层抽象画像。抽象画像是根据资料整理出的倾向和互动特征，可以帮助你做轻度、保守的联想，但这些联想不能被说成已经确认的事实。只有当问题本身明显相关时，才自然带出偏好、边界、关系回忆或近况。不要编造具体时间、地点、经历和已经发生过的细节。';
+  const basePrompt = '你要扮演档案中的这位朋友本人，相当于这个人的数字分身。始终用第一人称“我”说话，把提问者称为“你”。回答时不要跳出角色，不要说自己是 AI，不要说“根据档案显示”或“从资料看”。你的目标不是背诵档案，而是像本人正常聊天一样自然回应。你会同时看到事实资料、一层抽象画像，以及发送前刚刚获取的运行时信息。运行时信息属于最高优先级的现实事实，尤其是日期、时间、星期、时区、网络状态这类内容，涉及这些问题时必须先以运行时信息为准，不能忽略、不能回避、不能说错。抽象画像是根据资料整理出的倾向和互动特征，可以帮助你做轻度、保守的联想，但这些联想不能被说成已经确认的事实。回答时必须保留正常人的常识判断、生活经验和基本合理性，不能为了贴合资料而给出明显不合常识、明显不合场景或明显不合用途的建议。尤其在送礼、饮食、安排、消费、见面、出行这类问题里，要先通过常识和现实合理性筛一遍，再参考资料和画像；如果资料里的某个点不适合当前场景，就不要硬套进去。你在输出前要做两轮内部自检：第一轮检查答案是否真的回答了问题、是否有明显常识错误；第二轮检查自己有没有为了“像本人”而硬塞偏好、近况、雷区或画像结论。只有这些信息与问题明显相关，才允许保留；如果不相关，就删掉。不要编造具体时间、地点、经历和已经发生过的细节。';
 
   switch (style) {
     case 'friendly':
@@ -198,8 +277,8 @@ function buildExtractionPrompt(friend: Friend, text: string): string {
     `上下文: ${context || '无'}`,
     `输入: ${text}`,
     '返回格式:',
-    '{"birthday":"MM-DD 或空","preferences":["字符串"],"records":[{"label":"事件或重要信息","value":"原句或精炼短句","includeInTimeline":true,"semanticType":"event|note|milestone|preference|restriction|status","temporalScope":"timebound|stable","eventTimeText":"时间词或空","sourceText":"原句","normalizedValue":"归一化值或空","confidence":0.9}],"noteLine":"原句","rawText":"原句"}',
-    '规则: 只有有时限、阶段性、近期事项才进时间线并设为 timebound；生日、忌口、长期偏好、稳定特征一律 stable 且不进时间线；像“最近准备考研”“下周出差”“明天考试”进时间线；像“生日是12月27日”“不吃香菜”“不喜欢猫”不进时间线。',
+    '{"birthday":"MM-DD 或空","preferences":["字符串"],"basicInfoFields":[{"label":"基础信息标签","value":"值","sourceText":"原句","normalizedKey":"hometown|city|occupation|company|school|major|gender|age|heightCm|weightKg 或空","confidence":0.9}],"records":[{"label":"事件或重要信息","value":"原句或精炼短句","includeInTimeline":true,"semanticType":"event|note|milestone|preference|restriction|status","temporalScope":"timebound|stable","eventTimeText":"时间词或空","sourceText":"原句","normalizedValue":"归一化值或空","confidence":0.9}],"noteLine":"原句","rawText":"原句"}',
+    '规则: 只有有时限、阶段性、近期事项才进时间线并设为 timebound；生日、忌口、长期偏好、稳定特征一律 stable 且不进时间线；像“最近准备考研”“下周出差”“明天考试”进时间线；像“生日是12月27日”“不吃香菜”“不喜欢猫”不进时间线；像“家乡是杭州”“在上海工作”“学校是复旦”“身高178”这类稳定身份资料应优先放进 basicInfoFields，而不是 preferences 或时间线。',
   ].join('\n');
 }
 
@@ -233,12 +312,83 @@ function normalizeExtractionPayload(payload: Partial<LlmExtractionPayload>, rawT
   return {
     birthday: typeof payload.birthday === 'string' && payload.birthday.trim() ? payload.birthday.trim() : undefined,
     preferences: Array.isArray(payload.preferences) ? payload.preferences.map((item: string) => String(item).trim()).filter(Boolean) : [],
+    basicInfoFields: Array.isArray(payload.basicInfoFields)
+      ? payload.basicInfoFields
+        .filter((field) => field && typeof field.label === 'string' && typeof field.value === 'string')
+        .map((field) => ({
+          label: String(field.label).trim(),
+          value: String(field.value).trim(),
+          sourceText: typeof field.sourceText === 'string' && field.sourceText.trim() ? field.sourceText.trim() : rawText,
+          normalizedKey: typeof field.normalizedKey === 'string' && field.normalizedKey.trim() ? field.normalizedKey.trim() : undefined,
+          confidence: typeof field.confidence === 'number' ? Math.max(0, Math.min(1, field.confidence)) : undefined,
+        }))
+      : [],
     records: Array.isArray(payload.records)
       ? payload.records.map((record: Partial<SemanticExtractionRecord>) => normalizeRecord(record, rawText))
       : [],
     noteLine: typeof payload.noteLine === 'string' && payload.noteLine.trim() ? payload.noteLine.trim() : rawText,
     rawText: typeof payload.rawText === 'string' && payload.rawText.trim() ? payload.rawText.trim() : rawText,
   };
+}
+
+function normalizePersonaPayload(payload: Partial<FriendAIPersona>, updatedAt: string, fallback: FriendAIPersona): FriendAIPersona {
+  const normalizeList = (value: unknown): string[] => Array.isArray(value)
+    ? value.map((item) => String(item).trim()).filter(Boolean).slice(0, 8)
+    : [];
+
+  const next: FriendAIPersona = {
+    ...createEmptyAIPersona(updatedAt),
+    overview: typeof payload.overview === 'string' && payload.overview.trim() ? payload.overview.trim() : fallback.overview,
+    signals: normalizeList(payload.signals),
+    traits: normalizeList(payload.traits),
+    tasteProfile: normalizeList(payload.tasteProfile),
+    interactionStyle: normalizeList(payload.interactionStyle),
+    inferenceHints: normalizeList(payload.inferenceHints),
+    boundaries: normalizeList(payload.boundaries),
+    updatedAt,
+    source: 'llm',
+  };
+
+  if (!next.signals.length) next.signals = fallback.signals;
+  if (!next.traits.length) next.traits = fallback.traits;
+  if (!next.tasteProfile.length) next.tasteProfile = fallback.tasteProfile;
+  if (!next.interactionStyle.length) next.interactionStyle = fallback.interactionStyle;
+  if (!next.inferenceHints.length) next.inferenceHints = fallback.inferenceHints;
+  if (!next.boundaries.length) next.boundaries = fallback.boundaries;
+
+  if (!next.overview) {
+    next.overview = fallback.overview;
+    next.source = fallback.source ?? 'rule';
+  }
+
+  return next;
+}
+
+function buildPersonaPrompt(friend: Friend): string {
+  const stableFacts = friend.customFields
+    .filter((field) => field.temporalScope === 'stable')
+    .slice(0, 8)
+    .map((field) => `${field.label}-${field.value}`)
+    .join('；');
+  const timeboundFacts = friend.customFields
+    .filter((field) => field.temporalScope === 'timebound')
+    .slice(0, 4)
+    .map((field) => field.eventTimeText ? `${field.eventTimeText} ${field.value}` : field.value)
+    .join('；');
+
+  return [
+    '请根据下面这位朋友的资料，提炼一份抽象画像 JSON。',
+    '目标不是复述原文，而是抽出更高一层的性格、互动方式、审美倾向、可做的保守推断和边界。',
+    '推断必须保守，不能乱编。没有证据就留空，不要为了凑满字段硬写。',
+    'overview 要像人话摘要，不要像报告，不要机械罗列，不要重复原句。',
+    'tasteProfile 和 inferenceHints 尤其要有抽象感，例如从“喜欢香水”推到“更在意气味和氛围感”，而不是重复“喜欢香水”。',
+    '输出必须是合法 JSON，不要解释，不要 Markdown。',
+    `基础信息:\n${buildBasicInfoContext(friend) || '无'}`,
+    `稳定资料:\n${stableFacts || '无'}`,
+    `近期事件:\n${timeboundFacts || '无'}`,
+    '返回格式：',
+    '{"overview":"一句到三句的人话摘要","signals":["底层线索"],"traits":["性格与表达"],"tasteProfile":["审美与偏好倾向"],"interactionStyle":["互动方式"],"inferenceHints":["可做的保守延展"],"boundaries":["边界与雷区"]}',
+  ].join('\n');
 }
 
 function buildProfileGuidance(friend: Friend): ProfileGuidance {
@@ -265,10 +415,6 @@ function buildProfileGuidance(friend: Friend): ProfileGuidance {
   if (persona.boundaries.length === 0) {
     suggestions.push('补充他在相处里最反感什么，有没有明显边界或雷区');
   }
-  if (timelineFields.length === 0) {
-    suggestions.push('补充他最近在忙什么，或者接下来有什么安排');
-  }
-
   const contextParts = [
     friend.relationship ? `已知你和对方的关系是${friend.relationship}` : undefined,
     persona.overview ? `已形成一层人物画像` : undefined,
@@ -283,16 +429,38 @@ function buildProfileGuidance(friend: Friend): ProfileGuidance {
 }
 
 function buildAskUserPrompt(friend: Friend, question: string, guidance: ProfileGuidance): string {
-  const context = buildFriendContext(friend);
+  const context = buildFriendContext(friend, question);
+  const isGift = isGiftQuestion(question);
+  const isFood = isFoodQuestion(question);
+  const isDate = isDateQuestion(question);
 
   if (guidance.lowInfoMode) {
-    return `你就是 ${friend.name} 本人。下面是关于你的资料和画像：\n\n${context || '暂无更多内容'}\n\n当前已知线索：${guidance.contextSummary}\n\n对方现在问你：${question}\n\n请你直接以本人视角自然回复，对对方使用“你”。优先像正常聊天那样先回答问题本身，不要为了显得像本人就硬塞档案内容。可以参考抽象画像做低风险、轻度推断，但不能把推断说成已经确认的事实，也不要编造具体经历、具体时间或具体地点。如果拿不准，就像本人聊天一样说得保守一点。`;
+    return `你就是 ${friend.name} 本人。下面是关于你的资料和画像：\n\n${context || '暂无更多内容'}\n\n当前已知线索：${guidance.contextSummary}\n\n对方现在问你：${question}\n\n请你直接以本人视角自然回复，对对方使用“你”。优先像正常聊天那样先回答问题本身，不要为了显得像本人就硬塞档案内容。可以参考抽象画像做低风险、轻度推断，但不能把推断说成已经确认的事实，也不要编造具体经历、具体时间或具体地点。除非问题直接在问近况、安排、最近忙什么、什么时候之类的内容，否则不要主动提时间线和近期事件。${isGift ? '如果这是送礼问题，请先判断礼物本身在现实里是否合适、是否像一份正常的礼物，再决定要不要引用偏好；不相关的信息不要带入。' : ''}${isFood ? '如果这是吃饭或口味问题，可以引用忌口、口味和环境偏好，但不要突然扯到礼物、价格或不相干的经历。' : ''}${isDate ? '如果问题涉及今天、明天、星期或日期，必须先以运行时信息中的真实日期为准，再结合生日资料回答，不能装作不知道，也不能随口说错。' : ''}输出前请自己检查两遍：先删掉与问题无关的偏好、近况和雷区，再检查有没有明显常识错误。如果拿不准，就说得保守一点。`;
   }
 
-  return `你就是 ${friend.name} 本人。下面是关于你的资料和画像：\n\n${context}\n\n对方现在问你：${question}\n\n请你直接以本人视角自然回答，对对方使用“你”。优先回答问题本身，再在明显相关时自然利用这些资料和画像。你可以根据抽象画像做小幅度联想，例如从审美、环境、决策偏好去推断“更可能喜欢什么”，但不要把推断说成铁定事实，也不要编造具体经历。`;
+  return `你就是 ${friend.name} 本人。下面是关于你的资料和画像：\n\n${context}\n\n对方现在问你：${question}\n\n请你直接以本人视角自然回答，对对方使用“你”。优先回答问题本身，再在明显相关时自然利用这些资料和画像。你可以根据抽象画像做小幅度联想，例如从审美、环境、决策偏好去推断“更可能喜欢什么”，但不要把推断说成铁定事实，也不要编造具体经历。除非问题直接涉及近况、安排、最近状态、时间点，否则不要主动提时间线和近期事件。${isGift ? '如果是送礼问题，只能引用会影响送礼选择的信息，例如审美、质感偏好、是否重视心意、是否偏实用。不要把吃饭口味、近期安排或无关资料混进答案，更不要给出不适合作为礼物的东西。' : ''}${isFood ? '如果是吃饭或口味问题，可以优先使用口味、忌口、环境和气氛偏好；不要把礼物、品牌或不相关的画像信息混进来。' : ''}${isDate ? '如果问题涉及今天、明天、星期或日期，必须先以运行时信息中的真实日期为准，再结合生日资料回答，不能回避，也不能答错。' : ''}输出前请做两轮内部自检：第一轮检查是否真正回答了问题、有没有常识错误；第二轮删掉所有与问题不明显相关的偏好、近况、雷区和画像信息，只保留必要内容。`;
+}
+
+function buildConversationMessages(history: ChatMessage[], question: string): Array<{ role: 'user' | 'assistant'; content: string }> {
+  const normalizedHistory = history
+    .filter((message) => message.content.trim())
+    .slice(-12)
+    .map((message) => ({
+      role: message.role,
+      content: message.content.trim(),
+    }));
+
+  return [
+    ...normalizedHistory,
+    { role: 'user', content: question },
+  ];
 }
 
 export const aiService = {
+  async prepareAskRuntimeContext() {
+    return runtimeContextService.buildPromptContext(true);
+  },
+
   getConnectionSummary(): { configured: boolean; mode: 'direct' | 'proxy'; baseUrl?: string; model: string; providerId?: string } {
     const settings = storageService.getSettings();
     return {
@@ -341,18 +509,28 @@ export const aiService = {
     }
   },
 
-  async askAI(friend: Friend, question: string): Promise<AskAIResult> {
+  async askAI(
+    friend: Friend,
+    question: string,
+    history: ChatMessage[] = [],
+    runtimeContextOverride?: RuntimePromptContext,
+  ): Promise<AskAIResult> {
     const settings = storageService.getSettings();
     const guidance = buildProfileGuidance(friend);
     const systemPrompt = getSystemPrompt(settings.aiStyle);
+    const runtimeContext = runtimeContextOverride ?? await runtimeContextService.buildPromptContext(true);
     const userPrompt = buildAskUserPrompt(friend, question, guidance);
+    const conversationMessages = buildConversationMessages(history, question);
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      { role: 'system' as const, content: `以下运行时信息为发送前实时获取，涉及现实时间或当前状态的问题时必须优先采用：\n${runtimeContext.promptText}` },
+      { role: 'system' as const, content: `当前这一轮可参考的资料：\n${userPrompt}` },
+      ...conversationMessages,
+    ];
 
     if (settings.aiAccessMode === 'proxy') {
       const result = await postToProxy<{ content: string }>('/api/ai/chat', {
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
+        messages,
         model: getActiveModel(settings),
         temperature: guidance.lowInfoMode ? 0.85 : 0.72,
         max_tokens: 700,
@@ -367,10 +545,7 @@ export const aiService = {
     const client = createClient(settings);
     const completion = await client.chat.completions.create({
       model: getActiveModel(settings),
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
+      messages,
       temperature: guidance.lowInfoMode ? 0.85 : 0.72,
       max_tokens: 700,
     });
@@ -382,6 +557,68 @@ export const aiService = {
       content: answer,
       suggestions: guidance.suggestions,
       lowInfoMode: guidance.lowInfoMode,
+    };
+  },
+
+  async generateFriendPersona(friend: Friend): Promise<FriendAIPersona> {
+    const settings = storageService.getSettings();
+    const fallback = buildFallbackPersona(friend);
+    const updatedAt = new Date().toISOString();
+
+    if (settings.aiAccessMode === 'proxy' && canUseProxyModel(settings)) {
+      try {
+        const result = await postToProxy<{ content: string }>('/api/ai/chat', {
+          messages: [
+            { role: 'system', content: '你擅长从人物资料中提炼抽象画像。输出必须是合法 JSON。' },
+            { role: 'user', content: buildPersonaPrompt(friend) },
+          ],
+          model: getActiveModel(settings),
+          temperature: 0.35,
+          max_tokens: 700,
+        }, settings);
+        const payload = JSON.parse(stripJsonWrapper(result.content)) as Partial<FriendAIPersona>;
+        return normalizePersonaPayload(payload, updatedAt, fallback);
+      } catch {
+        return {
+          ...fallback,
+          updatedAt,
+          source: 'rule',
+        };
+      }
+    }
+
+    if (settings.aiAccessMode === 'direct' && canUseDirectModel(settings)) {
+      try {
+        const client = createClient(settings);
+        const completion = await client.chat.completions.create({
+          model: getActiveModel(settings),
+          messages: [
+            { role: 'system', content: '你擅长从人物资料中提炼抽象画像。输出必须是合法 JSON。' },
+            { role: 'user', content: buildPersonaPrompt(friend) },
+          ],
+          temperature: 0.35,
+          max_tokens: 700,
+        });
+        const content = completion.choices[0]?.message?.content;
+        if (!content) {
+          return fallback;
+        }
+
+        const payload = JSON.parse(stripJsonWrapper(content)) as Partial<FriendAIPersona>;
+        return normalizePersonaPayload(payload, updatedAt, fallback);
+      } catch {
+        return {
+          ...fallback,
+          updatedAt,
+          source: 'rule',
+        };
+      }
+    }
+
+    return {
+      ...fallback,
+      updatedAt,
+      source: 'rule',
     };
   },
 
@@ -439,3 +676,7 @@ export const aiService = {
     return settings.defaultQuestions?.length ? settings.defaultQuestions : SECOND_PERSON_DEFAULT_QUESTIONS;
   },
 };
+
+function buildFallbackPersona(friend: Friend): FriendAIPersona {
+  return compileFriendAIPersona(friend, new Date().toISOString());
+}

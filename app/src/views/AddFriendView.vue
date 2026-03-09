@@ -77,6 +77,21 @@
     </article>
 
     <article class="form-card">
+      <div class="section-inline-head">
+        <p class="mini-label">自定义基础信息</p>
+        <button type="button" class="small ghost-btn" @click="addBasicInfoDraft">新增词条</button>
+      </div>
+      <div v-if="basicInfoDrafts.length > 0" class="field-grid basic-info-grid">
+        <div v-for="field in basicInfoDrafts" :key="field.id" class="basic-info-row">
+          <input v-model="field.label" type="text" placeholder="词条名，例如：宠物、籍贯、常去的店" />
+          <input v-model="field.value" type="text" placeholder="词条内容" />
+          <button type="button" class="mini-remove-btn" @click="removeBasicInfoDraft(field.id)">删除</button>
+        </div>
+      </div>
+      <p v-else class="field-tip">如果默认基础信息不够用，可以自己加词条。</p>
+    </article>
+
+    <article class="form-card">
       <div class="field-grid">
         <label class="field">
           <span>头像颜色</span>
@@ -103,8 +118,8 @@
       <p class="mini-label">补充信息</p>
       <textarea v-model="supplementInput" rows="5" placeholder="例如：她下周要出差
 他最近在准备考研
-她不吃香菜"></textarea>
-      <p class="field-tip">这里的内容会在保存时自动分发到时间线、偏好和稳定信息里。更抽象的人物画像可以在保存后进入引导补充页继续完善。</p>
+她家乡在杭州"></textarea>
+      <p class="field-tip">这里的内容会在保存时自动分发到基础信息、时间线、偏好和稳定信息里。更抽象的人物画像可以在保存后进入引导补充页继续完善。</p>
     </article>
 
     <p v-if="errors.length > 0" class="error-message">
@@ -136,12 +151,14 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
+import { friendService } from '@/services/friendService';
 import { useFriendsStore } from '@/stores/friends';
 import { AVATAR_COLORS, createEmptyFriend } from '@/types/friend';
-import type { AvatarColor, Friend, CustomField } from '@/types/friend';
+import type { AvatarColor, BasicInfoField, CustomField, Friend } from '@/types/friend';
 import { getAvatarColorFromName } from '@/utils/color';
-import { validateFriend, type ValidationError } from '@/utils/validation';
+import { applyBasicInfoExtraction } from '@/utils/basicInfo';
 import { parseSupplementInput } from '@/utils/semantic';
+import { validateFriend, type ValidationError } from '@/utils/validation';
 
 const route = useRoute();
 const router = useRouter();
@@ -164,6 +181,7 @@ const supplementInput = ref('');
 const ageInput = ref('');
 const heightInput = ref('');
 const weightInput = ref('');
+const basicInfoDrafts = ref<Array<{ id: string; label: string; value: string }>>([]);
 const initialSnapshot = ref('');
 
 const isDirty = computed(() => buildDraftSnapshot() !== initialSnapshot.value);
@@ -176,7 +194,8 @@ onMounted(async () => {
     return;
   }
 
-  const existing = friendsStore.friends.find((item) => item.id === friendId.value);
+  const existing = friendsStore.friends.find((item) => item.id === friendId.value)
+    ?? await friendService.getFriendById(friendId.value);
   if (!existing) {
     errors.value = [{ field: 'general', message: '未找到要编辑的朋友档案。' }];
     return;
@@ -184,6 +203,7 @@ onMounted(async () => {
 
   form.value = {
     ...existing,
+    basicInfoFields: [...existing.basicInfoFields],
     customFields: [...existing.customFields],
     preferences: [...existing.preferences],
   };
@@ -192,6 +212,11 @@ onMounted(async () => {
   ageInput.value = existing.age !== undefined ? String(existing.age) : '';
   heightInput.value = existing.heightCm !== undefined ? String(existing.heightCm) : '';
   weightInput.value = existing.weightKg !== undefined ? String(existing.weightKg) : '';
+  basicInfoDrafts.value = existing.basicInfoFields.map((field) => ({
+    id: field.id,
+    label: field.label,
+    value: field.value,
+  }));
   initialSnapshot.value = buildDraftSnapshot();
 });
 
@@ -210,7 +235,10 @@ function goBack(): void {
 
 function leaveCurrentPage(): void {
   if (isEdit.value && friendId.value) {
-    router.push(`/friend/${friendId.value}`);
+    router.push({
+      name: 'friend-detail',
+      params: { id: friendId.value },
+    });
     return;
   }
 
@@ -267,6 +295,30 @@ function mergeUnique(values: string[]): string[] {
   return Array.from(new Set(values.map((item) => item.trim()).filter(Boolean)));
 }
 
+function addBasicInfoDraft(): void {
+  basicInfoDrafts.value.push({
+    id: crypto.randomUUID(),
+    label: '',
+    value: '',
+  });
+}
+
+function removeBasicInfoDraft(id: string): void {
+  basicInfoDrafts.value = basicInfoDrafts.value.filter((field) => field.id !== id);
+}
+
+function buildBasicInfoFields(): BasicInfoField[] {
+  return basicInfoDrafts.value
+    .map((field) => ({
+      id: field.id,
+      label: field.label.trim(),
+      value: field.value.trim(),
+      createdAt: new Date().toISOString(),
+      sourceText: field.value.trim(),
+    }))
+    .filter((field) => field.label && field.value);
+}
+
 function buildDraftSnapshot(): string {
   return JSON.stringify({
     name: form.value.name.trim(),
@@ -283,6 +335,10 @@ function buildDraftSnapshot(): string {
     company: normalizeTextInput(form.value.company),
     school: normalizeTextInput(form.value.school),
     major: normalizeTextInput(form.value.major),
+    basicInfoFields: basicInfoDrafts.value
+      .map((field) => ({ label: field.label.trim(), value: field.value.trim() }))
+      .filter((field) => field.label && field.value)
+      .sort((a, b) => `${a.label}${a.value}`.localeCompare(`${b.label}${b.value}`)),
     avatarColor: form.value.avatarColor,
     preferences: normalizePreferences(preferencesInput.value),
     supplement: supplementInput.value.trim(),
@@ -320,12 +376,24 @@ function applySupplementToForm(base: Friend, rawSupplement: string): Friend {
     return {
       ...base,
       preferences: mergeUnique(base.preferences),
+      basicInfoFields: [...base.basicInfoFields],
       customFields: [...base.customFields],
     };
   }
 
   const preferencePool = [...base.preferences];
   let nextBirthday = base.birthday;
+  let nextGender = base.gender;
+  let nextAge = base.age;
+  let nextHeightCm = base.heightCm;
+  let nextWeightKg = base.weightKg;
+  let nextCity = base.city;
+  let nextHometown = base.hometown;
+  let nextOccupation = base.occupation;
+  let nextCompany = base.company;
+  let nextSchool = base.school;
+  let nextMajor = base.major;
+  let nextBasicInfoFields = [...base.basicInfoFields];
   const createdAt = new Date().toISOString();
   const nextFields = [...base.customFields];
 
@@ -338,6 +406,25 @@ function applySupplementToForm(base: Friend, rawSupplement: string): Friend {
 
     if (parsed.preferences.length > 0) {
       preferencePool.push(...parsed.preferences);
+    }
+
+    if (parsed.basicInfoFields.length > 0) {
+      const basicInfoUpdates = applyBasicInfoExtraction({
+        ...base,
+        basicInfoFields: nextBasicInfoFields,
+      }, parsed.basicInfoFields);
+
+      nextBasicInfoFields = basicInfoUpdates.basicInfoFields ?? nextBasicInfoFields;
+      if (basicInfoUpdates.gender !== undefined) nextGender = basicInfoUpdates.gender;
+      if (basicInfoUpdates.age !== undefined) nextAge = basicInfoUpdates.age;
+      if (basicInfoUpdates.heightCm !== undefined) nextHeightCm = basicInfoUpdates.heightCm;
+      if (basicInfoUpdates.weightKg !== undefined) nextWeightKg = basicInfoUpdates.weightKg;
+      if (basicInfoUpdates.city !== undefined) nextCity = basicInfoUpdates.city;
+      if (basicInfoUpdates.hometown !== undefined) nextHometown = basicInfoUpdates.hometown;
+      if (basicInfoUpdates.occupation !== undefined) nextOccupation = basicInfoUpdates.occupation;
+      if (basicInfoUpdates.company !== undefined) nextCompany = basicInfoUpdates.company;
+      if (basicInfoUpdates.school !== undefined) nextSchool = basicInfoUpdates.school;
+      if (basicInfoUpdates.major !== undefined) nextMajor = basicInfoUpdates.major;
     }
 
     if (parsed.records.length > 0) {
@@ -359,7 +446,18 @@ function applySupplementToForm(base: Friend, rawSupplement: string): Friend {
   return {
     ...base,
     birthday: nextBirthday,
+    gender: nextGender,
+    age: nextAge,
+    heightCm: nextHeightCm,
+    weightKg: nextWeightKg,
+    city: nextCity,
+    hometown: nextHometown,
+    occupation: nextOccupation,
+    company: nextCompany,
+    school: nextSchool,
+    major: nextMajor,
     preferences: mergeUnique(preferencePool),
+    basicInfoFields: nextBasicInfoFields.slice(0, 20),
     customFields: nextFields.slice(0, 30),
     notes: '',
   };
@@ -399,6 +497,7 @@ async function handleSave(): Promise<void> {
     company: normalizeTextInput(form.value.company),
     school: normalizeTextInput(form.value.school),
     major: normalizeTextInput(form.value.major),
+    basicInfoFields: buildBasicInfoFields(),
     preferences: normalizePreferences(preferencesInput.value),
     notes: '',
   };
@@ -420,7 +519,10 @@ async function handleSave(): Promise<void> {
     if (isEdit.value && friendId.value) {
       await friendsStore.updateFriend(friendId.value, nextForm);
       initialSnapshot.value = buildDraftSnapshot();
-      await router.push(`/friend/${friendId.value}`);
+      await router.push({
+        name: 'friend-detail',
+        params: { id: friendId.value },
+      });
       return;
     }
 
@@ -486,5 +588,37 @@ async function handleSave(): Promise<void> {
   color: var(--coral);
   padding: 10px 0;
   font-size: 14px;
+}
+
+.section-inline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.basic-info-grid {
+  gap: 10px;
+}
+
+.basic-info-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.ghost-btn {
+  background: rgba(29, 40, 49, 0.06);
+  color: var(--ink);
+}
+
+.mini-remove-btn {
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 107, 107, 0.12);
+  color: #a63a3a;
+  padding: 10px 12px;
 }
 </style>

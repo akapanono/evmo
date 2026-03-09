@@ -17,6 +17,14 @@ export interface CustomField {
 
 export type AvatarColor = 'coral' | 'teal' | 'gold' | 'ink';
 
+export interface BasicInfoField {
+  id: string;
+  label: string;
+  value: string;
+  createdAt: string;
+  sourceText: string;
+}
+
 export interface FriendAIPersona {
   overview: string;
   signals: string[];
@@ -26,6 +34,7 @@ export interface FriendAIPersona {
   inferenceHints: string[];
   boundaries: string[];
   updatedAt: string;
+  source?: 'rule' | 'llm';
 }
 
 export interface Friend {
@@ -49,6 +58,7 @@ export interface Friend {
   isImportant: boolean;
   preferences: string[];
   notes: string;
+  basicInfoFields: BasicInfoField[];
   customFields: CustomField[];
   aiProfile: FriendAIPersona;
   createdAt: string;
@@ -85,6 +95,7 @@ export function createEmptyAIPersona(updatedAt = new Date().toISOString()): Frie
     inferenceHints: [],
     boundaries: [],
     updatedAt,
+    source: 'rule',
   };
 }
 
@@ -112,6 +123,7 @@ export function createEmptyFriend(): Friend {
     isImportant: false,
     preferences: [],
     notes: '',
+    basicInfoFields: [],
     customFields: [],
     aiProfile: createEmptyAIPersona(now),
     createdAt: now,

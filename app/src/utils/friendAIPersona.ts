@@ -88,6 +88,10 @@ function collectBasicSignals(friend: Friend, bucket: PersonaBucket): void {
   if (friend.school || friend.major) {
     bucket.signals.push(`教育背景和专业经历可能会影响他在聊天里的关注点`);
   }
+
+  if (friend.basicInfoFields.length > 0) {
+    bucket.signals.push(`还有一些自定义基础信息：${friend.basicInfoFields.slice(0, 3).map((field) => `${field.label}是${field.value}`).join('；')}`);
+  }
 }
 
 function collectAbstractFields(friend: Friend, bucket: PersonaBucket): void {
@@ -190,6 +194,7 @@ export function compileFriendAIPersona(friend: Friend, updatedAt = new Date().to
     interactionStyle: unique(bucket.interactionStyle),
     inferenceHints: unique(bucket.inferenceHints),
     boundaries: unique(bucket.boundaries),
+    source: 'rule',
   };
 }
 
