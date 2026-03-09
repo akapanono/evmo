@@ -22,6 +22,19 @@
       </p>
     </article>
 
+    <section class="section-block">
+      <div class="section-head">
+        <h3>分身资料</h3>
+      </div>
+      <article class="ask-context-card intake-entry-card">
+        <p class="mini-label">引导补充</p>
+        <p>通过画像型问答补齐互动距离、表达方式、决策偏好、环境偏好、边界和关注点，让 AI 读到更抽象的人物画像。</p>
+        <button type="button" class="action-btn primary intake-entry-btn" @click="openProfileIntake">
+          开始问答补充
+        </button>
+      </article>
+    </section>
+
     <section ref="supplementSection" class="section-block">
       <div class="section-head">
         <h3>一句话补充信息</h3>
@@ -70,6 +83,81 @@
         <InfoRow label="生日">
           {{ friend.birthday ? formatBirthday(friend.birthday) : '-' }}
         </InfoRow>
+        <InfoRow label="性别">
+          {{ friend.gender || '-' }}
+        </InfoRow>
+        <InfoRow label="年龄">
+          {{ friend.age ?? '-' }}
+        </InfoRow>
+        <InfoRow label="身高">
+          {{ friend.heightCm ? `${friend.heightCm} cm` : '-' }}
+        </InfoRow>
+        <InfoRow label="体重">
+          {{ friend.weightKg ? `${friend.weightKg} kg` : '-' }}
+        </InfoRow>
+        <InfoRow label="常住城市">
+          {{ friend.city || '-' }}
+        </InfoRow>
+        <InfoRow label="家乡">
+          {{ friend.hometown || '-' }}
+        </InfoRow>
+        <InfoRow label="职业">
+          {{ friend.occupation || '-' }}
+        </InfoRow>
+        <InfoRow label="公司">
+          {{ friend.company || '-' }}
+        </InfoRow>
+        <InfoRow label="学校">
+          {{ friend.school || '-' }}
+        </InfoRow>
+        <InfoRow label="专业">
+          {{ friend.major || '-' }}
+        </InfoRow>
+      </article>
+    </section>
+
+    <section class="section-block">
+      <div class="section-head">
+        <h3>AI 画像</h3>
+      </div>
+      <article class="note-card ai-profile-card">
+        <p class="mini-label">画像摘要</p>
+        <p>{{ friend.aiProfile.overview || '当前资料还不足以生成稳定画像。' }}</p>
+
+        <div v-if="friend.aiProfile.traits.length > 0" class="ai-profile-group">
+          <p class="mini-label">性格与表达</p>
+          <div class="tag-group compact-tags">
+            <span v-for="item in friend.aiProfile.traits" :key="item">{{ item }}</span>
+          </div>
+        </div>
+
+        <div v-if="friend.aiProfile.tasteProfile.length > 0" class="ai-profile-group">
+          <p class="mini-label">审美与偏好倾向</p>
+          <div class="tag-group compact-tags">
+            <span v-for="item in friend.aiProfile.tasteProfile" :key="item">{{ item }}</span>
+          </div>
+        </div>
+
+        <div v-if="friend.aiProfile.interactionStyle.length > 0" class="ai-profile-group">
+          <p class="mini-label">互动方式</p>
+          <div class="tag-group compact-tags">
+            <span v-for="item in friend.aiProfile.interactionStyle" :key="item">{{ item }}</span>
+          </div>
+        </div>
+
+        <div v-if="friend.aiProfile.inferenceHints.length > 0" class="ai-profile-group">
+          <p class="mini-label">可做的轻度推断</p>
+          <div class="tag-group compact-tags">
+            <span v-for="item in friend.aiProfile.inferenceHints" :key="item">{{ item }}</span>
+          </div>
+        </div>
+
+        <div v-if="friend.aiProfile.boundaries.length > 0" class="ai-profile-group">
+          <p class="mini-label">边界与雷区</p>
+          <div class="tag-group compact-tags">
+            <span v-for="item in friend.aiProfile.boundaries" :key="item">{{ item }}</span>
+          </div>
+        </div>
       </article>
     </section>
 
@@ -236,6 +324,7 @@ import type { Friend, CustomField, SemanticType } from '@/types/friend';
 import type { SemanticExtractionResult } from '@/types/extraction';
 import { formatBirthday, formatDate } from '@/utils/dateHelpers';
 import { parseSupplementInput } from '@/utils/semantic';
+import { PROFILE_INTAKE_FIELD_LABELS } from '@/utils/profileIntake';
 
 const route = useRoute();
 const router = useRouter();
@@ -289,6 +378,10 @@ const stableFields = computed(() => {
     }
 
     if (field.semanticType === 'milestone' && friend.value?.birthday) {
+      return false;
+    }
+
+    if (Object.values(PROFILE_INTAKE_FIELD_LABELS).includes(field.label as (typeof PROFILE_INTAKE_FIELD_LABELS)[keyof typeof PROFILE_INTAKE_FIELD_LABELS])) {
       return false;
     }
 
@@ -368,6 +461,17 @@ function editFriend(): void {
   if (friend.value) {
     router.push(`/edit/${friend.value.id}`);
   }
+}
+
+function openProfileIntake(): void {
+  if (!friend.value) {
+    return;
+  }
+
+  router.push({
+    name: 'profile-intake',
+    params: { id: friend.value.id },
+  });
 }
 
 function openRecordList(section: 'stable' | 'timeline'): void {
@@ -748,6 +852,25 @@ async function handleDelete(): Promise<void> {
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-top: 18px;
+}
+
+.intake-entry-card p:last-of-type {
+  margin-top: 8px;
+}
+
+.intake-entry-btn {
+  margin-top: 14px;
+  width: 100%;
+}
+
+.ai-profile-card {
+  display: grid;
+  gap: 14px;
+}
+
+.ai-profile-group {
+  display: grid;
+  gap: 8px;
 }
 
 .supplement-actions {

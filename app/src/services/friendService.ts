@@ -1,9 +1,37 @@
-﻿import { getDB } from '@/database';
+import { getDB } from '@/database';
 import type { ContactLog, Friend, Reminder } from '@/types/friend';
+import { createEmptyAIPersona } from '@/types/friend';
+import { compileFriendAIPersona } from '@/utils/friendAIPersona';
 
 function normalizeText(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function normalizeOptionalText(value: unknown, fallback?: string): string {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  return fallback?.trim() ?? '';
+}
+
+function normalizeNumber(value: unknown, fallback?: number): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  return fallback;
 }
 
 function inferTimeline(value: string): boolean {
@@ -60,23 +88,39 @@ function normalizeFriendInput(friend: Partial<Friend>, existing?: Friend): Frien
     ? friend.name.trim()
     : existing?.name ?? '';
 
-  return {
+  const normalizedBase: Friend = {
     id: friend.id ?? existing?.id ?? crypto.randomUUID(),
     name,
-    nickname: normalizeText(typeof friend.nickname === 'string' ? friend.nickname : existing?.nickname) ?? '',
+    nickname: normalizeOptionalText(friend.nickname, existing?.nickname),
     relationship: typeof friend.relationship === 'string'
       ? friend.relationship.trim()
       : existing?.relationship ?? '',
     birthday: normalizeText(typeof friend.birthday === 'string' ? friend.birthday : existing?.birthday),
+    gender: normalizeOptionalText(friend.gender, existing?.gender),
+    age: normalizeNumber(friend.age, existing?.age),
+    heightCm: normalizeNumber(friend.heightCm, existing?.heightCm),
+    weightKg: normalizeNumber(friend.weightKg, existing?.weightKg),
+    city: normalizeOptionalText(friend.city, existing?.city),
+    hometown: normalizeOptionalText(friend.hometown, existing?.hometown),
+    occupation: normalizeOptionalText(friend.occupation, existing?.occupation),
+    company: normalizeOptionalText(friend.company, existing?.company),
+    school: normalizeOptionalText(friend.school, existing?.school),
+    major: normalizeOptionalText(friend.major, existing?.major),
     avatarColor: friend.avatarColor ?? existing?.avatarColor ?? 'coral',
     lastContactDate: normalizeText(typeof friend.lastContactDate === 'string' ? friend.lastContactDate : existing?.lastContactDate),
     isImportant: typeof friend.isImportant === 'boolean' ? friend.isImportant : existing?.isImportant ?? false,
     preferences,
     notes: typeof friend.notes === 'string' ? friend.notes.trim() : existing?.notes ?? '',
     customFields: normalizeCustomFields(friend.customFields ?? existing?.customFields),
+    aiProfile: friend.aiProfile ?? existing?.aiProfile ?? createEmptyAIPersona(now),
     createdAt: existing?.createdAt ?? friend.createdAt ?? now,
     updatedAt: now,
     contactCount: typeof friend.contactCount === 'number' ? friend.contactCount : existing?.contactCount ?? 0,
+  };
+
+  return {
+    ...normalizedBase,
+    aiProfile: compileFriendAIPersona(normalizedBase, now),
   };
 }
 
@@ -90,6 +134,33 @@ async function normalizeStoredFriend(friend: Friend): Promise<Friend> {
   }
 
   return normalized;
+}
+
+function buildSearchCorpus(friend: Friend): string[] {
+  return [
+    friend.name,
+    friend.nickname ?? '',
+    friend.relationship,
+    friend.gender ?? '',
+    String(friend.age ?? ''),
+    String(friend.heightCm ?? ''),
+    String(friend.weightKg ?? ''),
+    friend.city ?? '',
+    friend.hometown ?? '',
+    friend.occupation ?? '',
+    friend.company ?? '',
+    friend.school ?? '',
+    friend.major ?? '',
+    friend.notes,
+    ...friend.preferences,
+    friend.aiProfile.overview,
+    ...friend.aiProfile.signals,
+    ...friend.aiProfile.traits,
+    ...friend.aiProfile.tasteProfile,
+    ...friend.aiProfile.interactionStyle,
+    ...friend.aiProfile.inferenceHints,
+    ...friend.aiProfile.boundaries,
+  ];
 }
 
 export const friendService = {
@@ -120,13 +191,7 @@ export const friendService = {
         (field) => field.label.toLowerCase().includes(lowerQuery) || field.value.toLowerCase().includes(lowerQuery),
       );
 
-      return [
-        friend.name,
-        friend.nickname ?? '',
-        friend.relationship,
-        friend.notes,
-        ...friend.preferences,
-      ].some((value) => value.toLowerCase().includes(lowerQuery)) || customFieldMatched;
+      return buildSearchCorpus(friend).some((value) => value.toLowerCase().includes(lowerQuery)) || customFieldMatched;
     });
   },
 

@@ -22,6 +22,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/AskAIView.vue'),
   },
   {
+    path: '/friend/:id/intake',
+    name: 'profile-intake',
+    component: () => import('@/views/ProfileIntakeView.vue'),
+  },
+  {
     path: '/add',
     name: 'add-friend',
     component: () => import('@/views/AddFriendView.vue'),

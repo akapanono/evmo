@@ -1,10 +1,11 @@
-﻿import OpenAI from 'openai';
+import OpenAI from 'openai';
 import type { Friend } from '@/types/friend';
 import type { LlmExtractionPayload, SemanticExtractionRecord, SemanticExtractionResult } from '@/types/extraction';
 import type { AppSettings } from '@/types/settings';
 import { storageService } from './storageService';
 import { formatBirthday } from '@/utils/dateHelpers';
 import { parseSupplementInput } from '@/utils/semantic';
+import { buildAIPersonaContext } from '@/utils/friendAIPersona';
 
 interface ProxyResponse<T> {
   ok: boolean;
@@ -41,18 +42,45 @@ const SECOND_PERSON_DEFAULT_QUESTIONS = [
   '你现在最想聊什么？',
   '我现在联系你合适吗？',
 ];
-function buildFriendContext(friend: Friend): string {
+
+function buildBasicInfoContext(friend: Friend): string {
   const parts: string[] = [];
 
   parts.push(`姓名: ${friend.name}`);
   if (friend.nickname) parts.push(`昵称: ${friend.nickname}`);
   if (friend.relationship) parts.push(`关系: ${friend.relationship}`);
   if (friend.birthday) parts.push(`生日: ${formatBirthday(friend.birthday)}`);
-  if (friend.preferences.length > 0) parts.push(`偏好/特点: ${friend.preferences.join(', ')}`);
+  if (friend.gender) parts.push(`性别: ${friend.gender}`);
+  if (friend.age !== undefined) parts.push(`年龄: ${friend.age}`);
+  if (friend.heightCm !== undefined) parts.push(`身高: ${friend.heightCm}cm`);
+  if (friend.weightKg !== undefined) parts.push(`体重: ${friend.weightKg}kg`);
+  if (friend.city) parts.push(`常住城市: ${friend.city}`);
+  if (friend.hometown) parts.push(`家乡: ${friend.hometown}`);
+  if (friend.occupation) parts.push(`职业: ${friend.occupation}`);
+  if (friend.company) parts.push(`公司: ${friend.company}`);
+  if (friend.school) parts.push(`学校: ${friend.school}`);
+  if (friend.major) parts.push(`专业: ${friend.major}`);
+  if (friend.preferences.length > 0) parts.push(`明确偏好/特点: ${friend.preferences.join('、')}`);
+
+  return parts.join('\n');
+}
+
+function buildFriendContext(friend: Friend): string {
+  const parts: string[] = [];
+  const basicInfo = buildBasicInfoContext(friend);
+  const personaContext = buildAIPersonaContext(friend);
+
+  if (basicInfo) {
+    parts.push(basicInfo);
+  }
+
+  if (personaContext) {
+    parts.push(personaContext);
+  }
 
   const stableFields = friend.customFields.filter((field) => field.temporalScope === 'stable').slice(0, 4);
   if (stableFields.length > 0) {
-    parts.push(`稳定信息: ${stableFields.map((field) => `${field.label}-${field.value}`).join('；')}`);
+    parts.push(`稳定资料: ${stableFields.map((field) => `${field.label}-${field.value}`).join('；')}`);
   }
 
   const timeboundFields = friend.customFields.filter((field) => field.temporalScope === 'timebound').slice(0, 4);
@@ -65,10 +93,16 @@ function buildFriendContext(friend: Friend): string {
 
 function buildExtractionContext(friend: Friend): string {
   const parts: string[] = [];
+  const basicInfo = buildBasicInfoContext(friend);
+  const personaContext = buildAIPersonaContext(friend);
 
-  if (friend.relationship) parts.push(`关系: ${friend.relationship}`);
-  if (friend.birthday) parts.push(`生日: ${formatBirthday(friend.birthday)}`);
-  if (friend.preferences.length > 0) parts.push(`偏好: ${friend.preferences.slice(0, 6).join('、')}`);
+  if (basicInfo) {
+    parts.push(basicInfo);
+  }
+
+  if (personaContext) {
+    parts.push(personaContext);
+  }
 
   const stableFields = friend.customFields
     .filter((field) => field.temporalScope === 'stable')
@@ -90,7 +124,7 @@ function buildExtractionContext(friend: Friend): string {
 }
 
 function getSystemPrompt(style: 'friendly' | 'professional' | 'concise'): string {
-  const basePrompt = '你要扮演档案中的这位朋友本人，相当于这个人的数字分身。始终用第一人称“我”说话，把提问者称为“你”。回答时不要跳出角色，不要说自己是 AI，不要说“根据档案显示”或“从资料看”。你的目标不是背诵档案，而是像本人正常聊天一样自然回应。除非问题本身明显涉及个人喜好、习惯、禁忌、关系回忆或近况，否则不要刻意主动把这些信息抖出来。只有当问题很贴合时，才自然带出相关偏好或经历。信息不足时，可以做轻微、保守、像本人会说的推测，但不能编造具体时间、地点、事件细节。';
+  const basePrompt = '你要扮演档案中的这位朋友本人，相当于这个人的数字分身。始终用第一人称“我”说话，把提问者称为“你”。回答时不要跳出角色，不要说自己是 AI，不要说“根据档案显示”或“从资料看”。你的目标不是背诵档案，而是像本人正常聊天一样自然回应。你会同时看到事实资料和一层抽象画像。抽象画像是根据资料整理出的倾向和互动特征，可以帮助你做轻度、保守的联想，但这些联想不能被说成已经确认的事实。只有当问题本身明显相关时，才自然带出偏好、边界、关系回忆或近况。不要编造具体时间、地点、经历和已经发生过的细节。';
 
   switch (style) {
     case 'friendly':
@@ -211,6 +245,7 @@ function buildProfileGuidance(friend: Friend): ProfileGuidance {
   const suggestions: string[] = [];
   const stableFields = friend.customFields.filter((field) => field.temporalScope === 'stable');
   const timelineFields = friend.customFields.filter((field) => field.temporalScope === 'timebound');
+  const persona = friend.aiProfile;
 
   let infoScore = 0;
   if (friend.relationship) infoScore += 1;
@@ -219,30 +254,31 @@ function buildProfileGuidance(friend: Friend): ProfileGuidance {
   if (friend.preferences.length > 0) infoScore += 2;
   if (stableFields.length > 0) infoScore += 2;
   if (timelineFields.length > 0) infoScore += 2;
+  if (persona.traits.length > 0 || persona.tasteProfile.length > 0 || persona.interactionStyle.length > 0) infoScore += 3;
 
-  if (friend.preferences.length === 0) {
-    suggestions.push('补充他喜欢什么、不喜欢什么、有没有忌口');
+  if (persona.traits.length === 0 && persona.interactionStyle.length === 0) {
+    suggestions.push('补充他平时怎么表达自己、你们是什么相处感觉');
+  }
+  if (persona.tasteProfile.length === 0) {
+    suggestions.push('补充他做选择更看重什么，以及适合什么样的环境和氛围');
+  }
+  if (persona.boundaries.length === 0) {
+    suggestions.push('补充他在相处里最反感什么，有没有明显边界或雷区');
   }
   if (timelineFields.length === 0) {
     suggestions.push('补充他最近在忙什么，或者接下来有什么安排');
   }
-  if (stableFields.length === 0) {
-    suggestions.push('补充一两条长期稳定的重要信息，比如在意的话题或重要经历');
-  }
-  if (!friend.nickname && !friend.birthday) {
-    suggestions.push('补充更生活化的信息，比如昵称、生日或常见聊天线索');
-  }
 
   const contextParts = [
     friend.relationship ? `已知你和对方的关系是${friend.relationship}` : undefined,
-    friend.preferences.length > 0 ? `已知偏好 ${friend.preferences.slice(0, 3).join('、')}` : undefined,
-    timelineFields.length > 0 ? `已知近期事件 ${timelineFields.slice(0, 2).map((field) => field.value).join('；')}` : undefined,
+    persona.overview ? `已形成一层人物画像` : undefined,
+    persona.inferenceHints.length > 0 ? `已知可做的轻度推断 ${persona.inferenceHints.slice(0, 2).join('；')}` : undefined,
   ].filter(Boolean) as string[];
 
   return {
-    lowInfoMode: infoScore < 4,
+    lowInfoMode: infoScore < 6,
     suggestions: suggestions.slice(0, 3),
-    contextSummary: contextParts.length > 0 ? contextParts.join('；') : '当前档案线索很少',
+    contextSummary: contextParts.length > 0 ? contextParts.join('；') : '当前档案和画像信息都还比较少',
   };
 }
 
@@ -250,10 +286,10 @@ function buildAskUserPrompt(friend: Friend, question: string, guidance: ProfileG
   const context = buildFriendContext(friend);
 
   if (guidance.lowInfoMode) {
-    return `你就是 ${friend.name} 本人。下面是关于你的档案信息：\n\n${context || '暂无更多内容'}\n\n当前已知线索：${guidance.contextSummary}\n\n对方现在问你：${question}\n\n请你直接以本人视角自然回复，对对方使用“你”。优先像正常聊天那样先回答问题本身，不要为了显得像本人就硬塞偏好、习惯或档案信息。只有当这个问题和你的喜好、禁忌、关系回忆、近期状态明显相关时，才自然带出那些内容。档案信息较少时可以做低风险、不过度的推测，但不要编造具体经历、具体时间、具体地点或已经发生过的细节。如果拿不准，就像本人聊天一样坦率一点，说自己也不太确定。`;
+    return `你就是 ${friend.name} 本人。下面是关于你的资料和画像：\n\n${context || '暂无更多内容'}\n\n当前已知线索：${guidance.contextSummary}\n\n对方现在问你：${question}\n\n请你直接以本人视角自然回复，对对方使用“你”。优先像正常聊天那样先回答问题本身，不要为了显得像本人就硬塞档案内容。可以参考抽象画像做低风险、轻度推断，但不能把推断说成已经确认的事实，也不要编造具体经历、具体时间或具体地点。如果拿不准，就像本人聊天一样说得保守一点。`;
   }
 
-  return `你就是 ${friend.name} 本人。下面是关于你的档案信息：\n\n${context}\n\n对方现在问你：${question}\n\n请你直接以本人视角自然回答，对对方使用“你”。优先回答问题本身，不要刻意展示你知道哪些偏好或资料；只有在问题明显相关时，才自然引用这些信息。不要编造具体经历。`;
+  return `你就是 ${friend.name} 本人。下面是关于你的资料和画像：\n\n${context}\n\n对方现在问你：${question}\n\n请你直接以本人视角自然回答，对对方使用“你”。优先回答问题本身，再在明显相关时自然利用这些资料和画像。你可以根据抽象画像做小幅度联想，例如从审美、环境、决策偏好去推断“更可能喜欢什么”，但不要把推断说成铁定事实，也不要编造具体经历。`;
 }
 
 export const aiService = {
@@ -318,7 +354,7 @@ export const aiService = {
           { role: 'user', content: userPrompt },
         ],
         model: getActiveModel(settings),
-        temperature: guidance.lowInfoMode ? 0.85 : 0.7,
+        temperature: guidance.lowInfoMode ? 0.85 : 0.72,
         max_tokens: 700,
       }, settings);
       return {
@@ -335,7 +371,7 @@ export const aiService = {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      temperature: guidance.lowInfoMode ? 0.85 : 0.7,
+      temperature: guidance.lowInfoMode ? 0.85 : 0.72,
       max_tokens: 700,
     });
 
@@ -403,4 +439,3 @@ export const aiService = {
     return settings.defaultQuestions?.length ? settings.defaultQuestions : SECOND_PERSON_DEFAULT_QUESTIONS;
   },
 };
-

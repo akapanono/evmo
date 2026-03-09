@@ -188,6 +188,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
 import { useFriendsStore } from '@/stores/friends';
 import type { CustomField, Friend, SemanticType } from '@/types/friend';
 import { formatDate } from '@/utils/dateHelpers';
+import { PROFILE_INTAKE_FIELD_LABELS } from '@/utils/profileIntake';
 
 const route = useRoute();
 const router = useRouter();
@@ -238,7 +239,8 @@ const records = computed(() => {
       (field) => field.temporalScope === 'stable'
         && field.semanticType !== 'preference'
         && field.semanticType !== 'restriction'
-        && !(field.semanticType === 'milestone' && friend.value?.birthday),
+        && !(field.semanticType === 'milestone' && friend.value?.birthday)
+        && !Object.values(PROFILE_INTAKE_FIELD_LABELS).includes(field.label as (typeof PROFILE_INTAKE_FIELD_LABELS)[keyof typeof PROFILE_INTAKE_FIELD_LABELS]),
     )
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 });

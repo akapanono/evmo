@@ -49,6 +49,14 @@
         <article v-if="aiStore.followupSuggestions.length > 0" class="suggestion-card">
           <p class="mini-label">建议补充</p>
           <p v-if="aiStore.lowInfoMode" class="suggestion-lead">这份档案信息还比较少，补充下面这些内容后，AI 会更像这位朋友本人。</p>
+          <button
+            v-if="aiStore.lowInfoMode"
+            type="button"
+            class="action-btn primary intake-link-btn"
+            @click="goToProfileIntake"
+          >
+            进入引导补充
+          </button>
           <div class="suggestion-list">
             <button
               v-for="suggestion in aiStore.followupSuggestions"
@@ -143,6 +151,7 @@ const contextTags = computed(() => {
   if (friend.value.preferences.length > 0) tags.push('偏好');
   if (friend.value.customFields.some((field) => field.temporalScope === 'timebound')) tags.push('事件');
   if (friend.value.customFields.some((field) => field.temporalScope === 'stable')) tags.push('稳定信息');
+  if (friend.value.aiProfile.overview || friend.value.aiProfile.traits.length > 0) tags.push('画像');
   if (friend.value.relationship) tags.push(friend.value.relationship);
 
   return tags.length > 0 ? tags : ['基础档案'];
@@ -199,6 +208,18 @@ function goToSupplementInput(suggestion: string): void {
     name: 'friend-detail',
     params: { id: friend.value.id },
     query: { suggestion },
+  });
+}
+
+function goToProfileIntake(): void {
+  if (!friend.value) {
+    return;
+  }
+
+  router.push({
+    name: 'profile-intake',
+    params: { id: friend.value.id },
+    query: { returnTo: 'ask' },
   });
 }
 
@@ -321,6 +342,10 @@ function goBack(): void {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  margin-top: 12px;
+}
+
+.intake-link-btn {
   margin-top: 12px;
 }
 

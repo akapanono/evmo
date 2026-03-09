@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <section class="app-screen is-active">
     <div class="topbar compact">
       <button class="back-link" type="button" @click="goBack">返回</button>
@@ -9,6 +9,7 @@
     </div>
 
     <article class="form-card">
+      <p class="mini-label">基础身份</p>
       <div class="field-grid">
         <label class="field">
           <span>姓名 *</span>
@@ -25,6 +26,52 @@
         <label class="field">
           <span>生日 (MM-DD)</span>
           <input v-model="form.birthday" type="text" inputmode="numeric" placeholder="例如：03-07" />
+        </label>
+        <label class="field">
+          <span>性别</span>
+          <input v-model="form.gender" type="text" placeholder="例如：男、女、非二元" />
+        </label>
+        <label class="field">
+          <span>年龄</span>
+          <input v-model="ageInput" type="text" inputmode="numeric" placeholder="例如：26" />
+        </label>
+      </div>
+    </article>
+
+    <article class="form-card">
+      <p class="mini-label">更多基础信息</p>
+      <div class="field-grid">
+        <label class="field">
+          <span>身高 (cm)</span>
+          <input v-model="heightInput" type="text" inputmode="decimal" placeholder="例如：178" />
+        </label>
+        <label class="field">
+          <span>体重 (kg)</span>
+          <input v-model="weightInput" type="text" inputmode="decimal" placeholder="例如：68" />
+        </label>
+        <label class="field">
+          <span>常住城市</span>
+          <input v-model="form.city" type="text" placeholder="例如：上海" />
+        </label>
+        <label class="field">
+          <span>家乡</span>
+          <input v-model="form.hometown" type="text" placeholder="例如：杭州" />
+        </label>
+        <label class="field">
+          <span>职业</span>
+          <input v-model="form.occupation" type="text" placeholder="例如：产品经理" />
+        </label>
+        <label class="field">
+          <span>公司</span>
+          <input v-model="form.company" type="text" placeholder="例如：某互联网公司" />
+        </label>
+        <label class="field">
+          <span>学校</span>
+          <input v-model="form.school" type="text" placeholder="例如：复旦大学" />
+        </label>
+        <label class="field">
+          <span>专业</span>
+          <input v-model="form.major" type="text" placeholder="例如：新闻学" />
         </label>
       </div>
     </article>
@@ -57,7 +104,7 @@
       <textarea v-model="supplementInput" rows="5" placeholder="例如：她下周要出差
 他最近在准备考研
 她不吃香菜"></textarea>
-      <p class="field-tip">这里的内容会在保存时自动分发到基础信息、偏好标签、稳定信息和时间线。</p>
+      <p class="field-tip">这里的内容会在保存时自动分发到时间线、偏好和稳定信息里。更抽象的人物画像可以在保存后进入引导补充页继续完善。</p>
     </article>
 
     <p v-if="errors.length > 0" class="error-message">
@@ -114,6 +161,9 @@ const cancelDialogMessage = computed(() =>
 const form = ref<Friend>(createEmptyFriend());
 const preferencesInput = ref('');
 const supplementInput = ref('');
+const ageInput = ref('');
+const heightInput = ref('');
+const weightInput = ref('');
 const initialSnapshot = ref('');
 
 const isDirty = computed(() => buildDraftSnapshot() !== initialSnapshot.value);
@@ -139,6 +189,9 @@ onMounted(async () => {
   };
   preferencesInput.value = existing.preferences.join('，');
   supplementInput.value = '';
+  ageInput.value = existing.age !== undefined ? String(existing.age) : '';
+  heightInput.value = existing.heightCm !== undefined ? String(existing.heightCm) : '';
+  weightInput.value = existing.weightKg !== undefined ? String(existing.weightKg) : '';
   initialSnapshot.value = buildDraftSnapshot();
 });
 
@@ -174,6 +227,24 @@ function normalizeBirthday(value: string | undefined): string | undefined {
   return birthday ? birthday : undefined;
 }
 
+function normalizeNumberInput(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function hasInvalidNumberInput(value: string): boolean {
+  return value.trim().length > 0 && normalizeNumberInput(value) === undefined;
+}
+
+function normalizeTextInput(value: string | undefined): string {
+  return value?.trim() ?? '';
+}
+
 function splitTokens(value: string): string[] {
   return value
     .split(/[，,、；;\n]+/)
@@ -199,9 +270,19 @@ function mergeUnique(values: string[]): string[] {
 function buildDraftSnapshot(): string {
   return JSON.stringify({
     name: form.value.name.trim(),
-    nickname: form.value.nickname?.trim() ?? '',
+    nickname: normalizeTextInput(form.value.nickname),
     relationship: form.value.relationship.trim(),
     birthday: normalizeBirthday(form.value.birthday) ?? '',
+    gender: normalizeTextInput(form.value.gender),
+    age: ageInput.value.trim(),
+    heightCm: heightInput.value.trim(),
+    weightKg: weightInput.value.trim(),
+    city: normalizeTextInput(form.value.city),
+    hometown: normalizeTextInput(form.value.hometown),
+    occupation: normalizeTextInput(form.value.occupation),
+    company: normalizeTextInput(form.value.company),
+    school: normalizeTextInput(form.value.school),
+    major: normalizeTextInput(form.value.major),
     avatarColor: form.value.avatarColor,
     preferences: normalizePreferences(preferencesInput.value),
     supplement: supplementInput.value.trim(),
@@ -279,7 +360,7 @@ function applySupplementToForm(base: Friend, rawSupplement: string): Friend {
     ...base,
     birthday: nextBirthday,
     preferences: mergeUnique(preferencePool),
-    customFields: nextFields.slice(0, 20),
+    customFields: nextFields.slice(0, 30),
     notes: '',
   };
 }
@@ -287,12 +368,37 @@ function applySupplementToForm(base: Friend, rawSupplement: string): Friend {
 async function handleSave(): Promise<void> {
   errors.value = [];
 
+  if (hasInvalidNumberInput(ageInput.value)) {
+    errors.value = [{ field: 'age', message: '年龄需要填写数字。' }];
+    return;
+  }
+
+  if (hasInvalidNumberInput(heightInput.value)) {
+    errors.value = [{ field: 'heightCm', message: '身高需要填写数字。' }];
+    return;
+  }
+
+  if (hasInvalidNumberInput(weightInput.value)) {
+    errors.value = [{ field: 'weightKg', message: '体重需要填写数字。' }];
+    return;
+  }
+
   let nextForm: Friend = {
     ...form.value,
     name: form.value.name.trim(),
-    nickname: form.value.nickname?.trim(),
+    nickname: normalizeTextInput(form.value.nickname),
     relationship: form.value.relationship.trim(),
     birthday: normalizeBirthday(form.value.birthday),
+    gender: normalizeTextInput(form.value.gender),
+    age: normalizeNumberInput(ageInput.value),
+    heightCm: normalizeNumberInput(heightInput.value),
+    weightKg: normalizeNumberInput(weightInput.value),
+    city: normalizeTextInput(form.value.city),
+    hometown: normalizeTextInput(form.value.hometown),
+    occupation: normalizeTextInput(form.value.occupation),
+    company: normalizeTextInput(form.value.company),
+    school: normalizeTextInput(form.value.school),
+    major: normalizeTextInput(form.value.major),
     preferences: normalizePreferences(preferencesInput.value),
     notes: '',
   };
@@ -320,7 +426,11 @@ async function handleSave(): Promise<void> {
 
     const created = await friendsStore.addFriend({ ...nextForm });
     initialSnapshot.value = buildDraftSnapshot();
-    await router.push(`/friend/${created.id}`);
+    await router.push({
+      name: 'profile-intake',
+      params: { id: created.id },
+      query: { from: 'create' },
+    });
   } catch (err) {
     errors.value = [{ field: 'general', message: `保存失败：${(err as Error).message}` }];
   } finally {
