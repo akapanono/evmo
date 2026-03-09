@@ -28,8 +28,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   profilePhone: '',
   profileDeviceName: '当前设备',
   aiAccessMode: 'direct',
-  openaiBaseUrl: 'https://api.openai.com/v1',
-  openaiModel: 'gpt-4o-mini',
+  openaiBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+  openaiModel: 'ep-20260309112425-mwdsp',
   proxyServerUrl: 'http://localhost:8787',
   proxyProviderId: 'openai',
   birthdayReminder: {

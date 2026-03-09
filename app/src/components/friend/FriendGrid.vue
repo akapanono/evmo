@@ -11,7 +11,7 @@
 
     <div v-else class="empty-state">
       <p v-if="isSearching && keyword">没有找到与“{{ keyword }}”相关的朋友。</p>
-      <p v-else>还没有朋友档案，点击右下角按钮先添加一位。</p>
+      <p v-else>还没有档案，点击右下角按钮先添加一位。</p>
     </div>
   </section>
 </template>

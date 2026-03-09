@@ -34,200 +34,184 @@
       </article>
     </div>
 
-    <section v-if="activeSection === 'account'" class="section-block">
-      <div class="section-head">
-        <h3>账号信息</h3>
-      </div>
-
-      <article class="form-card">
-        <div class="field-grid">
-          <label class="field">
-            <span>显示名称</span>
-            <input v-model="profileName" type="text" placeholder="例如：我的账号" />
-          </label>
-
-          <label class="field">
-            <span>手机号</span>
-            <input v-model="profilePhone" type="text" placeholder="仅本地保存，例如：138****1234" />
-            <p class="field-hint">这里只做本地记录，不接真实登录系统。</p>
-          </label>
-
-          <label class="field">
-            <span>设备备注</span>
-            <input v-model="profileDeviceName" type="text" placeholder="例如：Pixel 9 / iPhone 15" />
-          </label>
+    <Transition name="settings-panel" mode="out-in">
+      <section v-if="activeSection" ref="activeSectionPanel" class="section-block settings-panel">
+        <div class="section-head">
+          <h3>{{ panelTitle }}</h3>
         </div>
 
-        <div class="section-actions-row">
-          <button type="button" class="action-btn" @click="closeSection">取消</button>
-          <button type="button" class="action-btn primary" @click="saveAccountSettings">保存</button>
-        </div>
-      </article>
-    </section>
-
-    <section v-if="activeSection === 'reminder'" class="section-block">
-      <div class="section-head">
-        <h3>提醒设置</h3>
-      </div>
-
-      <article class="form-card">
-        <div class="toggle-row">
-          <div>
-            <strong>生日提醒</strong>
-            <p>用于后续接入系统通知时作为默认规则。</p>
-          </div>
-          <label class="switch">
-            <input v-model="birthdayReminderEnabled" type="checkbox" />
-            <span></span>
-          </label>
-        </div>
-
-        <div class="field-grid two-col">
-          <label class="field">
-            <span>提前天数</span>
-            <select v-model.number="birthdayReminderDaysBefore" class="model-select">
-              <option :value="0">当天</option>
-              <option :value="1">提前 1 天</option>
-              <option :value="3">提前 3 天</option>
-              <option :value="7">提前 7 天</option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>提醒时间</span>
-            <input v-model="birthdayReminderTime" type="time" />
-          </label>
-        </div>
-
-        <div class="section-actions-row">
-          <button type="button" class="action-btn" @click="closeSection">取消</button>
-          <button type="button" class="action-btn primary" @click="saveReminderSettings">保存</button>
-        </div>
-      </article>
-    </section>
-
-    <section v-if="activeSection === 'privacy'" class="section-block">
-      <div class="section-head">
-        <h3>隐私与安全</h3>
-      </div>
-
-      <article class="form-card">
-        <div class="toggle-row">
-          <div>
-            <strong>锁屏隐藏</strong>
-            <p>后续接入手机端后，可作为锁屏或切后台时的隐藏策略。</p>
-          </div>
-          <label class="switch">
-            <input v-model="lockScreen" type="checkbox" />
-            <span></span>
-          </label>
-        </div>
-
-        <div class="toggle-row compact-gap">
-          <div>
-            <strong>隐藏敏感信息</strong>
-            <p>开启后，档案中的生日等信息可在后续版本做默认弱化显示。</p>
-          </div>
-          <label class="switch">
-            <input v-model="hideSensitiveInfo" type="checkbox" />
-            <span></span>
-          </label>
-        </div>
-
-        <div class="section-actions-row">
-          <button type="button" class="action-btn" @click="closeSection">取消</button>
-          <button type="button" class="action-btn primary" @click="savePrivacySettings">保存</button>
-        </div>
-      </article>
-    </section>
-
-    <section v-if="activeSection === 'ai'" class="section-block">
-      <div class="section-head">
-        <h3>AI 设置</h3>
-      </div>
-
-      <article class="form-card">
-        <div :class="['connection-status', connectionSummary.configured ? 'connected' : 'disconnected']">
-          <strong>{{ connectionSummary.configured ? '已配置 AI 接入' : '尚未配置 AI 接入' }}</strong>
-          <span>{{ summaryLine }}</span>
-        </div>
-
-        <div class="field-grid">
-          <label class="field">
-            <span>接入方式</span>
-            <select v-model="accessMode" class="model-select">
-              <option value="direct">前端直连</option>
-              <option value="proxy">代理服务</option>
-            </select>
-            <p class="field-hint">测试豆包或其他兼容服务时，两种方式都支持直接填写地址、API Key 和模型。</p>
-          </label>
-
-          <label class="field">
-            <span>API Key</span>
-            <input v-model="apiKey" type="password" placeholder="填你的服务 API Key" />
-            <p class="field-hint warning" v-if="accessMode === 'direct'">当前为前端直连模式，API Key 保存在浏览器本地，只适合测试。</p>
-            <p class="field-hint" v-else>代理模式下，如果不填中转站标识，就会直接使用这里填写的 API Key 转发。</p>
-          </label>
-
-          <label class="field">
-            <span>Base URL</span>
-            <input v-model="baseUrl" type="text" placeholder="例如：https://ark.cn-beijing.volces.com/api/v3" />
-            <p class="field-hint">填写 OpenAI 兼容地址即可，豆包和多数中转站都可这样接。</p>
-          </label>
-
-          <label class="field">
-            <span>模型名</span>
-            <input v-model="model" type="text" placeholder="例如：doubao-1-5-pro-32k-250115" list="model-suggestions" />
-            <datalist id="model-suggestions">
-              <option value="gpt-4o-mini"></option>
-              <option value="gpt-4o"></option>
-              <option value="doubao-1-5-pro-32k-250115"></option>
-              <option value="doubao-1-5-lite-32k-250115"></option>
-              <option value="claude-3-5-sonnet"></option>
-              <option value="gemini-2.0-flash"></option>
-            </datalist>
-          </label>
-
-          <template v-if="accessMode === 'proxy'">
+        <article v-if="activeSection === 'account'" class="form-card">
+          <div class="field-grid">
             <label class="field">
-              <span>代理地址</span>
-              <input v-model="proxyServerUrl" type="text" placeholder="http://localhost:8787" />
-              <p class="field-hint">本地代理默认监听 `http://localhost:8787`。</p>
+              <span>显示名称</span>
+              <input v-model="profileName" type="text" placeholder="例如：我的账号" />
             </label>
 
             <label class="field">
-              <span>中转站标识</span>
-              <input v-model="proxyProviderId" type="text" placeholder="可留空；留空则直接使用上面的 API Key 和 Base URL" />
-              <p class="field-hint">只有在你想使用服务端预置配置时才填写。</p>
+              <span>手机号</span>
+              <input v-model="profilePhone" type="text" placeholder="仅本地保存，例如：138****1234" />
+              <p class="field-hint">这里只做本地记录，不接真实登录系统。</p>
             </label>
-          </template>
 
-          <label class="field">
-            <span>回答风格</span>
-            <select v-model="aiStyle" class="model-select">
-              <option value="friendly">亲切友好</option>
-              <option value="professional">专业周到</option>
-              <option value="concise">简洁直接</option>
-            </select>
-          </label>
-        </div>
+            <label class="field">
+              <span>设备备注</span>
+              <input v-model="profileDeviceName" type="text" placeholder="例如：Pixel 9 / iPhone 15" />
+            </label>
+          </div>
 
-        <div class="section-actions-row">
-          <button type="button" class="action-btn" @click="closeSection">取消</button>
-          <button type="button" class="action-btn" @click="testConnection" :disabled="testing || !canTestConnection">
-            {{ testing ? '测试中...' : '测试连接' }}
-          </button>
-          <button type="button" class="action-btn primary" @click="saveAISettings">保存</button>
-        </div>
+          <div class="section-actions-row">
+            <button type="button" class="action-btn" @click="closeSection">取消</button>
+            <button type="button" class="action-btn primary" @click="saveAccountSettings">保存</button>
+          </div>
+        </article>
 
-        <p v-if="testResult" :class="['test-result', testResult.success ? 'success' : 'error']">{{ testResult.message }}</p>
-      </article>
-    </section>
+        <article v-else-if="activeSection === 'reminder'" class="form-card">
+          <div class="toggle-row">
+            <div>
+              <strong>生日提醒</strong>
+              <p>用于后续接入系统通知时作为默认规则。</p>
+            </div>
+            <label class="switch">
+              <input v-model="birthdayReminderEnabled" type="checkbox" />
+              <span></span>
+            </label>
+          </div>
+
+          <div class="field-grid two-col">
+            <label class="field">
+              <span>提前天数</span>
+              <select v-model.number="birthdayReminderDaysBefore" class="model-select">
+                <option :value="0">当天</option>
+                <option :value="1">提前 1 天</option>
+                <option :value="3">提前 3 天</option>
+                <option :value="7">提前 7 天</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>提醒时间</span>
+              <input v-model="birthdayReminderTime" type="time" />
+            </label>
+          </div>
+
+          <div class="section-actions-row">
+            <button type="button" class="action-btn" @click="closeSection">取消</button>
+            <button type="button" class="action-btn primary" @click="saveReminderSettings">保存</button>
+          </div>
+        </article>
+
+        <article v-else-if="activeSection === 'privacy'" class="form-card">
+          <div class="toggle-row">
+            <div>
+              <strong>锁屏隐藏</strong>
+              <p>后续接入手机端后，可作为锁屏或切后台时的隐藏策略。</p>
+            </div>
+            <label class="switch">
+              <input v-model="lockScreen" type="checkbox" />
+              <span></span>
+            </label>
+          </div>
+
+          <div class="toggle-row compact-gap">
+            <div>
+              <strong>隐藏敏感信息</strong>
+              <p>开启后，档案中的生日等信息可在后续版本做默认弱化显示。</p>
+            </div>
+            <label class="switch">
+              <input v-model="hideSensitiveInfo" type="checkbox" />
+              <span></span>
+            </label>
+          </div>
+
+          <div class="section-actions-row">
+            <button type="button" class="action-btn" @click="closeSection">取消</button>
+            <button type="button" class="action-btn primary" @click="savePrivacySettings">保存</button>
+          </div>
+        </article>
+
+        <article v-else class="form-card">
+          <div :class="['connection-status', connectionSummary.configured ? 'connected' : 'disconnected']">
+            <strong>{{ connectionSummary.configured ? '已配置 AI 接入' : '尚未配置 AI 接入' }}</strong>
+            <span>{{ summaryLine }}</span>
+          </div>
+
+          <div class="field-grid">
+            <label class="field">
+              <span>接入方式</span>
+              <select v-model="accessMode" class="model-select">
+                <option value="direct">前端直连</option>
+                <option value="proxy">代理服务</option>
+              </select>
+              <p class="field-hint">测试豆包或其他兼容服务时，两种方式都支持直接填写地址、API Key 和模型。</p>
+            </label>
+
+            <label class="field">
+              <span>API Key</span>
+              <input v-model="apiKey" type="password" placeholder="填你的服务 API Key" />
+              <p v-if="accessMode === 'direct'" class="field-hint warning">当前为前端直连模式，API Key 保存在浏览器本地，只适合测试。</p>
+              <p v-else class="field-hint">代理模式下，如果不填中转站标识，就会直接使用这里填写的 API Key 转发。</p>
+            </label>
+
+            <label class="field">
+              <span>Base URL</span>
+              <input v-model="baseUrl" type="text" placeholder="例如：https://ark.cn-beijing.volces.com/api/v3" />
+              <p class="field-hint">填写 OpenAI 兼容地址即可，豆包和多数中转站都可这样接。</p>
+            </label>
+
+            <label class="field">
+              <span>模型名</span>
+              <input v-model="model" type="text" placeholder="例如：doubao-1-5-pro-32k-250115" list="model-suggestions" />
+              <datalist id="model-suggestions">
+                <option value="gpt-4o-mini"></option>
+                <option value="gpt-4o"></option>
+                <option value="doubao-1-5-pro-32k-250115"></option>
+                <option value="doubao-1-5-lite-32k-250115"></option>
+                <option value="claude-3-5-sonnet"></option>
+                <option value="gemini-2.0-flash"></option>
+              </datalist>
+            </label>
+
+            <template v-if="accessMode === 'proxy'">
+              <label class="field">
+                <span>代理地址</span>
+                <input v-model="proxyServerUrl" type="text" placeholder="http://localhost:8787" />
+                <p class="field-hint">本地代理默认监听 `http://localhost:8787`。</p>
+              </label>
+
+              <label class="field">
+                <span>中转站标识</span>
+                <input v-model="proxyProviderId" type="text" placeholder="可留空；留空则直接使用上面的 API Key 和 Base URL" />
+                <p class="field-hint">只有在你想使用服务端预置配置时才填写。</p>
+              </label>
+            </template>
+
+            <label class="field">
+              <span>回答风格</span>
+              <select v-model="aiStyle" class="model-select">
+                <option value="friendly">亲切友好</option>
+                <option value="professional">专业周到</option>
+                <option value="concise">简洁直接</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="section-actions-row">
+            <button type="button" class="action-btn" @click="closeSection">取消</button>
+            <button type="button" class="action-btn" @click="testConnection" :disabled="testing || !canTestConnection">
+              {{ testing ? '测试中...' : '测试连接' }}
+            </button>
+            <button type="button" class="action-btn primary" @click="saveAISettings">保存</button>
+          </div>
+
+          <p v-if="testResult" :class="['test-result', testResult.success ? 'success' : 'error']">{{ testResult.message }}</p>
+        </article>
+      </section>
+    </Transition>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import Avatar from '@/components/common/Avatar.vue';
 import { aiService } from '@/services/aiService';
 import { useSettingsStore } from '@/stores/settings';
@@ -235,15 +219,18 @@ import { useSettingsStore } from '@/stores/settings';
 const settingsStore = useSettingsStore();
 
 const activeSection = ref<'account' | 'reminder' | 'privacy' | 'ai' | null>(null);
+const DEFAULT_AI_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3';
+const DEFAULT_AI_MODEL = 'ep-20260309112425-mwdsp';
 const accessMode = ref<'direct' | 'proxy'>('direct');
 const apiKey = ref('');
-const baseUrl = ref('https://api.openai.com/v1');
+const baseUrl = ref(DEFAULT_AI_BASE_URL);
 const proxyServerUrl = ref('http://localhost:8787');
 const proxyProviderId = ref('');
-const model = ref('gpt-4o-mini');
+const model = ref(DEFAULT_AI_MODEL);
 const aiStyle = ref<'friendly' | 'professional' | 'concise'>('friendly');
 const testing = ref(false);
 const testResult = ref<{ success: boolean; message: string } | null>(null);
+const activeSectionPanel = ref<HTMLElement | null>(null);
 
 const profileName = ref('');
 const profilePhone = ref('');
@@ -254,7 +241,22 @@ const birthdayReminderTime = ref('09:00');
 const lockScreen = ref(false);
 const hideSensitiveInfo = ref(false);
 
-const connectionSummary = computed(() => aiService.getConnectionSummary());
+const connectionSummary = computed(() => {
+  const settings = settingsStore.settings;
+  const modelName = settings.openaiModel?.trim() || DEFAULT_AI_MODEL;
+  const directBaseUrl = settings.openaiBaseUrl?.trim() || DEFAULT_AI_BASE_URL;
+  const proxyBaseUrl = settings.proxyServerUrl?.trim() || 'http://localhost:8787';
+
+  return {
+    configured: settings.aiAccessMode === 'proxy'
+      ? Boolean(proxyBaseUrl && directBaseUrl && settings.openaiApiKey && modelName)
+      : Boolean(settings.openaiApiKey),
+    mode: settings.aiAccessMode,
+    baseUrl: settings.aiAccessMode === 'proxy' ? proxyBaseUrl : directBaseUrl,
+    model: modelName,
+    providerId: settings.proxyProviderId,
+  };
+});
 const summaryLine = computed(() => {
   if (connectionSummary.value.mode === 'proxy') {
     const provider = connectionSummary.value.providerId?.trim() || '前端填写配置';
@@ -286,6 +288,20 @@ const privacySummary = computed(() => {
   if (settingsStore.settings.hideSensitiveInfo) labels.push('隐藏敏感信息');
   return labels.length > 0 ? labels.join(' · ') : '当前为标准显示';
 });
+const panelTitle = computed(() => {
+  switch (activeSection.value) {
+    case 'account':
+      return '账号信息';
+    case 'reminder':
+      return '提醒设置';
+    case 'privacy':
+      return '隐私与安全';
+    case 'ai':
+      return 'AI 设置';
+    default:
+      return '';
+  }
+});
 const canTestConnection = computed(() => {
   if (!apiKey.value.trim() || !baseUrl.value.trim() || !model.value.trim()) {
     return false;
@@ -313,17 +329,19 @@ function loadAllSettings(): void {
   hideSensitiveInfo.value = settingsStore.settings.hideSensitiveInfo;
   accessMode.value = settingsStore.settings.aiAccessMode;
   apiKey.value = settingsStore.settings.openaiApiKey || '';
-  baseUrl.value = settingsStore.settings.openaiBaseUrl || 'https://api.openai.com/v1';
+  baseUrl.value = settingsStore.settings.openaiBaseUrl || DEFAULT_AI_BASE_URL;
   proxyServerUrl.value = settingsStore.settings.proxyServerUrl || 'http://localhost:8787';
   proxyProviderId.value = settingsStore.settings.proxyProviderId || '';
-  model.value = settingsStore.settings.openaiModel;
+  model.value = settingsStore.settings.openaiModel || DEFAULT_AI_MODEL;
   aiStyle.value = settingsStore.settings.aiStyle;
 }
 
-function openSection(section: 'account' | 'reminder' | 'privacy' | 'ai'): void {
+async function openSection(section: 'account' | 'reminder' | 'privacy' | 'ai'): Promise<void> {
   activeSection.value = section;
   loadAllSettings();
   testResult.value = null;
+  await nextTick();
+  activeSectionPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function closeSection(): void {
@@ -369,7 +387,7 @@ async function testConnection(): Promise<void> {
       aiAccessMode: accessMode.value,
       openaiApiKey: apiKey.value || undefined,
       openaiBaseUrl: baseUrl.value.trim() || undefined,
-      openaiModel: model.value.trim() || 'gpt-4o-mini',
+      openaiModel: model.value.trim() || DEFAULT_AI_MODEL,
       proxyServerUrl: proxyServerUrl.value.trim() || undefined,
       proxyProviderId: proxyProviderId.value.trim() || undefined,
     });
@@ -389,7 +407,7 @@ function saveAISettings(): void {
     aiAccessMode: accessMode.value,
     openaiApiKey: apiKey.value || undefined,
     openaiBaseUrl: baseUrl.value.trim() || undefined,
-    openaiModel: model.value.trim() || 'gpt-4o-mini',
+    openaiModel: model.value.trim() || DEFAULT_AI_MODEL,
     proxyServerUrl: proxyServerUrl.value.trim() || undefined,
     proxyProviderId: proxyProviderId.value.trim() || undefined,
     aiStyle: aiStyle.value,
@@ -401,6 +419,21 @@ function saveAISettings(): void {
 <style scoped>
 .settings-list article {
   cursor: pointer;
+}
+
+.settings-panel {
+  margin-top: 18px;
+}
+
+.settings-panel-enter-active,
+.settings-panel-leave-active {
+  transition: opacity 180ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.settings-panel-enter-from,
+.settings-panel-leave-to {
+  opacity: 0;
+  transform: translateY(18px);
 }
 
 .model-select {

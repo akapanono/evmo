@@ -70,12 +70,25 @@
         {{ saving ? '保存中...' : '保存' }}
       </button>
     </div>
+
+    <ConfirmDialog
+      :open="showCancelDialog"
+      eyebrow="取消编辑"
+      title="放弃这次修改？"
+      :message="cancelDialogMessage"
+      confirm-text="放弃"
+      cancel-text="继续编辑"
+      :danger="true"
+      @confirm="confirmLeave"
+      @cancel="showCancelDialog = false"
+    />
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
 import { useFriendsStore } from '@/stores/friends';
 import { AVATAR_COLORS, createEmptyFriend } from '@/types/friend';
 import type { AvatarColor, Friend, CustomField } from '@/types/friend';
@@ -90,18 +103,26 @@ const friendsStore = useFriendsStore();
 const colors: AvatarColor[] = AVATAR_COLORS;
 const saving = ref(false);
 const errors = ref<ValidationError[]>([]);
+const showCancelDialog = ref(false);
 
 const friendId = computed(() => route.params.id as string | undefined);
 const isEdit = computed(() => Boolean(friendId.value));
+const cancelDialogMessage = computed(() =>
+  isEdit.value ? '你还没有保存当前修改，离开后这次编辑会丢失。' : '你还没有保存这份档案，离开后当前填写内容会丢失。',
+);
 
 const form = ref<Friend>(createEmptyFriend());
 const preferencesInput = ref('');
 const supplementInput = ref('');
+const initialSnapshot = ref('');
+
+const isDirty = computed(() => buildDraftSnapshot() !== initialSnapshot.value);
 
 onMounted(async () => {
   await friendsStore.loadFriends();
 
   if (!isEdit.value || !friendId.value) {
+    initialSnapshot.value = buildDraftSnapshot();
     return;
   }
 
@@ -118,15 +139,34 @@ onMounted(async () => {
   };
   preferencesInput.value = existing.preferences.join('，');
   supplementInput.value = '';
+  initialSnapshot.value = buildDraftSnapshot();
 });
 
 function goBack(): void {
+  if (saving.value) {
+    return;
+  }
+
+  if (isDirty.value) {
+    showCancelDialog.value = true;
+    return;
+  }
+
+  leaveCurrentPage();
+}
+
+function leaveCurrentPage(): void {
   if (isEdit.value && friendId.value) {
     router.push(`/friend/${friendId.value}`);
     return;
   }
 
   router.push('/');
+}
+
+function confirmLeave(): void {
+  showCancelDialog.value = false;
+  leaveCurrentPage();
 }
 
 function normalizeBirthday(value: string | undefined): string | undefined {
@@ -154,6 +194,28 @@ function parseSupplementLines(value: string): string[] {
 
 function mergeUnique(values: string[]): string[] {
   return Array.from(new Set(values.map((item) => item.trim()).filter(Boolean)));
+}
+
+function buildDraftSnapshot(): string {
+  return JSON.stringify({
+    name: form.value.name.trim(),
+    nickname: form.value.nickname?.trim() ?? '',
+    relationship: form.value.relationship.trim(),
+    birthday: normalizeBirthday(form.value.birthday) ?? '',
+    avatarColor: form.value.avatarColor,
+    preferences: normalizePreferences(preferencesInput.value),
+    supplement: supplementInput.value.trim(),
+    customFields: form.value.customFields
+      .map((field) => ({
+        label: field.label.trim(),
+        value: field.value.trim(),
+        includeInTimeline: field.includeInTimeline,
+        semanticType: field.semanticType,
+        temporalScope: field.temporalScope,
+        eventTimeText: field.eventTimeText?.trim() ?? '',
+      }))
+      .sort((a, b) => `${a.label}${a.value}`.localeCompare(`${b.label}${b.value}`)),
+  });
 }
 
 function buildCustomFieldRecord(field: CustomField | Omit<CustomField, 'id' | 'createdAt'>, createdAt: string): CustomField {
@@ -251,11 +313,13 @@ async function handleSave(): Promise<void> {
   try {
     if (isEdit.value && friendId.value) {
       await friendsStore.updateFriend(friendId.value, nextForm);
+      initialSnapshot.value = buildDraftSnapshot();
       await router.push(`/friend/${friendId.value}`);
       return;
     }
 
     const created = await friendsStore.addFriend({ ...nextForm });
+    initialSnapshot.value = buildDraftSnapshot();
     await router.push(`/friend/${created.id}`);
   } catch (err) {
     errors.value = [{ field: 'general', message: `保存失败：${(err as Error).message}` }];

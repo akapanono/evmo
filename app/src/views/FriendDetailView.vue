@@ -190,6 +190,18 @@
         {{ deleting ? '删除中...' : '删除朋友' }}
       </button>
     </div>
+
+    <ConfirmDialog
+      :open="confirmState.open"
+      :eyebrow="confirmState.eyebrow"
+      :title="confirmState.title"
+      :message="confirmState.message"
+      :confirm-text="confirmState.confirmText"
+      :cancel-text="confirmState.cancelText"
+      :danger="confirmState.danger"
+      @confirm="runConfirmedAction"
+      @cancel="closeConfirmDialog"
+    />
   </section>
 
   <section v-else class="app-screen is-active">
@@ -216,6 +228,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import Avatar from '@/components/common/Avatar.vue';
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
 import InfoRow from '@/components/friend/InfoRow.vue';
 import { useFriendsStore } from '@/stores/friends';
 import { aiService } from '@/services/aiService';
@@ -240,6 +253,16 @@ const editingFieldId = ref<string | null>(null);
 const busyFieldId = ref<string | null>(null);
 const preferenceEditMode = ref(false);
 const busyPreferenceValue = ref<string | null>(null);
+const confirmState = ref({
+  open: false,
+  eyebrow: '提示',
+  title: '',
+  message: '',
+  confirmText: '确认',
+  cancelText: '取消',
+  danger: false,
+});
+let pendingConfirmAction: (() => void | Promise<void>) | null = null;
 const stablePreviewLimit = 3;
 const timelinePreviewLimit = 3;
 const fieldDraft = ref({
@@ -549,6 +572,41 @@ function cancelEditField(): void {
   };
 }
 
+function openConfirmDialog(options: {
+  eyebrow: string;
+  title: string;
+  message: string;
+  confirmText: string;
+  cancelText?: string;
+  danger?: boolean;
+  onConfirm: () => void | Promise<void>;
+}): void {
+  pendingConfirmAction = options.onConfirm;
+  confirmState.value = {
+    open: true,
+    eyebrow: options.eyebrow,
+    title: options.title,
+    message: options.message,
+    confirmText: options.confirmText,
+    cancelText: options.cancelText ?? '取消',
+    danger: options.danger ?? false,
+  };
+}
+
+function closeConfirmDialog(): void {
+  confirmState.value.open = false;
+  pendingConfirmAction = null;
+}
+
+async function runConfirmedAction(): Promise<void> {
+  const action = pendingConfirmAction;
+  closeConfirmDialog();
+
+  if (action) {
+    await action();
+  }
+}
+
 async function saveFieldEdit(fieldId: string): Promise<void> {
   if (!friend.value || !fieldDraft.value.value.trim()) {
     return;
@@ -595,30 +653,35 @@ async function removeField(fieldId: string): Promise<void> {
     return;
   }
 
-  const confirmed = window.confirm('确认删除这条记录吗？');
-  if (!confirmed) {
-    return;
-  }
+  openConfirmDialog({
+    eyebrow: '删除记录',
+    title: '确认删除这条记录？',
+    message: '删除后不会保留到时间线或补充信息中。',
+    confirmText: '删除',
+    cancelText: '保留',
+    danger: true,
+    onConfirm: async () => {
+      busyFieldId.value = fieldId;
+      supplementMessage.value = '';
+      supplementError.value = '';
 
-  busyFieldId.value = fieldId;
-  supplementMessage.value = '';
-  supplementError.value = '';
-
-  try {
-    const currentId = friend.value.id;
-    const nextFields = friend.value.customFields.filter((field) => field.id !== fieldId);
-    await friendsStore.updateFriend(currentId, { customFields: nextFields });
-    await refreshCurrentFriend(currentId);
-    supplementMessage.value = '记录已删除。';
-    if (editingFieldId.value === fieldId) {
-      cancelEditField();
-    } else {
-      busyFieldId.value = null;
-    }
-  } catch (err) {
-    supplementError.value = `删除失败：${(err as Error).message}`;
-    busyFieldId.value = null;
-  }
+      try {
+        const currentId = friend.value!.id;
+        const nextFields = friend.value!.customFields.filter((field) => field.id !== fieldId);
+        await friendsStore.updateFriend(currentId, { customFields: nextFields });
+        await refreshCurrentFriend(currentId);
+        supplementMessage.value = '记录已删除。';
+        if (editingFieldId.value === fieldId) {
+          cancelEditField();
+        } else {
+          busyFieldId.value = null;
+        }
+      } catch (err) {
+        supplementError.value = `删除失败：${(err as Error).message}`;
+        busyFieldId.value = null;
+      }
+    },
+  });
 }
 
 async function handleDelete(): Promise<void> {
@@ -626,19 +689,24 @@ async function handleDelete(): Promise<void> {
     return;
   }
 
-  const confirmed = window.confirm(`确认删除 ${friend.value.name} 的档案吗？此操作不可撤销。`);
-  if (!confirmed) {
-    return;
-  }
+  openConfirmDialog({
+    eyebrow: '删除档案',
+    title: `确认删除 ${friend.value.name} 的档案？`,
+    message: '此操作不可撤销，相关补充信息和时间线也会一起删除。',
+    confirmText: '删除档案',
+    cancelText: '取消',
+    danger: true,
+    onConfirm: async () => {
+      deleting.value = true;
 
-  deleting.value = true;
-
-  try {
-    await friendsStore.deleteFriend(friend.value.id);
-    await router.push('/');
-  } finally {
-    deleting.value = false;
-  }
+      try {
+        await friendsStore.deleteFriend(friend.value!.id);
+        await router.push('/');
+      } finally {
+        deleting.value = false;
+      }
+    },
+  });
 }
 </script>
 
@@ -710,23 +778,31 @@ async function handleDelete(): Promise<void> {
 .editable-tag {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 2px 0 0;
+  gap: 8px;
+  padding: 4px 6px 4px 0;
   border-radius: 999px;
   background: rgba(29, 40, 49, 0.06);
 }
 
 .editable-tag > span {
-  padding: 9px 14px;
+  padding: 9px 10px 9px 14px;
 }
 
 .tag-remove-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
   border: 0;
-  background: transparent;
-  color: #a63a3a;
-  font-size: 16px;
+  background: rgba(29, 40, 49, 0.1);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
   line-height: 1;
-  padding: 0 10px 0 0;
+  padding: 0;
+  flex: 0 0 auto;
 }
 
 .custom-field-row {

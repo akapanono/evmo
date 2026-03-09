@@ -8,7 +8,7 @@
           'has-floating-action': showFloatingAction,
         },
       ]"
-      aria-label="朋友档案应用界面"
+      aria-label="记得我应用界面"
     >
       <router-view v-slot="{ Component }">
         <Transition name="screen-slide" mode="out-in" appear>
@@ -16,18 +16,12 @@
         </Transition>
       </router-view>
 
-      <Transition name="overlay-fade" appear>
+      <Transition name="floating-switch" mode="out-in" appear>
         <FloatingButton
-          v-if="showAddButton"
-          @click="navigateToAdd"
-        />
-      </Transition>
-
-      <Transition name="overlay-fade" appear>
-        <FloatingButton
-          v-if="showAskButton"
-          :is-ask="true"
-          @click="navigateToAsk"
+          v-if="floatingAction"
+          :key="floatingAction"
+          :is-ask="floatingAction === 'ask'"
+          @click="handleFloatingAction"
         />
       </Transition>
 
@@ -54,9 +48,18 @@ const mainTabs = new Set(['/', '/me']);
 let removeBackButtonListener: (() => Promise<void>) | null = null;
 
 const showBottomNav = computed(() => mainTabs.has(route.path));
-const showAddButton = computed(() => route.path === '/');
-const showAskButton = computed(() => route.path.startsWith('/friend/') && !route.path.includes('/ask'));
-const showFloatingAction = computed(() => showAddButton.value || showAskButton.value);
+const floatingAction = computed<'add' | 'ask' | null>(() => {
+  if (route.path === '/') {
+    return 'add';
+  }
+
+  if (route.path.startsWith('/friend/') && !route.path.includes('/ask')) {
+    return 'ask';
+  }
+
+  return null;
+});
+const showFloatingAction = computed(() => Boolean(floatingAction.value));
 
 function navigateToAdd(): void {
   router.push('/add');
@@ -67,6 +70,15 @@ function navigateToAsk(): void {
   if (friendId) {
     router.push(`/friend/${friendId}/ask`);
   }
+}
+
+function handleFloatingAction(): void {
+  if (floatingAction.value === 'ask') {
+    navigateToAsk();
+    return;
+  }
+
+  navigateToAdd();
 }
 
 async function bindNativeBackButton(): Promise<void> {
@@ -122,14 +134,18 @@ onUnmounted(() => {
   transform: translateY(-10px) scale(1.004);
 }
 
-.overlay-fade-enter-active,
-.overlay-fade-leave-active {
-  transition: opacity 220ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+.floating-switch-enter-active,
+.floating-switch-leave-active {
+  transition: opacity 220ms ease, transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.overlay-fade-enter-from,
-.overlay-fade-leave-to {
+.floating-switch-enter-from {
   opacity: 0;
-  transform: translateY(12px);
+  transform: translateX(-50%) translateY(18px) scale(0.92);
+}
+
+.floating-switch-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(34px) scale(0.82);
 }
 </style>

@@ -4,18 +4,18 @@
       <div class="topbar">
         <div>
           <p class="eyebrow">首页</p>
-          <h1>朋友档案</h1>
+          <h1 class="brand-title">记得我</h1>
         </div>
       </div>
 
-      <label class="search-box">
+      <div class="search-box">
         <input
           v-model="searchQuery"
           type="text"
           placeholder="搜索姓名、昵称、关系、偏好或备注"
           @input="handleSearch"
         />
-      </label>
+      </div>
 
       <section class="section-block">
         <div class="section-head">
@@ -50,7 +50,7 @@
 
         <div v-else class="empty-state-card compact-empty">
           <h2 v-if="isSearching && searchQuery.trim()">没有找到相关朋友</h2>
-          <h2 v-else>还没有朋友档案</h2>
+          <h2 v-else>还没有档案</h2>
           <p v-if="isSearching && searchQuery.trim()">试试换一个关键词，或者检查输入内容。</p>
           <p v-else>点击底部中间的加号，先添加第一位朋友。</p>
         </div>
@@ -116,6 +116,17 @@ function isFriendBirthdayToday(birthday: string | undefined): boolean {
   width: 100%;
   max-width: 100%;
   margin: 0 auto;
+}
+
+.home-content > .search-box {
+  width: 100%;
+  margin: 0;
+}
+
+.brand-title {
+  color: #26404a;
+  letter-spacing: 0.03em;
+  text-shadow: 0 8px 18px rgba(38, 64, 74, 0.06);
 }
 
 .compact-empty {

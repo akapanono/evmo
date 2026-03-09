@@ -150,6 +150,18 @@
         <p>{{ emptyText }}</p>
       </article>
     </template>
+
+    <ConfirmDialog
+      :open="confirmState.open"
+      :eyebrow="confirmState.eyebrow"
+      :title="confirmState.title"
+      :message="confirmState.message"
+      :confirm-text="confirmState.confirmText"
+      :cancel-text="confirmState.cancelText"
+      :danger="confirmState.danger"
+      @confirm="runConfirmedAction"
+      @cancel="closeConfirmDialog"
+    />
   </section>
 
   <section v-else class="app-screen is-active">
@@ -172,6 +184,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
 import { useFriendsStore } from '@/stores/friends';
 import type { CustomField, Friend, SemanticType } from '@/types/friend';
 import { formatDate } from '@/utils/dateHelpers';
@@ -187,6 +200,16 @@ const busyFieldId = ref<string | null>(null);
 const editingPreferenceValue = ref<string | null>(null);
 const busyPreferenceValue = ref<string | null>(null);
 const preferenceDraft = ref('');
+const confirmState = ref({
+  open: false,
+  eyebrow: '提示',
+  title: '',
+  message: '',
+  confirmText: '确认',
+  cancelText: '取消',
+  danger: false,
+});
+let pendingConfirmAction: (() => void | Promise<void>) | null = null;
 const fieldDraft = ref({
   label: '',
   value: '',
@@ -277,6 +300,41 @@ function cancelPreferenceEdit(): void {
   preferenceDraft.value = '';
 }
 
+function openConfirmDialog(options: {
+  eyebrow: string;
+  title: string;
+  message: string;
+  confirmText: string;
+  cancelText?: string;
+  danger?: boolean;
+  onConfirm: () => void | Promise<void>;
+}): void {
+  pendingConfirmAction = options.onConfirm;
+  confirmState.value = {
+    open: true,
+    eyebrow: options.eyebrow,
+    title: options.title,
+    message: options.message,
+    confirmText: options.confirmText,
+    cancelText: options.cancelText ?? '取消',
+    danger: options.danger ?? false,
+  };
+}
+
+function closeConfirmDialog(): void {
+  confirmState.value.open = false;
+  pendingConfirmAction = null;
+}
+
+async function runConfirmedAction(): Promise<void> {
+  const action = pendingConfirmAction;
+  closeConfirmDialog();
+
+  if (action) {
+    await action();
+  }
+}
+
 async function refreshCurrentFriend(id: string): Promise<void> {
   await friendsStore.loadFriends();
   friend.value = friendsStore.friends.find((item) => item.id === id) ?? null;
@@ -325,30 +383,35 @@ async function removeField(fieldId: string): Promise<void> {
     return;
   }
 
-  const confirmed = window.confirm('确认删除这条记录吗？');
-  if (!confirmed) {
-    return;
-  }
+  openConfirmDialog({
+    eyebrow: '删除记录',
+    title: '确认删除这条记录？',
+    message: '删除后不会出现在当前完整列表中。',
+    confirmText: '删除',
+    cancelText: '保留',
+    danger: true,
+    onConfirm: async () => {
+      busyFieldId.value = fieldId;
+      message.value = '';
+      error.value = '';
 
-  busyFieldId.value = fieldId;
-  message.value = '';
-  error.value = '';
-
-  try {
-    const currentId = friend.value.id;
-    const nextFields = friend.value.customFields.filter((field) => field.id !== fieldId);
-    await friendsStore.updateFriend(currentId, { customFields: nextFields });
-    await refreshCurrentFriend(currentId);
-    message.value = '记录已删除。';
-    if (editingFieldId.value === fieldId) {
-      cancelEditField();
-    } else {
-      busyFieldId.value = null;
-    }
-  } catch (err) {
-    error.value = `删除失败：${(err as Error).message}`;
-    busyFieldId.value = null;
-  }
+      try {
+        const currentId = friend.value!.id;
+        const nextFields = friend.value!.customFields.filter((field) => field.id !== fieldId);
+        await friendsStore.updateFriend(currentId, { customFields: nextFields });
+        await refreshCurrentFriend(currentId);
+        message.value = '记录已删除。';
+        if (editingFieldId.value === fieldId) {
+          cancelEditField();
+        } else {
+          busyFieldId.value = null;
+        }
+      } catch (err) {
+        error.value = `删除失败：${(err as Error).message}`;
+        busyFieldId.value = null;
+      }
+    },
+  });
 }
 
 async function savePreferenceEdit(previousValue: string): Promise<void> {
@@ -580,12 +643,19 @@ function goBack(): void {
 }
 
 .tag-remove-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
   border: 0;
-  background: transparent;
-  color: #b42318;
-  font-size: 18px;
+  background: rgba(29, 40, 49, 0.1);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
   line-height: 1;
-  padding: 0 6px;
+  padding: 0;
 }
 
 .inline-tag {

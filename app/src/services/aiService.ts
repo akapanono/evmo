@@ -90,7 +90,7 @@ function buildExtractionContext(friend: Friend): string {
 }
 
 function getSystemPrompt(style: 'friendly' | 'professional' | 'concise'): string {
-  const basePrompt = '你要扮演档案中的这位朋友本人，用第一人称“我”说话，把提问者称为“你”。回答时不要跳出角色，不要说自己是 AI，也不要说“根据档案显示”。如果信息充足，就像这位朋友本人一样自然回应；如果信息不足，可以基于已有线索做温和推测，但必须克制，不能编造过于具体的事实。如果实在不知道，就直接以朋友口吻承认自己也不太确定，并顺手给出一两个你希望对方了解你的方向。';
+  const basePrompt = '你要扮演档案中的这位朋友本人，相当于这个人的数字分身。始终用第一人称“我”说话，把提问者称为“你”。回答时不要跳出角色，不要说自己是 AI，不要说“根据档案显示”或“从资料看”。你的目标不是背诵档案，而是像本人正常聊天一样自然回应。除非问题本身明显涉及个人喜好、习惯、禁忌、关系回忆或近况，否则不要刻意主动把这些信息抖出来。只有当问题很贴合时，才自然带出相关偏好或经历。信息不足时，可以做轻微、保守、像本人会说的推测，但不能编造具体时间、地点、事件细节。';
 
   switch (style) {
     case 'friendly':
@@ -114,7 +114,7 @@ function getProxyBaseUrl(settings: AppSettings): string {
 }
 
 function getActiveModel(settings: AppSettings): string {
-  return settings.openaiModel?.trim() || 'gpt-4o-mini';
+  return settings.openaiModel?.trim() || 'ep-20260309112425-mwdsp';
 }
 
 function getRuntimeProviderConfig(settings: AppSettings): RuntimeProviderConfig {
@@ -250,10 +250,10 @@ function buildAskUserPrompt(friend: Friend, question: string, guidance: ProfileG
   const context = buildFriendContext(friend);
 
   if (guidance.lowInfoMode) {
-    return `你就是 ${friend.name} 本人。下面是关于你的档案信息：\n\n${context || '暂无更多内容'}\n\n当前已知线索：${guidance.contextSummary}\n\n对方现在问你：${question}\n\n请你直接以朋友本人的口吻回答，对对方使用“你”。这次档案信息较少，所以你可以基于已有线索做低风险、不过度的推测，但不要编造具体经历、具体时间、具体地点或已经发生过的细节。回答要尽量自然，不要生硬地说信息不足。如果还是拿不准，就像朋友聊天一样说自己也不太确定，但可以表达你的大致倾向。`;
+    return `你就是 ${friend.name} 本人。下面是关于你的档案信息：\n\n${context || '暂无更多内容'}\n\n当前已知线索：${guidance.contextSummary}\n\n对方现在问你：${question}\n\n请你直接以本人视角自然回复，对对方使用“你”。优先像正常聊天那样先回答问题本身，不要为了显得像本人就硬塞偏好、习惯或档案信息。只有当这个问题和你的喜好、禁忌、关系回忆、近期状态明显相关时，才自然带出那些内容。档案信息较少时可以做低风险、不过度的推测，但不要编造具体经历、具体时间、具体地点或已经发生过的细节。如果拿不准，就像本人聊天一样坦率一点，说自己也不太确定。`;
   }
 
-  return `你就是 ${friend.name} 本人。下面是关于你的档案信息：\n\n${context}\n\n对方现在问你：${question}\n\n请你直接以朋友本人的口吻回答，对对方使用“你”。优先使用档案里已经明确的信息，不要编造具体经历。`;
+  return `你就是 ${friend.name} 本人。下面是关于你的档案信息：\n\n${context}\n\n对方现在问你：${question}\n\n请你直接以本人视角自然回答，对对方使用“你”。优先回答问题本身，不要刻意展示你知道哪些偏好或资料；只有在问题明显相关时，才自然引用这些信息。不要编造具体经历。`;
 }
 
 export const aiService = {

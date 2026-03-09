@@ -2,7 +2,7 @@
 
 const config: CapacitorConfig = {
   appId: 'com.evmo.app',
-  appName: '朋友档案',
+  appName: '记得我',
   webDir: 'dist',
   bundledWebRuntime: false,
   server: {
