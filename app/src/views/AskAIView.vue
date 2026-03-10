@@ -126,7 +126,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { friendService } from '@/services/friendService';
 import { useAIStore } from '@/stores/ai';
 import { useFriendsStore } from '@/stores/friends';
 import type { Friend } from '@/types/friend';
@@ -161,7 +160,7 @@ const contextTags = computed(() => {
 onMounted(async () => {
   const id = route.params.id as string;
   await loadCurrentFriend(id);
-  aiStore.clearMessages();
+  await aiStore.loadConversation(id);
 });
 
 onBeforeUnmount(() => {
@@ -184,7 +183,7 @@ watch(
   async (nextId) => {
     if (typeof nextId === 'string' && nextId) {
       await loadCurrentFriend(nextId);
-      aiStore.clearMessages();
+      await aiStore.loadConversation(nextId);
     }
   },
 );
@@ -243,8 +242,11 @@ function goBack(): void {
 }
 
 async function loadCurrentFriend(id: string): Promise<void> {
-  await friendsStore.loadFriends();
-  friend.value = friendsStore.friends.find((item) => item.id === id) ?? await friendService.getFriendById(id) ?? null;
+  if (friendsStore.friends.length === 0) {
+    await friendsStore.loadFriends();
+  }
+
+  friend.value = await friendsStore.getFriendById(id) ?? null;
 }
 </script>
 

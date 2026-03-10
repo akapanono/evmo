@@ -93,10 +93,12 @@ const isSearching = ref(false);
 const isDeleteMode = ref(false);
 const longPressTargetId = ref<string | null>(null);
 let longPressTimer: number | null = null;
+let searchTimer: number | null = null;
 let longPressStartX = 0;
 let longPressStartY = 0;
 const LONG_PRESS_DELAY = 460;
 const LONG_PRESS_MOVE_LIMIT = 12;
+const SEARCH_DEBOUNCE_DELAY = 180;
 
 const displayFriends = computed(() => {
   if (isSearching.value && searchQuery.value.trim()) {
@@ -110,17 +112,29 @@ onMounted(async () => {
   await friendsStore.loadFriends();
 });
 
-async function handleSearch(): Promise<void> {
+function clearSearchTimer(): void {
+  if (searchTimer !== null) {
+    window.clearTimeout(searchTimer);
+    searchTimer = null;
+  }
+}
+
+function handleSearch(): void {
   const keyword = searchQuery.value.trim();
 
   if (!keyword) {
+    clearSearchTimer();
     isSearching.value = false;
     searchResults.value = [];
     return;
   }
 
   isSearching.value = true;
-  searchResults.value = await friendsStore.searchFriends(keyword);
+  clearSearchTimer();
+  searchTimer = window.setTimeout(async () => {
+    searchResults.value = await friendsStore.searchFriends(keyword);
+    searchTimer = null;
+  }, SEARCH_DEBOUNCE_DELAY);
 }
 
 function openFriend(friendId: string): void {
@@ -204,6 +218,7 @@ function handleScreenClick(event: MouseEvent): void {
 }
 
 onBeforeUnmount(() => {
+  clearSearchTimer();
   cancelLongPress();
 });
 </script>

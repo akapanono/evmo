@@ -27,14 +27,51 @@ export const useFriendsStore = defineStore('friends', () => {
     return newFriend;
   }
 
-  async function updateFriend(id: string, updates: Partial<Friend>): Promise<void> {
-    const updated = await friendService.updateFriend(id, updates);
-    if (updated) {
-      const index = friends.value.findIndex((f) => f.id === id);
-      if (index !== -1) {
-        friends.value[index] = updated;
-      }
+  function upsertFriend(updated: Friend): Friend {
+    const index = friends.value.findIndex((f) => f.id === updated.id);
+    if (index !== -1) {
+      friends.value[index] = updated;
+    } else {
+      friends.value.unshift(updated);
     }
+
+    return updated;
+  }
+
+  async function updateFriend(
+    id: string,
+    updates: Partial<Friend>,
+    options?: { refreshPersona?: boolean },
+  ): Promise<Friend | undefined> {
+    const updated = await friendService.updateFriend(id, updates, options);
+    if (updated) {
+      upsertFriend(updated);
+    }
+
+    return updated;
+  }
+
+  async function getFriendById(id: string): Promise<Friend | undefined> {
+    const existing = friends.value.find((friend) => friend.id === id);
+    if (existing) {
+      return existing;
+    }
+
+    const friend = await friendService.getFriendById(id);
+    if (friend) {
+      upsertFriend(friend);
+    }
+
+    return friend;
+  }
+
+  async function refreshFriendPersona(id: string): Promise<Friend | undefined> {
+    const updated = await friendService.refreshFriendPersona(id);
+    if (updated) {
+      upsertFriend(updated);
+    }
+
+    return updated;
   }
 
   async function deleteFriend(id: string): Promise<void> {
@@ -53,7 +90,7 @@ export const useFriendsStore = defineStore('friends', () => {
     if (!query.trim()) {
       return friends.value;
     }
-    return friendService.searchFriends(query);
+    return friendService.searchFriendsInMemory(friends.value, query);
   }
 
   return {
@@ -63,7 +100,10 @@ export const useFriendsStore = defineStore('friends', () => {
     selectedFriend,
     loadFriends,
     addFriend,
+    upsertFriend,
     updateFriend,
+    getFriendById,
+    refreshFriendPersona,
     deleteFriend,
     selectFriend,
     searchFriends,

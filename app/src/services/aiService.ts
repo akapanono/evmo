@@ -5,7 +5,7 @@ import type { AppSettings } from '@/types/settings';
 import type { ChatMessage } from '@/stores/ai';
 import { storageService } from './storageService';
 import { runtimeContextService, type RuntimePromptContext } from './runtimeContextService';
-import { formatBirthday } from '@/utils/dateHelpers';
+import { formatBirthday, getDaysUntilBirthday, isBirthdayToday } from '@/utils/dateHelpers';
 import { parseSupplementInput } from '@/utils/semantic';
 import { buildAIPersonaContext, compileFriendAIPersona } from '@/utils/friendAIPersona';
 import { getStandardBasicInfoEntries } from '@/utils/basicInfo';
@@ -87,6 +87,94 @@ function isGreetingQuestion(question: string): boolean {
 
 function isDateQuestion(question: string): boolean {
   return /今天几号|今天星期几|今天周几|明天几号|明天是不是|后天|日期|几月几号|哪一天|星期/.test(question);
+}
+
+function formatMonthDay(date: Date): string {
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+function formatWeekday(date: Date): string {
+  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+  return weekdays[date.getDay()] ?? '';
+}
+
+function formatDateAnswer(date: Date): string {
+  return `今天是${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日，${formatWeekday(date)}。`;
+}
+
+function buildLocalDateAnswer(friend: Friend, question: string, runtimeContext: RuntimePromptContext): string | null {
+  if (!isDateQuestion(question)) {
+    return null;
+  }
+
+  const now = new Date(runtimeContext.collectedAt);
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  const afterTomorrow = new Date(now);
+  afterTomorrow.setDate(now.getDate() + 2);
+
+  if (/今天几号|今天日期|今天多少号/.test(question)) {
+    return formatDateAnswer(now);
+  }
+
+  if (/今天星期几|今天周几|今天礼拜几/.test(question)) {
+    return `今天是${formatWeekday(now)}。`;
+  }
+
+  if (/明天几号/.test(question)) {
+    return `明天是${formatMonthDay(tomorrow)}，${formatWeekday(tomorrow)}。`;
+  }
+
+  if (/后天几号/.test(question)) {
+    return `后天是${formatMonthDay(afterTomorrow)}，${formatWeekday(afterTomorrow)}。`;
+  }
+
+  if (/明天是不是.*生日|明天真的是.*生日|明天过生日吗/.test(question)) {
+    if (!friend.birthday) {
+      return '我这里还没有记下生日，暂时没法确定。';
+    }
+
+    const parts = friend.birthday.split('-');
+    const month = Number(parts[0]);
+    const day = Number(parts[1]);
+    const isTomorrowBirthday = month === tomorrow.getMonth() + 1 && day === tomorrow.getDate();
+    return isTomorrowBirthday
+      ? `对，明天是我生日，${formatMonthDay(tomorrow)}。`
+      : `不是，明天是${formatMonthDay(tomorrow)}。我生日是${formatBirthday(friend.birthday)}。`;
+  }
+
+  if (/今天是不是.*生日|今天过生日吗/.test(question)) {
+    if (!friend.birthday) {
+      return '我这里还没有记下生日，暂时没法确定。';
+    }
+
+    return isBirthdayToday(friend.birthday)
+      ? `对，今天就是我生日，${formatBirthday(friend.birthday)}。`
+      : `不是，今天不是我生日。我生日是${formatBirthday(friend.birthday)}。`;
+  }
+
+  if (/什么时候过生日|哪天过生日|几号生日/.test(question)) {
+    if (!friend.birthday) {
+      return '我这里还没有记下生日。';
+    }
+
+    const daysUntilBirthday = getDaysUntilBirthday(friend.birthday);
+    if (daysUntilBirthday === 0) {
+      return `我生日是${formatBirthday(friend.birthday)}，就是今天。`;
+    }
+
+    if (daysUntilBirthday === 1) {
+      return `我生日是${formatBirthday(friend.birthday)}，明天就是。`;
+    }
+
+    return `我生日是${formatBirthday(friend.birthday)}。`;
+  }
+
+  if (/今天.*几月几号|现在几号|现在日期/.test(question)) {
+    return formatDateAnswer(now);
+  }
+
+  return null;
 }
 
 function sliceRelevant<T>(items: T[], limit: number): T[] {
@@ -279,6 +367,9 @@ function buildExtractionPrompt(friend: Friend, text: string): string {
     '返回格式:',
     '{"birthday":"MM-DD 或空","preferences":["字符串"],"basicInfoFields":[{"label":"基础信息标签","value":"值","sourceText":"原句","normalizedKey":"hometown|city|occupation|company|school|major|gender|age|heightCm|weightKg 或空","confidence":0.9}],"records":[{"label":"事件或重要信息","value":"原句或精炼短句","includeInTimeline":true,"semanticType":"event|note|milestone|preference|restriction|status","temporalScope":"timebound|stable","eventTimeText":"时间词或空","sourceText":"原句","normalizedValue":"归一化值或空","confidence":0.9}],"noteLine":"原句","rawText":"原句"}',
     '规则: 只有有时限、阶段性、近期事项才进时间线并设为 timebound；生日、忌口、长期偏好、稳定特征一律 stable 且不进时间线；像“最近准备考研”“下周出差”“明天考试”进时间线；像“生日是12月27日”“不吃香菜”“不喜欢猫”不进时间线；像“家乡是杭州”“在上海工作”“学校是复旦”“身高178”这类稳定身份资料应优先放进 basicInfoFields，而不是 preferences 或时间线。',
+    '如果输入里同时包含多条独立信息，必须拆成多条返回，不能把一整段话塞进一条 preference 或一条 record。',
+    '例如“喜欢玩第五人格、喝酒、买奢侈品，也不喜欢吃葱”应该拆成 4 条偏好/禁忌，而不是 1 条长字符串。',
+    '例如“家乡在杭州，在上海工作，最近准备考研，下周要出差”应该至少拆成 2 条基础信息和 2 条事件。',
   ].join('\n');
 }
 
@@ -309,22 +400,77 @@ function normalizeRecord(record: Partial<SemanticExtractionRecord>, rawText: str
 }
 
 function normalizeExtractionPayload(payload: Partial<LlmExtractionPayload>, rawText: string): SemanticExtractionResult {
+  const splitBySeparators = (value: string): string[] => value
+    .split(/[，,、；;]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const normalizePreferenceItems = (value: string): string[] => {
+    const text = value.trim();
+    if (!text) {
+      return [];
+    }
+
+    const prefixMatch = text.match(/^(喜欢|不喜欢|不吃|爱吃|讨厌|忌口|禁忌|偏好)(.+)$/);
+    if (prefixMatch?.[1] && prefixMatch[2]) {
+      const prefix = prefixMatch[1];
+      const parts = splitBySeparators(prefixMatch[2]);
+      if (parts.length > 1) {
+        return parts.map((item) => `${prefix}${item.trim()}`).filter(Boolean);
+      }
+    }
+
+    const parts = splitBySeparators(text);
+    return parts.length > 1 ? parts : [text];
+  };
+
+  const expandBasicInfoFields = (fields: NonNullable<Partial<LlmExtractionPayload>['basicInfoFields']>) => fields.flatMap((field) => {
+    if (!field || typeof field.label !== 'string' || typeof field.value !== 'string') {
+      return [];
+    }
+
+    const label = String(field.label).trim();
+    const sourceText = typeof field.sourceText === 'string' && field.sourceText.trim() ? field.sourceText.trim() : rawText;
+    const values = splitBySeparators(String(field.value).trim());
+    const normalizedKey = typeof field.normalizedKey === 'string' && field.normalizedKey.trim() ? field.normalizedKey.trim() : undefined;
+    const confidence = typeof field.confidence === 'number' ? Math.max(0, Math.min(1, field.confidence)) : undefined;
+
+    return (values.length > 1 ? values : [String(field.value).trim()])
+      .filter(Boolean)
+      .map((value) => ({
+        label,
+        value,
+        sourceText,
+        normalizedKey,
+        confidence,
+      }));
+  });
+
+  const expandRecords = (records: NonNullable<Partial<LlmExtractionPayload>['records']>) => records.flatMap((record) => {
+    const normalized = normalizeRecord(record, rawText);
+    const values = splitBySeparators(normalized.value);
+
+    if (values.length <= 1 || normalized.temporalScope === 'timebound') {
+      return [normalized];
+    }
+
+    return values.map((value) => ({
+      ...normalized,
+      value,
+      normalizedValue: value,
+    }));
+  });
+
   return {
     birthday: typeof payload.birthday === 'string' && payload.birthday.trim() ? payload.birthday.trim() : undefined,
-    preferences: Array.isArray(payload.preferences) ? payload.preferences.map((item: string) => String(item).trim()).filter(Boolean) : [],
+    preferences: Array.isArray(payload.preferences)
+      ? payload.preferences.flatMap((item: string) => normalizePreferenceItems(String(item)))
+      : [],
     basicInfoFields: Array.isArray(payload.basicInfoFields)
-      ? payload.basicInfoFields
-        .filter((field) => field && typeof field.label === 'string' && typeof field.value === 'string')
-        .map((field) => ({
-          label: String(field.label).trim(),
-          value: String(field.value).trim(),
-          sourceText: typeof field.sourceText === 'string' && field.sourceText.trim() ? field.sourceText.trim() : rawText,
-          normalizedKey: typeof field.normalizedKey === 'string' && field.normalizedKey.trim() ? field.normalizedKey.trim() : undefined,
-          confidence: typeof field.confidence === 'number' ? Math.max(0, Math.min(1, field.confidence)) : undefined,
-        }))
+      ? expandBasicInfoFields(payload.basicInfoFields)
       : [],
     records: Array.isArray(payload.records)
-      ? payload.records.map((record: Partial<SemanticExtractionRecord>) => normalizeRecord(record, rawText))
+      ? expandRecords(payload.records)
       : [],
     noteLine: typeof payload.noteLine === 'string' && payload.noteLine.trim() ? payload.noteLine.trim() : rawText,
     rawText: typeof payload.rawText === 'string' && payload.rawText.trim() ? payload.rawText.trim() : rawText,
@@ -519,6 +665,15 @@ export const aiService = {
     const guidance = buildProfileGuidance(friend);
     const systemPrompt = getSystemPrompt(settings.aiStyle);
     const runtimeContext = runtimeContextOverride ?? await runtimeContextService.buildPromptContext(true);
+    const localDateAnswer = buildLocalDateAnswer(friend, question, runtimeContext);
+    if (localDateAnswer) {
+      return {
+        content: localDateAnswer,
+        suggestions: guidance.suggestions,
+        lowInfoMode: guidance.lowInfoMode,
+      };
+    }
+
     const userPrompt = buildAskUserPrompt(friend, question, guidance);
     const conversationMessages = buildConversationMessages(history, question);
     const messages = [

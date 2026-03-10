@@ -164,51 +164,6 @@
 
     <section class="section-block">
       <div class="section-head">
-        <h3>AI 画像</h3>
-      </div>
-      <article class="note-card ai-profile-card">
-        <p class="mini-label">画像摘要</p>
-        <p>{{ friend.aiProfile.overview || '当前资料还不足以形成稳定画像，补充更多信息后会更完整。' }}</p>
-
-        <div v-if="friend.aiProfile.traits.length > 0" class="ai-profile-group">
-          <p class="mini-label">性格与表达</p>
-          <div class="tag-group compact-tags">
-            <span v-for="item in friend.aiProfile.traits" :key="item">{{ item }}</span>
-          </div>
-        </div>
-
-        <div v-if="friend.aiProfile.tasteProfile.length > 0" class="ai-profile-group">
-          <p class="mini-label">审美与偏好倾向</p>
-          <div class="tag-group compact-tags">
-            <span v-for="item in friend.aiProfile.tasteProfile" :key="item">{{ item }}</span>
-          </div>
-        </div>
-
-        <div v-if="friend.aiProfile.interactionStyle.length > 0" class="ai-profile-group">
-          <p class="mini-label">互动方式</p>
-          <div class="tag-group compact-tags">
-            <span v-for="item in friend.aiProfile.interactionStyle" :key="item">{{ item }}</span>
-          </div>
-        </div>
-
-        <div v-if="friend.aiProfile.inferenceHints.length > 0" class="ai-profile-group">
-          <p class="mini-label">可参考的延展判断</p>
-          <div class="tag-group compact-tags">
-            <span v-for="item in friend.aiProfile.inferenceHints" :key="item">{{ item }}</span>
-          </div>
-        </div>
-
-        <div v-if="friend.aiProfile.boundaries.length > 0" class="ai-profile-group">
-          <p class="mini-label">边界与雷区</p>
-          <div class="tag-group compact-tags">
-            <span v-for="item in friend.aiProfile.boundaries" :key="item">{{ item }}</span>
-          </div>
-        </div>
-      </article>
-    </section>
-
-    <section class="section-block">
-      <div class="section-head">
         <h3>补充信息</h3>
         <div v-if="hasSupplementContent" class="section-actions">
           <button v-if="friend.preferences.length > 0" type="button" class="more-link" @click="togglePreferenceEditMode">
@@ -364,7 +319,6 @@ import { useRoute, useRouter } from 'vue-router';
 import Avatar from '@/components/common/Avatar.vue';
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
 import InfoRow from '@/components/friend/InfoRow.vue';
-import { friendService } from '@/services/friendService';
 import { useFriendsStore } from '@/stores/friends';
 import { aiService } from '@/services/aiService';
 import type { Friend, CustomField, SemanticType } from '@/types/friend';
@@ -394,6 +348,7 @@ const showBasicInfoCreator = ref(false);
 const preferenceEditMode = ref(false);
 const busyPreferenceValue = ref<string | null>(null);
 const personaRefreshAttemptedId = ref<string | null>(null);
+const personaRefreshInFlightId = ref<string | null>(null);
 const confirmState = ref({
   open: false,
   eyebrow: '提示',
@@ -591,13 +546,12 @@ function showStableFieldTitle(field: CustomField): boolean {
   return normalizedLabel !== semanticTypeText(field.semanticType);
 }
 
-async function refreshCurrentFriend(id: string): Promise<void> {
-  await loadCurrentFriend(id);
-}
-
 async function loadCurrentFriend(id: string): Promise<void> {
-  await friendsStore.loadFriends();
-  friend.value = friendsStore.friends.find((item) => item.id === id) ?? await friendService.getFriendById(id) ?? null;
+  if (friendsStore.friends.length === 0) {
+    await friendsStore.loadFriends();
+  }
+
+  friend.value = await friendsStore.getFriendById(id) ?? null;
 
   if (
     friend.value
@@ -610,12 +564,27 @@ async function loadCurrentFriend(id: string): Promise<void> {
 }
 
 async function refreshPersonaFromAI(id: string): Promise<void> {
+  if (personaRefreshInFlightId.value === id) {
+    return;
+  }
+
+  personaRefreshInFlightId.value = id;
   try {
-    await friendsStore.updateFriend(id, {});
-    await refreshCurrentFriend(id);
+    const updated = await friendsStore.refreshFriendPersona(id);
+    if (updated) {
+      friend.value = updated;
+    }
   } catch {
     // Keep the current fallback persona when AI refresh fails.
+  } finally {
+    if (personaRefreshInFlightId.value === id) {
+      personaRefreshInFlightId.value = null;
+    }
   }
+}
+
+function queuePersonaRefresh(id: string): void {
+  void refreshPersonaFromAI(id);
 }
 
 function splitSupplementLines(value: string): string[] {
@@ -666,8 +635,11 @@ async function removePreference(value: string): Promise<void> {
   try {
     const currentId = friend.value.id;
     const nextPreferences = friend.value.preferences.filter((item) => item !== value);
-    await friendsStore.updateFriend(currentId, { preferences: nextPreferences });
-    await refreshCurrentFriend(currentId);
+    const updated = await friendsStore.updateFriend(currentId, { preferences: nextPreferences });
+    if (updated) {
+      friend.value = updated;
+    }
+    queuePersonaRefresh(currentId);
     if (nextPreferences.length === 0) {
       preferenceEditMode.value = false;
     }
@@ -704,11 +676,11 @@ async function applyParsedResult(parsed: SemanticExtractionResult, mode: 'rule' 
       eventTimeText: field.eventTimeText,
     })),
     ...friend.value.customFields,
-  ].slice(0, 20);
+  ];
 
   const currentId = friend.value.id;
   const basicInfoUpdates = applyBasicInfoExtraction(friend.value, parsed.basicInfoFields);
-  await friendsStore.updateFriend(currentId, {
+  const updated = await friendsStore.updateFriend(currentId, {
     birthday: parsed.birthday ?? friend.value.birthday,
     preferences: Array.from(existingPreferenceSet),
     gender: basicInfoUpdates.gender,
@@ -724,7 +696,10 @@ async function applyParsedResult(parsed: SemanticExtractionResult, mode: 'rule' 
     basicInfoFields: basicInfoUpdates.basicInfoFields,
     customFields: nextFields,
   });
-  await refreshCurrentFriend(currentId);
+  if (updated) {
+    friend.value = updated;
+  }
+  queuePersonaRefresh(currentId);
   quickNote.value = '';
 
   if (parsed.records.length > 0) {
@@ -767,17 +742,12 @@ async function saveSupplement(mode: 'rule' | 'llm'): Promise<void> {
   }
 
   try {
-    const lines = splitSupplementLines(quickNote.value);
-    const parsedList: SemanticExtractionResult[] = [];
-
-    for (const line of lines) {
-      const parsed = mode === 'llm'
-        ? await aiService.extractSupplement(friend.value, line)
-        : parseSupplementInput(line);
-      parsedList.push(parsed);
-    }
-
-    const parsed = mergeParsedResults(parsedList, quickNote.value.trim());
+    const parsed = mode === 'llm'
+      ? await aiService.extractSupplement(friend.value, quickNote.value.trim())
+      : mergeParsedResults(
+        splitSupplementLines(quickNote.value).map((line) => parseSupplementInput(line)),
+        quickNote.value.trim(),
+      );
     await applyParsedResult(parsed, mode);
   } catch (err) {
     supplementError.value = `保存失败：${(err as Error).message}`;
@@ -805,8 +775,11 @@ async function saveBasicInfoField(fieldId?: string): Promise<void> {
       label: basicInfoDraft.value.label,
       value: basicInfoDraft.value.value,
     }, fieldId);
-    await friendsStore.updateFriend(currentId, { basicInfoFields: nextBasicInfoFields });
-    await refreshCurrentFriend(currentId);
+    const updated = await friendsStore.updateFriend(currentId, { basicInfoFields: nextBasicInfoFields });
+    if (updated) {
+      friend.value = updated;
+    }
+    queuePersonaRefresh(currentId);
     supplementMessage.value = '基础信息已更新。';
     resetBasicInfoDraft();
     showBasicInfoCreator.value = false;
@@ -844,8 +817,11 @@ async function removeBasicInfoField(fieldId: string): Promise<void> {
       try {
         const currentId = friend.value!.id;
         const nextBasicInfoFields = pruneBasicInfoField(friend.value!.basicInfoFields, fieldId);
-        await friendsStore.updateFriend(currentId, { basicInfoFields: nextBasicInfoFields });
-        await refreshCurrentFriend(currentId);
+        const updated = await friendsStore.updateFriend(currentId, { basicInfoFields: nextBasicInfoFields });
+        if (updated) {
+          friend.value = updated;
+        }
+        queuePersonaRefresh(currentId);
         supplementMessage.value = '基础信息已删除。';
         if (editingBasicInfoId.value === fieldId) {
           resetBasicInfoDraft();
@@ -947,8 +923,11 @@ async function saveFieldEdit(fieldId: string): Promise<void> {
       };
     });
 
-    await friendsStore.updateFriend(currentId, { customFields: nextFields });
-    await refreshCurrentFriend(currentId);
+    const updated = await friendsStore.updateFriend(currentId, { customFields: nextFields });
+    if (updated) {
+      friend.value = updated;
+    }
+    queuePersonaRefresh(currentId);
     supplementMessage.value = '记录已更新。';
     cancelEditField();
   } catch (err) {
@@ -977,8 +956,11 @@ async function removeField(fieldId: string): Promise<void> {
       try {
         const currentId = friend.value!.id;
         const nextFields = friend.value!.customFields.filter((field) => field.id !== fieldId);
-        await friendsStore.updateFriend(currentId, { customFields: nextFields });
-        await refreshCurrentFriend(currentId);
+        const updated = await friendsStore.updateFriend(currentId, { customFields: nextFields });
+        if (updated) {
+          friend.value = updated;
+        }
+        queuePersonaRefresh(currentId);
         supplementMessage.value = '记录已删除。';
         if (editingFieldId.value === fieldId) {
           cancelEditField();

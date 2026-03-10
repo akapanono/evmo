@@ -10,9 +10,6 @@ let activeElement: HTMLElement | null = null;
 let releaseElement: HTMLElement | null = null;
 let releaseTimer: number | null = null;
 let isPointerDown = false;
-let dispatchingSyntheticClick = false;
-let suppressNativeClickTarget: HTMLElement | null = null;
-let suppressNativeClickUntil = 0;
 
 function clearReleaseState(): void {
   if (releaseTimer !== null) {
@@ -86,12 +83,6 @@ function handlePointerUp(event: PointerEvent): void {
     releaseElement = null;
     releaseTimer = null;
   }, 160);
-
-  dispatchingSyntheticClick = true;
-  releaseTarget.click();
-  dispatchingSyntheticClick = false;
-  suppressNativeClickTarget = releaseTarget;
-  suppressNativeClickUntil = Date.now() + 400;
 }
 
 function handlePointerCancel(): void {
@@ -104,30 +95,10 @@ function handlePointerCancel(): void {
   isPointerDown = false;
 }
 
-function handleClickCapture(event: MouseEvent): void {
-  if (dispatchingSyntheticClick) {
-    return;
-  }
-
-  if (!suppressNativeClickTarget || Date.now() > suppressNativeClickUntil) {
-    suppressNativeClickTarget = null;
-    suppressNativeClickUntil = 0;
-    return;
-  }
-
-  if (event.composedPath().includes(suppressNativeClickTarget)) {
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    suppressNativeClickTarget = null;
-    suppressNativeClickUntil = 0;
-  }
-}
-
 export function setupPressFeedback(): void {
   window.addEventListener('pointerdown', handlePointerDown, { passive: true });
   window.addEventListener('pointermove', handlePointerMove, { passive: true });
   window.addEventListener('pointerup', handlePointerUp, { passive: true });
   window.addEventListener('pointercancel', handlePointerCancel, { passive: true });
-  window.addEventListener('click', handleClickCapture, true);
   window.addEventListener('scroll', clearReleaseState, { passive: true });
 }

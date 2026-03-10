@@ -5,6 +5,10 @@ import { aiService } from '@/services/aiService';
 import { compileFriendAIPersona } from '@/utils/friendAIPersona';
 import { searchBasicInfoCorpus } from '@/utils/basicInfo';
 
+interface UpdateFriendOptions {
+  refreshPersona?: boolean;
+}
+
 function normalizeText(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
@@ -189,7 +193,10 @@ async function normalizeStoredFriend(friend: Friend): Promise<Friend> {
   const normalizedBase = normalizeFriendInput(friend, friend);
   const normalized = normalizedBase.aiProfile.overview
     ? normalizedBase
-    : await enrichFriendPersona(normalizedBase, friend);
+    : {
+      ...normalizedBase,
+      aiProfile: compileFriendAIPersona(normalizedBase, normalizedBase.updatedAt),
+    };
   const changed = JSON.stringify(friend) !== JSON.stringify(normalized);
 
   if (changed) {
@@ -228,6 +235,22 @@ function buildSearchCorpus(friend: Friend): string[] {
   ];
 }
 
+function searchFriendsInList(friends: Friend[], query: string): Friend[] {
+  const lowerQuery = query.trim().toLowerCase();
+
+  if (!lowerQuery) {
+    return friends;
+  }
+
+  return friends.filter((friend) => {
+    const customFieldMatched = friend.customFields.some(
+      (field) => field.label.toLowerCase().includes(lowerQuery) || field.value.toLowerCase().includes(lowerQuery),
+    );
+
+    return buildSearchCorpus(friend).some((value) => value.toLowerCase().includes(lowerQuery)) || customFieldMatched;
+  });
+}
+
 export const friendService = {
   async getAllFriends(): Promise<Friend[]> {
     const db = await getDB();
@@ -256,19 +279,11 @@ export const friendService = {
 
   async searchFriends(query: string): Promise<Friend[]> {
     const allFriends = await this.getAllFriends();
-    const lowerQuery = query.trim().toLowerCase();
+    return searchFriendsInList(allFriends, query);
+  },
 
-    if (!lowerQuery) {
-      return allFriends;
-    }
-
-    return allFriends.filter((friend) => {
-      const customFieldMatched = friend.customFields.some(
-        (field) => field.label.toLowerCase().includes(lowerQuery) || field.value.toLowerCase().includes(lowerQuery),
-      );
-
-      return buildSearchCorpus(friend).some((value) => value.toLowerCase().includes(lowerQuery)) || customFieldMatched;
-    });
+  searchFriendsInMemory(friends: Friend[], query: string): Friend[] {
+    return searchFriendsInList(friends, query);
   },
 
   async createFriend(friend: Partial<Friend>): Promise<Friend> {
@@ -280,7 +295,7 @@ export const friendService = {
     return newFriend;
   },
 
-  async updateFriend(id: string, updates: Partial<Friend>): Promise<Friend | undefined> {
+  async updateFriend(id: string, updates: Partial<Friend>, options: UpdateFriendOptions = {}): Promise<Friend | undefined> {
     const db = await getDB();
     const existing = await this.getFriendById(id);
 
@@ -290,9 +305,28 @@ export const friendService = {
 
     const plainUpdates = JSON.parse(JSON.stringify(updates)) as Partial<Friend>;
     const normalizedBase = normalizeFriendInput({ ...plainUpdates, id: normalizeFriendId(id) || id }, existing);
-    const updatedFriend = await enrichFriendPersona(normalizedBase, existing);
+    const shouldRefreshPersona = options.refreshPersona ?? false;
+    const updatedFriend = shouldRefreshPersona
+      ? await enrichFriendPersona(normalizedBase, existing)
+      : {
+        ...normalizedBase,
+        aiProfile: compileFriendAIPersona(normalizedBase, normalizedBase.updatedAt),
+      };
     await db.put('friends', updatedFriend);
     return updatedFriend;
+  },
+
+  async refreshFriendPersona(id: string): Promise<Friend | undefined> {
+    const db = await getDB();
+    const existing = await this.getFriendById(id);
+
+    if (!existing) {
+      return undefined;
+    }
+
+    const refreshedFriend = await enrichFriendPersona(existing, existing);
+    await db.put('friends', refreshedFriend);
+    return refreshedFriend;
   },
 
   async deleteFriend(id: string): Promise<void> {
@@ -308,6 +342,11 @@ export const friendService = {
     const logs = await db.getAllFromIndex('contactLogs', 'by-friendId', normalizedId);
     for (const log of logs) {
       await db.delete('contactLogs', log.id);
+    }
+
+    const conversations = await db.getAllFromIndex('conversations', 'by-friendId', normalizedId);
+    for (const conversation of conversations) {
+      await db.delete('conversations', conversation.id);
     }
   },
 
