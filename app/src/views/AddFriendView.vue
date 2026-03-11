@@ -157,7 +157,7 @@ import { AVATAR_COLORS, createEmptyFriend } from '@/types/friend';
 import type { AvatarColor, BasicInfoField, CustomField, Friend } from '@/types/friend';
 import { getAvatarColorFromName } from '@/utils/color';
 import { applyBasicInfoExtraction } from '@/utils/basicInfo';
-import { parseSupplementInput } from '@/utils/semantic';
+import { parseSupplementInputBatch } from '@/utils/semantic';
 import { validateFriend, type ValidationError } from '@/utils/validation';
 
 const route = useRoute();
@@ -398,7 +398,7 @@ function applySupplementToForm(base: Friend, rawSupplement: string): Friend {
   const nextFields = [...base.customFields];
 
   for (const segment of segments) {
-    const parsed = parseSupplementInput(segment);
+    const parsed = parseSupplementInputBatch(segment);
 
     if (parsed.birthday) {
       nextBirthday = parsed.birthday;

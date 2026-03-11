@@ -6,7 +6,7 @@ import type { ChatMessage } from '@/stores/ai';
 import { storageService } from './storageService';
 import { runtimeContextService, type RuntimePromptContext } from './runtimeContextService';
 import { formatBirthday, getDaysUntilBirthday, isBirthdayToday } from '@/utils/dateHelpers';
-import { parseSupplementInput } from '@/utils/semantic';
+import { mergeSemanticExtractionResults, parseSupplementInputBatch } from '@/utils/semantic';
 import { buildAIPersonaContext, compileFriendAIPersona } from '@/utils/friendAIPersona';
 import { getStandardBasicInfoEntries } from '@/utils/basicInfo';
 
@@ -365,9 +365,10 @@ function buildExtractionPrompt(friend: Friend, text: string): string {
     `上下文: ${context || '无'}`,
     `输入: ${text}`,
     '返回格式:',
-    '{"birthday":"MM-DD 或空","preferences":["字符串"],"basicInfoFields":[{"label":"基础信息标签","value":"值","sourceText":"原句","normalizedKey":"hometown|city|occupation|company|school|major|gender|age|heightCm|weightKg 或空","confidence":0.9}],"records":[{"label":"事件或重要信息","value":"原句或精炼短句","includeInTimeline":true,"semanticType":"event|note|milestone|preference|restriction|status","temporalScope":"timebound|stable","eventTimeText":"时间词或空","sourceText":"原句","normalizedValue":"归一化值或空","confidence":0.9}],"noteLine":"原句","rawText":"原句"}',
+    '{"birthday":"MM-DD 或空","preferences":["字符串"],"basicInfoFields":[{"label":"基础信息标签","value":"值","sourceText":"原句","normalizedKey":"hometown|city|occupation|company|school|major|gender|age|heightCm|weightKg 或空","confidence":0.9}],"records":[{"label":"事件|特征|重要信息","value":"原句或精炼短句","includeInTimeline":true,"semanticType":"event|note|milestone|preference|restriction|status","temporalScope":"timebound|stable","eventTimeText":"时间词或空","sourceText":"原句","normalizedValue":"归一化值或空","confidence":0.9}],"noteLine":"原句","rawText":"原句"}',
     '规则: 只有有时限、阶段性、近期事项才进时间线并设为 timebound；生日、忌口、长期偏好、稳定特征一律 stable 且不进时间线；像“最近准备考研”“下周出差”“明天考试”进时间线；像“生日是12月27日”“不吃香菜”“不喜欢猫”不进时间线；像“家乡是杭州”“在上海工作”“学校是复旦”“身高178”这类稳定身份资料应优先放进 basicInfoFields，而不是 preferences 或时间线。',
     '如果输入里同时包含多条独立信息，必须拆成多条返回，不能把一整段话塞进一条 preference 或一条 record。',
+    '如果一句话里同时出现多个偏好、多个事件、多个特征，必须分别拆开。例如“喜欢吃烧烤，喜欢喝啤酒，喜欢玩游戏，下周要去香港”应得到 3 条 preferences 和 1 条 event。',
     '例如“喜欢玩第五人格、喝酒、买奢侈品，也不喜欢吃葱”应该拆成 4 条偏好/禁忌，而不是 1 条长字符串。',
     '例如“家乡在杭州，在上海工作，最近准备考研，下周要出差”应该至少拆成 2 条基础信息和 2 条事件。',
   ].join('\n');
@@ -386,7 +387,13 @@ function normalizeRecord(record: Partial<SemanticExtractionRecord>, rawText: str
   const temporalScope = record.temporalScope === 'timebound' || includeInTimeline ? 'timebound' : 'stable';
 
   return {
-    label: typeof record.label === 'string' && record.label.trim() ? record.label.trim() : includeInTimeline ? '事件' : '重要信息',
+      label: typeof record.label === 'string' && record.label.trim()
+        ? record.label.trim()
+        : includeInTimeline
+          ? '事件'
+          : record.semanticType === 'note'
+            ? '特征'
+            : '重要信息',
     value: typeof record.value === 'string' && record.value.trim() ? record.value.trim() : rawText,
     includeInTimeline,
     semanticType: record.semanticType ?? (includeInTimeline ? 'event' : 'note'),
@@ -782,10 +789,7 @@ export const aiService = {
     if (!normalizedText) throw new Error('请输入要解析的内容。');
 
     const settings = storageService.getSettings();
-    const quickParsed = parseSupplementInput(normalizedText);
-    if (quickParsed.birthday || quickParsed.preferences.length > 0) {
-      return quickParsed;
-    }
+    const quickParsed = parseSupplementInputBatch(normalizedText);
 
     if (settings.aiAccessMode === 'proxy') {
       const result = await postToProxy<{ content: string }>('/api/ai/chat', {
@@ -798,11 +802,14 @@ export const aiService = {
         max_tokens: 420,
       }, settings);
       const payload = JSON.parse(stripJsonWrapper(result.content)) as Partial<LlmExtractionPayload>;
-      return normalizeExtractionPayload(payload, normalizedText);
+      return mergeSemanticExtractionResults([
+        quickParsed,
+        normalizeExtractionPayload(payload, normalizedText),
+      ], normalizedText);
     }
 
     if (!settings.openaiApiKey) {
-      return parseSupplementInput(normalizedText);
+      return quickParsed;
     }
 
     const client = createClient(settings);
@@ -820,7 +827,10 @@ export const aiService = {
     if (!content) throw new Error('AI 没有返回抽取结果。');
 
     const payload = JSON.parse(stripJsonWrapper(content)) as Partial<LlmExtractionPayload>;
-    return normalizeExtractionPayload(payload, normalizedText);
+    return mergeSemanticExtractionResults([
+      quickParsed,
+      normalizeExtractionPayload(payload, normalizedText),
+    ], normalizedText);
   },
 
   getDefaultQuestions(): string[] {

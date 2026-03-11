@@ -324,7 +324,7 @@ import { aiService } from '@/services/aiService';
 import type { Friend, CustomField, SemanticType } from '@/types/friend';
 import type { SemanticExtractionResult } from '@/types/extraction';
 import { formatBirthday, formatDate } from '@/utils/dateHelpers';
-import { parseSupplementInput } from '@/utils/semantic';
+import { parseSupplementInputBatch } from '@/utils/semantic';
 import { PROFILE_INTAKE_FIELD_LABELS } from '@/utils/profileIntake';
 import { applyBasicInfoExtraction, removeBasicInfoField as pruneBasicInfoField, upsertBasicInfoField } from '@/utils/basicInfo';
 
@@ -587,42 +587,6 @@ function queuePersonaRefresh(id: string): void {
   void refreshPersonaFromAI(id);
 }
 
-function splitSupplementLines(value: string): string[] {
-  return value
-    .split(/\r?\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
-function mergeParsedResults(results: SemanticExtractionResult[], rawText: string): SemanticExtractionResult {
-  const preferenceSet = new Set<string>();
-  const basicInfoFields = [] as SemanticExtractionResult['basicInfoFields'];
-  const records = [] as SemanticExtractionResult['records'];
-  let birthday: string | undefined;
-
-  for (const result of results) {
-    if (result.birthday) {
-      birthday = result.birthday;
-    }
-
-    for (const pref of result.preferences) {
-      preferenceSet.add(pref);
-    }
-
-    basicInfoFields.push(...result.basicInfoFields);
-    records.push(...result.records);
-  }
-
-  return {
-    birthday,
-    preferences: Array.from(preferenceSet),
-    basicInfoFields,
-    records,
-    noteLine: rawText,
-    rawText,
-  };
-}
-
 async function removePreference(value: string): Promise<void> {
   if (!friend.value || busyPreferenceValue.value === value) {
     return;
@@ -741,14 +705,11 @@ async function saveSupplement(mode: 'rule' | 'llm'): Promise<void> {
     savingSupplement.value = true;
   }
 
-  try {
-    const parsed = mode === 'llm'
-      ? await aiService.extractSupplement(friend.value, quickNote.value.trim())
-      : mergeParsedResults(
-        splitSupplementLines(quickNote.value).map((line) => parseSupplementInput(line)),
-        quickNote.value.trim(),
-      );
-    await applyParsedResult(parsed, mode);
+    try {
+      const parsed = mode === 'llm'
+        ? await aiService.extractSupplement(friend.value, quickNote.value.trim())
+        : parseSupplementInputBatch(quickNote.value.trim());
+      await applyParsedResult(parsed, mode);
   } catch (err) {
     supplementError.value = `保存失败：${(err as Error).message}`;
   } finally {
