@@ -202,6 +202,9 @@
             </div>
             <div class="timeline-value-row">
               <p>{{ item.value }}</p>
+            </div>
+            <div class="timeline-tags">
+              <span v-if="item.eventTimeText">{{ item.eventTimeText }}</span>
               <div class="record-actions timeline-actions">
                 <button
                   v-if="timelineDeleteMode"
@@ -213,9 +216,6 @@
                   ×
                 </button>
               </div>
-            </div>
-            <div v-if="item.eventTimeText" class="timeline-tags">
-              <span>{{ item.eventTimeText }}</span>
             </div>
           </div>
         </div>
@@ -950,20 +950,19 @@ async function handleDelete(): Promise<void> {
 }
 
 .timeline-value-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 22px;
-  gap: 12px;
-  align-items: start;
+  display: block;
 }
 
 .timeline-tags {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22px;
+  gap: 12px;
+  align-items: center;
   margin-top: 10px;
 }
 
 .timeline-tags span {
+  justify-self: start;
   font-size: 12px;
   color: var(--muted);
   background: rgba(29, 40, 49, 0.05);
@@ -973,7 +972,7 @@ async function handleDelete(): Promise<void> {
 
 .timeline-actions {
   margin-top: 0;
-  align-self: start;
+  align-self: center;
 }
 
 .detail-actions {

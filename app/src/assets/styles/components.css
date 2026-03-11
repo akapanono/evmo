@@ -246,6 +246,42 @@ h3 {
   background: linear-gradient(180deg, rgba(50, 70, 81, 0.12), rgba(255, 255, 255, 0.96));
 }
 
+.rose-card {
+  background: linear-gradient(180deg, rgba(192, 103, 120, 0.14), rgba(255, 255, 255, 0.96));
+}
+
+.sky-card {
+  background: linear-gradient(180deg, rgba(91, 144, 204, 0.14), rgba(255, 255, 255, 0.96));
+}
+
+.sage-card {
+  background: linear-gradient(180deg, rgba(118, 146, 109, 0.14), rgba(255, 255, 255, 0.96));
+}
+
+.plum-card {
+  background: linear-gradient(180deg, rgba(134, 100, 158, 0.14), rgba(255, 255, 255, 0.96));
+}
+
+.mint-card {
+  background: linear-gradient(180deg, rgba(99, 167, 145, 0.14), rgba(255, 255, 255, 0.96));
+}
+
+.apricot-card {
+  background: linear-gradient(180deg, rgba(223, 141, 87, 0.14), rgba(255, 255, 255, 0.96));
+}
+
+.berry-card {
+  background: linear-gradient(180deg, rgba(180, 95, 127, 0.14), rgba(255, 255, 255, 0.96));
+}
+
+.olive-card {
+  background: linear-gradient(180deg, rgba(127, 145, 80, 0.14), rgba(255, 255, 255, 0.96));
+}
+
+.ocean-card {
+  background: linear-gradient(180deg, rgba(77, 136, 171, 0.14), rgba(255, 255, 255, 0.96));
+}
+
 /* Avatar */
 .avatar {
   width: 44px;
@@ -291,6 +327,42 @@ h3 {
   background: var(--ink-soft);
 }
 
+.avatar.rose {
+  background: #c06778;
+}
+
+.avatar.sky {
+  background: #5b90cc;
+}
+
+.avatar.sage {
+  background: #76926d;
+}
+
+.avatar.plum {
+  background: var(--plum);
+}
+
+.avatar.mint {
+  background: var(--mint);
+}
+
+.avatar.apricot {
+  background: var(--apricot);
+}
+
+.avatar.berry {
+  background: var(--berry);
+}
+
+.avatar.olive {
+  background: var(--olive);
+}
+
+.avatar.ocean {
+  background: var(--ocean);
+}
+
 .avatar-image,
 .avatar-graphic {
   width: 100%;
@@ -315,6 +387,10 @@ h3 {
 .avatar-fill {
   fill: rgba(255, 250, 244, 0.92);
   stroke: none;
+}
+
+.avatar-fill.soft {
+  opacity: 0.55;
 }
 
 .avatar-core {

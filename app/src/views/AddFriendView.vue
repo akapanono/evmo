@@ -93,8 +93,8 @@
 
     <article class="form-card">
       <div class="field-grid">
-        <label class="field">
-          <span>头像颜色</span>
+        <div class="field avatar-field">
+          <span>头像预览</span>
           <div class="avatar-editor">
             <Avatar
               size="xxl"
@@ -106,7 +106,7 @@
             </Avatar>
 
             <div class="avatar-upload-actions">
-              <button type="button" class="small ghost-btn" @click="triggerAvatarUpload">自选头像</button>
+              <button type="button" class="small ghost-btn upload-avatar-btn" @click="triggerAvatarUpload">上传头像</button>
               <button
                 v-if="form.avatarImage"
                 type="button"
@@ -119,6 +119,7 @@
             <input ref="avatarInput" class="hidden-avatar-input" type="file" accept="image/*" @change="handleAvatarChange" />
           </div>
 
+          <span class="field-subtitle">头像颜色</span>
           <div class="color-picker">
             <button
               v-for="color in colors"
@@ -129,6 +130,7 @@
             ></button>
           </div>
 
+          <span class="field-subtitle">头像样式</span>
           <div class="preset-picker">
             <button
               v-for="preset in avatarPresets"
@@ -140,7 +142,7 @@
               <Avatar size="md" :color="form.avatarColor" :preset="preset" />
             </button>
           </div>
-        </label>
+        </div>
 
         <label class="field">
           <span>偏好 / 特点</span>
@@ -180,6 +182,41 @@
       @confirm="confirmLeave"
       @cancel="showCancelDialog = false"
     />
+
+    <div v-if="cropState.open" class="crop-overlay">
+      <div class="crop-dialog">
+        <div class="crop-head">
+          <div>
+            <p class="mini-label">头像裁剪</p>
+            <h3>裁成正方形</h3>
+          </div>
+        </div>
+
+        <div class="crop-stage">
+          <div class="crop-frame">
+            <img
+              ref="cropImage"
+              :src="cropState.source"
+              alt=""
+              class="crop-preview-image"
+              :style="cropImageStyle"
+              @load="handleCropImageLoad"
+              @pointerdown.prevent="startCropDrag"
+            />
+          </div>
+        </div>
+
+        <label class="field crop-slider-field">
+          <span>缩放</span>
+          <input v-model="cropState.zoom" type="range" min="1" max="3" step="0.01" @input="clampCropOffset" />
+        </label>
+
+        <div class="crop-actions">
+          <button type="button" class="action-btn" @click="cancelCrop">取消</button>
+          <button type="button" class="action-btn primary" @click="applyCrop">应用裁剪</button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -207,6 +244,24 @@ const saving = ref(false);
 const errors = ref<ValidationError[]>([]);
 const showCancelDialog = ref(false);
 const avatarInput = ref<HTMLInputElement | null>(null);
+const cropImage = ref<HTMLImageElement | null>(null);
+const cropState = ref({
+  open: false,
+  source: '',
+  zoom: 1,
+  offsetX: 0,
+  offsetY: 0,
+  baseScale: 1,
+  naturalWidth: 0,
+  naturalHeight: 0,
+});
+const cropDrag = ref({
+  active: false,
+  startX: 0,
+  startY: 0,
+  originX: 0,
+  originY: 0,
+});
 
 const friendId = computed(() => route.params.id as string | undefined);
 const isEdit = computed(() => Boolean(friendId.value));
@@ -224,6 +279,9 @@ const basicInfoDrafts = ref<Array<{ id: string; label: string; value: string }>>
 const initialSnapshot = ref('');
 
 const isDirty = computed(() => buildDraftSnapshot() !== initialSnapshot.value);
+const cropImageStyle = computed(() => ({
+  transform: `translate(${cropState.value.offsetX}px, ${cropState.value.offsetY}px) scale(${cropState.value.baseScale * cropState.value.zoom})`,
+}));
 
 onMounted(async () => {
   await friendsStore.loadFriends();
@@ -354,7 +412,16 @@ async function handleAvatarChange(event: Event): Promise<void> {
   }
 
   const dataUrl = await readFileAsDataUrl(file);
-  form.value.avatarImage = dataUrl;
+  cropState.value = {
+    open: true,
+    source: dataUrl,
+    zoom: 1,
+    offsetX: 0,
+    offsetY: 0,
+    baseScale: 1,
+    naturalWidth: 0,
+    naturalHeight: 0,
+  };
   input.value = '';
 }
 
@@ -369,6 +436,96 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error ?? new Error('头像读取失败'));
     reader.readAsDataURL(file);
   });
+}
+
+function handleCropImageLoad(): void {
+  if (!cropImage.value) {
+    return;
+  }
+
+  const { naturalWidth, naturalHeight } = cropImage.value;
+  const viewport = 260;
+  const baseScale = Math.max(viewport / naturalWidth, viewport / naturalHeight);
+
+  cropState.value.naturalWidth = naturalWidth;
+  cropState.value.naturalHeight = naturalHeight;
+  cropState.value.baseScale = baseScale;
+  cropState.value.offsetX = 0;
+  cropState.value.offsetY = 0;
+}
+
+function startCropDrag(event: PointerEvent): void {
+  cropDrag.value = {
+    active: true,
+    startX: event.clientX,
+    startY: event.clientY,
+    originX: cropState.value.offsetX,
+    originY: cropState.value.offsetY,
+  };
+
+  window.addEventListener('pointermove', onCropDragMove);
+  window.addEventListener('pointerup', stopCropDrag);
+  window.addEventListener('pointercancel', stopCropDrag);
+}
+
+function onCropDragMove(event: PointerEvent): void {
+  if (!cropDrag.value.active) {
+    return;
+  }
+
+  cropState.value.offsetX = cropDrag.value.originX + event.clientX - cropDrag.value.startX;
+  cropState.value.offsetY = cropDrag.value.originY + event.clientY - cropDrag.value.startY;
+  clampCropOffset();
+}
+
+function stopCropDrag(): void {
+  cropDrag.value.active = false;
+  window.removeEventListener('pointermove', onCropDragMove);
+  window.removeEventListener('pointerup', stopCropDrag);
+  window.removeEventListener('pointercancel', stopCropDrag);
+}
+
+function clampCropOffset(): void {
+  const viewport = 260;
+  const scaledWidth = cropState.value.naturalWidth * cropState.value.baseScale * cropState.value.zoom;
+  const scaledHeight = cropState.value.naturalHeight * cropState.value.baseScale * cropState.value.zoom;
+  const maxOffsetX = Math.max(0, (scaledWidth - viewport) / 2);
+  const maxOffsetY = Math.max(0, (scaledHeight - viewport) / 2);
+
+  cropState.value.offsetX = Math.min(maxOffsetX, Math.max(-maxOffsetX, cropState.value.offsetX));
+  cropState.value.offsetY = Math.min(maxOffsetY, Math.max(-maxOffsetY, cropState.value.offsetY));
+}
+
+function cancelCrop(): void {
+  stopCropDrag();
+  cropState.value.open = false;
+}
+
+function applyCrop(): void {
+  const viewport = 260;
+  const output = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = output;
+  canvas.height = output;
+  const ctx = canvas.getContext('2d');
+  if (!ctx || !cropState.value.source) {
+    cancelCrop();
+    return;
+  }
+
+  const scale = cropState.value.baseScale * cropState.value.zoom;
+  const cropWidth = viewport / scale;
+  const cropHeight = viewport / scale;
+  const sx = (cropState.value.naturalWidth - cropWidth) / 2 - cropState.value.offsetX / scale;
+  const sy = (cropState.value.naturalHeight - cropHeight) / 2 - cropState.value.offsetY / scale;
+
+  const image = new Image();
+  image.onload = () => {
+    ctx.drawImage(image, sx, sy, cropWidth, cropHeight, 0, 0, output, output);
+    form.value.avatarImage = canvas.toDataURL('image/jpeg', 0.92);
+    cropState.value.open = false;
+  };
+  image.src = cropState.value.source;
 }
 
 function removeBasicInfoDraft(id: string): void {
@@ -614,27 +771,45 @@ async function handleSave(): Promise<void> {
 </script>
 
 <style scoped>
+.avatar-field {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
 .avatar-editor {
   display: grid;
   justify-items: start;
   gap: 10px;
-  margin-bottom: 12px;
 }
 
 .avatar-upload-actions {
+  width: fit-content;
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.upload-avatar-btn {
+  align-self: flex-start;
 }
 
 .hidden-avatar-input {
   display: none;
 }
 
+.field-subtitle {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .color-picker {
   display: flex;
   gap: 10px;
-  padding: 4px 0;
+  padding: 2px 0 4px;
   flex-wrap: wrap;
 }
 
@@ -662,6 +837,42 @@ async function handleSave(): Promise<void> {
   background: var(--ink-soft);
 }
 
+.color-option.rose {
+  background: #c06778;
+}
+
+.color-option.sky {
+  background: #5b90cc;
+}
+
+.color-option.sage {
+  background: #76926d;
+}
+
+.color-option.plum {
+  background: var(--plum);
+}
+
+.color-option.mint {
+  background: var(--mint);
+}
+
+.color-option.apricot {
+  background: var(--apricot);
+}
+
+.color-option.berry {
+  background: var(--berry);
+}
+
+.color-option.olive {
+  background: var(--olive);
+}
+
+.color-option.ocean {
+  background: var(--ocean);
+}
+
 .color-option.active {
   border-color: var(--ink);
   box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink);
@@ -671,7 +882,6 @@ async function handleSave(): Promise<void> {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  margin-top: 10px;
 }
 
 .preset-option {
@@ -684,6 +894,75 @@ async function handleSave(): Promise<void> {
 .preset-option.active {
   border-color: var(--ink);
   box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(29, 40, 49, 0.14);
+}
+
+.crop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(29, 40, 49, 0.28);
+  backdrop-filter: blur(6px);
+}
+
+.crop-dialog {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 24px;
+  background: rgba(255, 252, 247, 0.98);
+  border: 1px solid var(--line);
+}
+
+.crop-stage {
+  display: flex;
+  justify-content: center;
+}
+
+.crop-frame {
+  width: 260px;
+  height: 260px;
+  overflow: hidden;
+  border-radius: 28px;
+  background: rgba(29, 40, 49, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(29, 40, 49, 0.08);
+  position: relative;
+}
+
+.crop-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(255, 250, 244, 0.9);
+  border-radius: 28px;
+  pointer-events: none;
+}
+
+.crop-preview-image {
+  width: 260px;
+  height: 260px;
+  object-fit: cover;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.crop-slider-field {
+  display: grid;
+  gap: 8px;
+}
+
+.crop-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.crop-actions .action-btn {
+  flex: 1;
 }
 
 .field-tip {

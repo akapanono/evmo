@@ -130,6 +130,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { Capacitor } from '@capacitor/core';
 import Avatar from '@/components/common/Avatar.vue';
 import { aiService } from '@/services/aiService';
 import { getDB } from '@/database';
@@ -303,6 +304,8 @@ function triggerImport(): void {
 async function exportData(): Promise<void> {
   resetMessages();
 
+  const fileName = `youji-backup-${new Date().toISOString().slice(0, 10)}.json`;
+
   const payload = {
     version: 1,
     exportedAt: new Date().toISOString(),
@@ -315,12 +318,16 @@ async function exportData(): Promise<void> {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `evmo-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  link.download = fileName;
   document.body.appendChild(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-  dataMessage.value = '数据已导出。';
+
+  const exportPath = Capacitor.isNativePlatform()
+    ? `下载目录/${fileName}`
+    : `浏览器下载/${fileName}`;
+  dataMessage.value = `数据已导出：${exportPath}`;
 }
 
 async function handleImport(event: Event): Promise<void> {

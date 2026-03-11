@@ -524,13 +524,31 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 8px;
   padding: 0 14px;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .sort-caret {
-  font-size: 14px;
-  line-height: 1;
+  position: relative;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
   transition: transform 180ms ease;
+}
+
+.sort-caret::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 7px;
+  height: 7px;
+  border-right: 1.8px solid rgba(38, 64, 74, 0.9);
+  border-bottom: 1.8px solid rgba(38, 64, 74, 0.9);
+  transform: rotate(45deg);
+  border-radius: 1px;
 }
 
 .sort-caret.open {
@@ -559,7 +577,7 @@ onBeforeUnmount(() => {
   color: var(--ink);
   text-align: left;
   padding: 10px 12px;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .sort-option.active {
@@ -627,6 +645,42 @@ onBeforeUnmount(() => {
 
 .ink-card .star-toggle {
   -webkit-text-stroke-color: rgba(35, 49, 57, 0.42);
+}
+
+.rose-card .star-toggle {
+  -webkit-text-stroke-color: rgba(132, 69, 82, 0.42);
+}
+
+.sky-card .star-toggle {
+  -webkit-text-stroke-color: rgba(56, 94, 137, 0.42);
+}
+
+.sage-card .star-toggle {
+  -webkit-text-stroke-color: rgba(84, 104, 77, 0.42);
+}
+
+.plum-card .star-toggle {
+  -webkit-text-stroke-color: rgba(95, 70, 114, 0.42);
+}
+
+.mint-card .star-toggle {
+  -webkit-text-stroke-color: rgba(66, 114, 99, 0.42);
+}
+
+.apricot-card .star-toggle {
+  -webkit-text-stroke-color: rgba(154, 94, 54, 0.42);
+}
+
+.berry-card .star-toggle {
+  -webkit-text-stroke-color: rgba(126, 62, 87, 0.42);
+}
+
+.olive-card .star-toggle {
+  -webkit-text-stroke-color: rgba(91, 103, 54, 0.42);
+}
+
+.ocean-card .star-toggle {
+  -webkit-text-stroke-color: rgba(57, 97, 123, 0.42);
 }
 
 .compact-empty {

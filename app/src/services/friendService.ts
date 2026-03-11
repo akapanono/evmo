@@ -55,10 +55,27 @@ function normalizeNumber(value: unknown, fallback?: number): number | undefined 
 
 function normalizeAvatarPreset(value: unknown, fallback: AvatarPreset = 'initial'): AvatarPreset {
   return value === 'orbit'
+    || value === 'wave'
+    || value === 'ring'
+    || value === 'tile'
     || value === 'spark'
     || value === 'bloom'
     || value === 'kite'
-    || value === 'wave'
+    || value === 'comet'
+    || value === 'crown'
+    || value === 'cat'
+    || value === 'rabbit'
+    || value === 'leaf'
+    || value === 'flower'
+    || value === 'cherry'
+    || value === 'citrus'
+    || value === 'pig'
+    || value === 'cow'
+    || value === 'panda'
+    || value === 'sprout'
+    || value === 'tulip'
+    || value === 'pear'
+    || value === 'carrot'
     || value === 'initial'
     ? value
     : fallback;

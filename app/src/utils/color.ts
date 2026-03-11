@@ -1,6 +1,20 @@
 ﻿import type { AvatarColor } from '@/types/friend';
 
-const COLORS = ['coral', 'teal', 'gold', 'ink'] as const satisfies readonly AvatarColor[];
+const COLORS = [
+  'coral',
+  'apricot',
+  'gold',
+  'olive',
+  'sage',
+  'mint',
+  'teal',
+  'ocean',
+  'ink',
+  'sky',
+  'plum',
+  'berry',
+  'rose',
+] as const satisfies readonly AvatarColor[];
 
 export function getAvatarColorFromName(name: string): AvatarColor {
   let hash = 0;

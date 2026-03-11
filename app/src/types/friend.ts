@@ -15,8 +15,44 @@ export interface CustomField {
   eventTimeText?: string;
 }
 
-export type AvatarColor = 'coral' | 'teal' | 'gold' | 'ink';
-export type AvatarPreset = 'initial' | 'orbit' | 'spark' | 'bloom' | 'kite' | 'wave';
+export type AvatarColor =
+  | 'coral'
+  | 'teal'
+  | 'gold'
+  | 'ink'
+  | 'rose'
+  | 'sky'
+  | 'sage'
+  | 'plum'
+  | 'mint'
+  | 'apricot'
+  | 'berry'
+  | 'olive'
+  | 'ocean';
+export type AvatarPreset =
+  | 'initial'
+  | 'orbit'
+  | 'wave'
+  | 'ring'
+  | 'tile'
+  | 'spark'
+  | 'bloom'
+  | 'kite'
+  | 'comet'
+  | 'crown'
+  | 'cat'
+  | 'rabbit'
+  | 'leaf'
+  | 'flower'
+  | 'cherry'
+  | 'citrus'
+  | 'pig'
+  | 'cow'
+  | 'panda'
+  | 'sprout'
+  | 'tulip'
+  | 'pear'
+  | 'carrot';
 
 export interface BasicInfoField {
   id: string;
@@ -87,8 +123,46 @@ export interface ContactLog {
   type: 'call' | 'message' | 'meeting' | 'other';
 }
 
-export const AVATAR_COLORS: AvatarColor[] = ['coral', 'teal', 'gold', 'ink'];
-export const AVATAR_PRESETS: AvatarPreset[] = ['initial', 'orbit', 'spark', 'bloom', 'kite', 'wave'];
+export const AVATAR_COLORS: AvatarColor[] = [
+  'coral',
+  'apricot',
+  'gold',
+  'olive',
+  'sage',
+  'mint',
+  'teal',
+  'ocean',
+  'ink',
+  'sky',
+  'plum',
+  'berry',
+  'rose',
+];
+export const AVATAR_PRESETS: AvatarPreset[] = [
+  'initial',
+  'orbit',
+  'wave',
+  'ring',
+  'tile',
+  'spark',
+  'bloom',
+  'kite',
+  'comet',
+  'crown',
+  'cat',
+  'rabbit',
+  'leaf',
+  'flower',
+  'cherry',
+  'citrus',
+  'pig',
+  'cow',
+  'panda',
+  'sprout',
+  'tulip',
+  'pear',
+  'carrot',
+];
 
 export function createEmptyAIPersona(updatedAt = new Date().toISOString()): FriendAIPersona {
   return {
