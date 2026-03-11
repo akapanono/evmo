@@ -24,14 +24,57 @@
 
     <section class="section-block">
       <div class="section-head">
-        <h3>分身资料</h3>
+        <h3>高频操作</h3>
       </div>
+      <article class="form-card quick-action-card">
+        <div class="quick-action-grid">
+          <button type="button" class="action-btn primary" @click="openAskAI">问一问</button>
+          <button type="button" class="action-btn" @click="scrollToSupplement">一句话补充</button>
+          <button type="button" class="action-btn" @click="editFriend">编辑档案</button>
+        </div>
+        <div class="profile-stat-grid">
+          <div class="profile-stat">
+            <strong>{{ friend.preferences.length }}</strong>
+            <span>偏好</span>
+          </div>
+          <div class="profile-stat">
+            <strong>{{ stableFields.length }}</strong>
+            <span>特征</span>
+          </div>
+          <div class="profile-stat">
+            <strong>{{ timelineItems.length }}</strong>
+            <span>事件</span>
+          </div>
+          <div class="profile-stat">
+            <strong>{{ linkedMemorialDays.length }}</strong>
+            <span>纪念日</span>
+          </div>
+        </div>
+      </article>
       <article class="ask-context-card intake-entry-card">
-        <p class="mini-label">资料补充</p>
+        <p class="mini-label">画像补充</p>
         <p>除了基础信息，还可以继续补充相处方式、表达习惯和选择偏好。这些内容会影响分身回答时的语气和判断。</p>
         <button type="button" class="action-btn primary intake-entry-btn" @click="openProfileIntake">
           继续补充
         </button>
+      </article>
+    </section>
+
+    <section class="section-block">
+      <div class="section-head">
+        <h3>关联纪念日</h3>
+        <button type="button" class="more-link" @click="goToCalendar">去日历管理</button>
+      </div>
+      <article v-if="linkedMemorialDays.length > 0" class="info-card memorial-preview-card">
+        <div v-for="item in linkedMemorialDays" :key="item.id" class="memorial-preview-row">
+          <div>
+            <strong>{{ item.name }}</strong>
+            <p>{{ formatMonthDay(item.monthDay) }} · {{ memorialRelativeText(item.monthDay) }}</p>
+          </div>
+        </div>
+      </article>
+      <article v-else class="note-card">
+        <p>这个朋友还没有关联纪念日。你可以在首页日历里给某一天命名并关联到他。</p>
       </article>
     </section>
 
@@ -320,10 +363,12 @@ import Avatar from '@/components/common/Avatar.vue';
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
 import InfoRow from '@/components/friend/InfoRow.vue';
 import { useFriendsStore } from '@/stores/friends';
+import { useMemorialDaysStore } from '@/stores/memorialDays';
 import { aiService } from '@/services/aiService';
 import type { Friend, CustomField, SemanticType } from '@/types/friend';
 import type { SemanticExtractionResult } from '@/types/extraction';
-import { formatBirthday, formatDate } from '@/utils/dateHelpers';
+import type { MemorialDay } from '@/types/memorial';
+import { formatBirthday, formatDate, formatMonthDay, getDaysUntilMonthDay } from '@/utils/dateHelpers';
 import { parseSupplementInputBatch } from '@/utils/semantic';
 import { PROFILE_INTAKE_FIELD_LABELS } from '@/utils/profileIntake';
 import { applyBasicInfoExtraction, removeBasicInfoField as pruneBasicInfoField, upsertBasicInfoField } from '@/utils/basicInfo';
@@ -331,6 +376,7 @@ import { applyBasicInfoExtraction, removeBasicInfoField as pruneBasicInfoField, 
 const route = useRoute();
 const router = useRouter();
 const friendsStore = useFriendsStore();
+const memorialDaysStore = useMemorialDaysStore();
 const friend = ref<Friend | null>(null);
 const deleting = ref(false);
 const quickNote = ref('');
@@ -419,9 +465,22 @@ const hasSupplementOverflow = computed(() => {
   return stableFields.value.length > stablePreviewLimit || friend.value.preferences.length > 6;
 });
 
+const linkedMemorialDays = computed(() => {
+  if (!friend.value) {
+    return [] as MemorialDay[];
+  }
+
+  return memorialDaysStore.memorialDays
+    .filter((item) => item.friendIds.includes(friend.value!.id))
+    .sort((a, b) => getDaysUntilMonthDay(a.monthDay) - getDaysUntilMonthDay(b.monthDay));
+});
+
 onMounted(async () => {
   const id = route.params.id as string;
-  await loadCurrentFriend(id);
+  await Promise.all([
+    loadCurrentFriend(id),
+    memorialDaysStore.loadMemorialDays(),
+  ]);
   await applySuggestionFromRoute();
 });
 
@@ -473,13 +532,48 @@ function semanticTypeText(type: SemanticType): string {
 }
 
 function goBack(): void {
-  router.push('/');
+  router.push('/friends');
+}
+
+function openAskAI(): void {
+  if (!friend.value) {
+    return;
+  }
+
+  router.push({
+    name: 'ask-ai',
+    params: { id: friend.value.id },
+  });
 }
 
 function editFriend(): void {
   if (friend.value) {
     router.push(`/edit/${friend.value.id}`);
   }
+}
+
+function goToCalendar(): void {
+  router.push('/calendar');
+}
+
+async function scrollToSupplement(): Promise<void> {
+  await nextTick();
+  supplementSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  supplementTextarea.value?.focus();
+}
+
+function memorialRelativeText(monthDay: string): string {
+  const daysUntil = getDaysUntilMonthDay(monthDay);
+  if (daysUntil === 0) {
+    return '今天';
+  }
+  if (daysUntil === 1) {
+    return '明天';
+  }
+  if (daysUntil > 1) {
+    return `${daysUntil} 天后`;
+  }
+  return '已过';
 }
 
 function openProfileIntake(): void {
@@ -551,7 +645,16 @@ async function loadCurrentFriend(id: string): Promise<void> {
     await friendsStore.loadFriends();
   }
 
-  friend.value = await friendsStore.getFriendById(id) ?? null;
+  const currentFriend = await friendsStore.getFriendById(id);
+  if (!currentFriend) {
+    friend.value = null;
+    return;
+  }
+
+  const touchedFriend = await friendsStore.updateFriend(currentFriend.id, {
+    lastViewedAt: new Date().toISOString(),
+  });
+  friend.value = touchedFriend ?? currentFriend;
 
   if (
     friend.value
@@ -1193,6 +1296,48 @@ async function handleDelete(): Promise<void> {
   justify-content: flex-end;
 }
 
+.quick-action-card,
+.memorial-preview-card {
+  display: grid;
+  gap: 14px;
+}
+
+.quick-action-grid,
+.profile-stat-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.quick-action-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.profile-stat-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.profile-stat {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+  text-align: center;
+}
+
+.profile-stat strong {
+  font-size: 22px;
+}
+
+.profile-stat span,
+.memorial-preview-row p {
+  color: var(--muted);
+}
+
+.memorial-preview-row {
+  padding: 4px 0;
+}
+
 .timeline-card {
   position: relative;
 }
@@ -1311,5 +1456,12 @@ async function handleDelete(): Promise<void> {
   color: var(--muted);
   margin-bottom: 24px;
   line-height: 1.6;
+}
+
+@media (max-width: 520px) {
+  .quick-action-grid,
+  .profile-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

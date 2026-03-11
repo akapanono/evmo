@@ -5,10 +5,12 @@ import type { AppSettings } from '@/types/settings';
 import type { ChatMessage } from '@/stores/ai';
 import { storageService } from './storageService';
 import { runtimeContextService, type RuntimePromptContext } from './runtimeContextService';
-import { formatBirthday, getDaysUntilBirthday, isBirthdayToday } from '@/utils/dateHelpers';
+import { memorialDayService } from './memorialDayService';
+import { formatBirthday, formatMonthDay as formatMonthDayLabel, getDaysUntilBirthday, getDaysUntilMonthDay, isBirthdayToday } from '@/utils/dateHelpers';
 import { mergeSemanticExtractionResults, parseSupplementInputBatch } from '@/utils/semantic';
 import { buildAIPersonaContext, compileFriendAIPersona } from '@/utils/friendAIPersona';
 import { getStandardBasicInfoEntries } from '@/utils/basicInfo';
+import type { MemorialDay } from '@/types/memorial';
 
 interface ProxyResponse<T> {
   ok: boolean;
@@ -20,6 +22,11 @@ interface RuntimeProviderConfig {
   apiKey?: string;
   baseUrl?: string;
   model?: string;
+}
+
+interface AskAIRequestContext {
+  guidance: ProfileGuidance;
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
 }
 
 export interface AskAIResult {
@@ -83,6 +90,12 @@ function isRecentQuestion(question: string): boolean {
 
 function isGreetingQuestion(question: string): boolean {
   return /你好|在吗|还记得我吗|最近好吗|想你|在干嘛/.test(question);
+}
+
+function describeMemorialDay(item: MemorialDay): string {
+  const daysUntil = getDaysUntilMonthDay(item.monthDay);
+  const relative = daysUntil === 0 ? '今天' : daysUntil > 0 ? `${daysUntil} 天后` : formatMonthDayLabel(item.monthDay);
+  return `${item.name}（${formatMonthDayLabel(item.monthDay)}，${relative}）`;
 }
 
 function isDateQuestion(question: string): boolean {
@@ -181,7 +194,7 @@ function sliceRelevant<T>(items: T[], limit: number): T[] {
   return items.slice(0, limit);
 }
 
-function buildFriendContext(friend: Friend, question: string): string {
+function buildFriendContext(friend: Friend, question: string, memorialDays: MemorialDay[] = []): string {
   const parts: string[] = [];
   const basicInfo = buildBasicInfoContext(friend);
   const persona = friend.aiProfile;
@@ -192,6 +205,10 @@ function buildFriendContext(friend: Friend, question: string): string {
 
   if (basicInfo) {
     parts.push(basicInfo);
+  }
+
+  if (memorialDays.length > 0) {
+    parts.push(`关联纪念日: ${memorialDays.map(describeMemorialDay).join('；')}`);
   }
 
   const personaLines: string[] = [];
@@ -355,6 +372,72 @@ async function postToProxy<T>(path: string, body: Record<string, unknown>, setti
   }
 
   return payload.data;
+}
+
+async function postToProxyStream(
+  path: string,
+  body: Record<string, unknown>,
+  settings: AppSettings,
+  onDelta: (chunk: string) => void,
+): Promise<string> {
+  const response = await fetch(`${getProxyBaseUrl(settings)}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      providerId: settings.proxyProviderId?.trim() || undefined,
+      runtimeProvider: getRuntimeProviderConfig(settings),
+      ...body,
+      stream: true,
+    }),
+  });
+
+  if (!response.ok || !response.body) {
+    throw new Error('代理流式请求失败。');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let text = '';
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split('\n\n');
+    buffer = events.pop() ?? '';
+
+    for (const rawEvent of events) {
+      const line = rawEvent
+        .split('\n')
+        .map((item) => item.trim())
+        .find((item) => item.startsWith('data:'));
+
+      if (!line) {
+        continue;
+      }
+
+      const payloadText = line.slice(5).trim();
+      if (!payloadText || payloadText === '[DONE]') {
+        continue;
+      }
+
+      const payload = JSON.parse(payloadText) as { delta?: string; error?: string };
+      if (payload.error) {
+        throw new Error(payload.error);
+      }
+
+      if (payload.delta) {
+        text += payload.delta;
+        onDelta(payload.delta);
+      }
+    }
+  }
+
+  return text;
 }
 
 function buildExtractionPrompt(friend: Friend, text: string): string {
@@ -581,8 +664,8 @@ function buildProfileGuidance(friend: Friend): ProfileGuidance {
   };
 }
 
-function buildAskUserPrompt(friend: Friend, question: string, guidance: ProfileGuidance): string {
-  const context = buildFriendContext(friend, question);
+function buildAskUserPrompt(friend: Friend, question: string, guidance: ProfileGuidance, memorialDays: MemorialDay[] = []): string {
+  const context = buildFriendContext(friend, question, memorialDays);
   const isGift = isGiftQuestion(question);
   const isFood = isFoodQuestion(question);
   const isDate = isDateQuestion(question);
@@ -609,9 +692,47 @@ function buildConversationMessages(history: ChatMessage[], question: string): Ar
   ];
 }
 
+async function buildAskAIRequestContext(
+  friend: Friend,
+  question: string,
+  history: ChatMessage[],
+  runtimeContextOverride?: RuntimePromptContext,
+): Promise<AskAIRequestContext | { localResult: AskAIResult }> {
+  const settings = storageService.getSettings();
+  const guidance = buildProfileGuidance(friend);
+  const systemPrompt = getSystemPrompt(settings.aiStyle);
+  const runtimeContext = runtimeContextOverride ?? await runtimeContextService.buildPromptContext(true);
+  const localDateAnswer = buildLocalDateAnswer(friend, question, runtimeContext);
+  if (localDateAnswer) {
+    return {
+      localResult: {
+        content: localDateAnswer,
+        suggestions: guidance.suggestions,
+        lowInfoMode: guidance.lowInfoMode,
+      },
+    };
+  }
+
+  const linkedMemorialDays = (await memorialDayService.getAllMemorialDays())
+    .filter((item) => item.friendIds.includes(friend.id))
+    .slice(0, 6);
+  const userPrompt = buildAskUserPrompt(friend, question, guidance, linkedMemorialDays);
+  const conversationMessages = buildConversationMessages(history, question);
+
+  return {
+    guidance,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'system', content: `以下运行时信息为发送前实时获取，涉及现实时间或当前状态的问题时必须优先采用：\n${runtimeContext.promptText}` },
+      { role: 'system', content: `当前这一轮可参考的资料：\n${userPrompt}` },
+      ...conversationMessages,
+    ],
+  };
+}
+
 export const aiService = {
   async prepareAskRuntimeContext() {
-    return runtimeContextService.buildPromptContext(true);
+    return runtimeContextService.buildPromptContext(false);
   },
 
   getConnectionSummary(): { configured: boolean; mode: 'direct' | 'proxy'; baseUrl?: string; model: string; providerId?: string } {
@@ -669,33 +790,20 @@ export const aiService = {
     runtimeContextOverride?: RuntimePromptContext,
   ): Promise<AskAIResult> {
     const settings = storageService.getSettings();
-    const guidance = buildProfileGuidance(friend);
-    const systemPrompt = getSystemPrompt(settings.aiStyle);
-    const runtimeContext = runtimeContextOverride ?? await runtimeContextService.buildPromptContext(true);
-    const localDateAnswer = buildLocalDateAnswer(friend, question, runtimeContext);
-    if (localDateAnswer) {
-      return {
-        content: localDateAnswer,
-        suggestions: guidance.suggestions,
-        lowInfoMode: guidance.lowInfoMode,
-      };
+    const requestContext = await buildAskAIRequestContext(friend, question, history, runtimeContextOverride);
+
+    if ('localResult' in requestContext) {
+      return requestContext.localResult;
     }
 
-    const userPrompt = buildAskUserPrompt(friend, question, guidance);
-    const conversationMessages = buildConversationMessages(history, question);
-    const messages = [
-      { role: 'system' as const, content: systemPrompt },
-      { role: 'system' as const, content: `以下运行时信息为发送前实时获取，涉及现实时间或当前状态的问题时必须优先采用：\n${runtimeContext.promptText}` },
-      { role: 'system' as const, content: `当前这一轮可参考的资料：\n${userPrompt}` },
-      ...conversationMessages,
-    ];
+    const { guidance, messages } = requestContext;
 
     if (settings.aiAccessMode === 'proxy') {
       const result = await postToProxy<{ content: string }>('/api/ai/chat', {
         messages,
         model: getActiveModel(settings),
         temperature: guidance.lowInfoMode ? 0.85 : 0.72,
-        max_tokens: 700,
+        max_tokens: 420,
       }, settings);
       return {
         content: result.content,
@@ -709,7 +817,7 @@ export const aiService = {
       model: getActiveModel(settings),
       messages,
       temperature: guidance.lowInfoMode ? 0.85 : 0.72,
-      max_tokens: 700,
+      max_tokens: 420,
     });
 
     const answer = completion.choices[0]?.message?.content;
@@ -722,6 +830,73 @@ export const aiService = {
     };
   },
 
+  async askAIStream(
+    friend: Friend,
+    question: string,
+    history: ChatMessage[] = [],
+    runtimeContextOverride: RuntimePromptContext | undefined,
+    onDelta: (chunk: string) => void,
+  ): Promise<AskAIResult> {
+    const settings = storageService.getSettings();
+    const requestContext = await buildAskAIRequestContext(friend, question, history, runtimeContextOverride);
+
+    if ('localResult' in requestContext) {
+      onDelta(requestContext.localResult.content);
+      return requestContext.localResult;
+    }
+
+    const { guidance, messages } = requestContext;
+
+    if (settings.aiAccessMode === 'proxy') {
+      const content = await postToProxyStream('/api/ai/chat', {
+        messages,
+        model: getActiveModel(settings),
+        temperature: guidance.lowInfoMode ? 0.85 : 0.72,
+        max_tokens: 420,
+      }, settings, onDelta);
+
+      if (!content.trim()) {
+        throw new Error('AI 没有返回答案。');
+      }
+
+      return {
+        content,
+        suggestions: guidance.suggestions,
+        lowInfoMode: guidance.lowInfoMode,
+      };
+    }
+
+    const client = createClient(settings);
+    const stream = await client.chat.completions.create({
+      model: getActiveModel(settings),
+      messages,
+      temperature: guidance.lowInfoMode ? 0.85 : 0.72,
+      max_tokens: 420,
+      stream: true,
+    });
+
+    let content = '';
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content;
+      if (!delta) {
+        continue;
+      }
+
+      content += delta;
+      onDelta(delta);
+    }
+
+    if (!content.trim()) {
+      throw new Error('AI 没有返回答案。');
+    }
+
+    return {
+      content,
+      suggestions: guidance.suggestions,
+      lowInfoMode: guidance.lowInfoMode,
+    };
+  },
+
   async generateFriendPersona(friend: Friend): Promise<FriendAIPersona> {
     const settings = storageService.getSettings();
     const fallback = buildFallbackPersona(friend);
@@ -729,15 +904,15 @@ export const aiService = {
 
     if (settings.aiAccessMode === 'proxy' && canUseProxyModel(settings)) {
       try {
-        const result = await postToProxy<{ content: string }>('/api/ai/chat', {
-          messages: [
-            { role: 'system', content: '你擅长从人物资料中提炼抽象画像。输出必须是合法 JSON。' },
-            { role: 'user', content: buildPersonaPrompt(friend) },
-          ],
-          model: getActiveModel(settings),
-          temperature: 0.35,
-          max_tokens: 700,
-        }, settings);
+          const result = await postToProxy<{ content: string }>('/api/ai/chat', {
+            messages: [
+              { role: 'system', content: '你擅长从人物资料中提炼抽象画像。输出必须是合法 JSON。' },
+              { role: 'user', content: buildPersonaPrompt(friend) },
+            ],
+            model: getActiveModel(settings),
+            temperature: 0.35,
+            max_tokens: 480,
+          }, settings);
         const payload = JSON.parse(stripJsonWrapper(result.content)) as Partial<FriendAIPersona>;
         return normalizePersonaPayload(payload, updatedAt, fallback);
       } catch {
@@ -752,15 +927,15 @@ export const aiService = {
     if (settings.aiAccessMode === 'direct' && canUseDirectModel(settings)) {
       try {
         const client = createClient(settings);
-        const completion = await client.chat.completions.create({
-          model: getActiveModel(settings),
-          messages: [
-            { role: 'system', content: '你擅长从人物资料中提炼抽象画像。输出必须是合法 JSON。' },
-            { role: 'user', content: buildPersonaPrompt(friend) },
-          ],
-          temperature: 0.35,
-          max_tokens: 700,
-        });
+          const completion = await client.chat.completions.create({
+            model: getActiveModel(settings),
+            messages: [
+              { role: 'system', content: '你擅长从人物资料中提炼抽象画像。输出必须是合法 JSON。' },
+              { role: 'user', content: buildPersonaPrompt(friend) },
+            ],
+            temperature: 0.35,
+            max_tokens: 480,
+          });
         const content = completion.choices[0]?.message?.content;
         if (!content) {
           return fallback;
@@ -790,17 +965,25 @@ export const aiService = {
 
     const settings = storageService.getSettings();
     const quickParsed = parseSupplementInputBatch(normalizedText);
+    if (
+      quickParsed.birthday
+      || quickParsed.preferences.length > 0
+      || quickParsed.basicInfoFields.length > 0
+      || quickParsed.records.length > 1
+    ) {
+      return quickParsed;
+    }
 
     if (settings.aiAccessMode === 'proxy') {
       const result = await postToProxy<{ content: string }>('/api/ai/chat', {
         messages: [
           { role: 'system', content: '你是一个信息抽取器。输出必须是合法 JSON。' },
           { role: 'user', content: buildExtractionPrompt(friend, normalizedText) },
-        ],
-        model: getActiveModel(settings),
-        temperature: 0.2,
-        max_tokens: 420,
-      }, settings);
+          ],
+          model: getActiveModel(settings),
+          temperature: 0.2,
+          max_tokens: 260,
+        }, settings);
       const payload = JSON.parse(stripJsonWrapper(result.content)) as Partial<LlmExtractionPayload>;
       return mergeSemanticExtractionResults([
         quickParsed,
@@ -813,15 +996,15 @@ export const aiService = {
     }
 
     const client = createClient(settings);
-    const completion = await client.chat.completions.create({
-      model: getActiveModel(settings),
-      messages: [
-        { role: 'system', content: '你是一个信息抽取器。输出必须是合法 JSON。' },
-        { role: 'user', content: buildExtractionPrompt(friend, normalizedText) },
-      ],
-      temperature: 0.2,
-      max_tokens: 420,
-    });
+      const completion = await client.chat.completions.create({
+        model: getActiveModel(settings),
+        messages: [
+          { role: 'system', content: '你是一个信息抽取器。输出必须是合法 JSON。' },
+          { role: 'user', content: buildExtractionPrompt(friend, normalizedText) },
+        ],
+        temperature: 0.2,
+        max_tokens: 260,
+      });
 
     const content = completion.choices[0]?.message?.content;
     if (!content) throw new Error('AI 没有返回抽取结果。');

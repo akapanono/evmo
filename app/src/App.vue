@@ -46,7 +46,7 @@ const router = useRouter();
 const friendsStore = useFriendsStore();
 const isNativeApp = Capacitor.isNativePlatform();
 
-const mainTabs = new Set(['/', '/me']);
+const mainTabs = new Set(['/calendar', '/friends', '/me']);
 let removeBackButtonListener: (() => Promise<void>) | null = null;
 
 const currentFriendId = computed(() => {
@@ -68,7 +68,7 @@ const currentRouteHasFriend = computed(() => {
 
 const showBottomNav = computed(() => mainTabs.has(route.path));
 const floatingAction = computed<'add' | 'ask' | null>(() => {
-  if (route.path === '/') {
+  if (route.path === '/calendar' || route.path === '/friends') {
     return 'add';
   }
 
@@ -81,6 +81,11 @@ const floatingAction = computed<'add' | 'ask' | null>(() => {
 const showFloatingAction = computed(() => Boolean(floatingAction.value));
 
 function navigateToAdd(): void {
+  if (route.path === '/calendar') {
+    router.push('/memorial/new');
+    return;
+  }
+
   router.push('/add');
 }
 

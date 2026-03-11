@@ -30,6 +30,21 @@ function json(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
+function openSse(res) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  });
+}
+
+function sendSse(res, payload) {
+  res.write(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
 function getProfile(providerId) {
   const profiles = loadProfiles();
   const profile = providerId ? profiles[providerId] : undefined;
@@ -120,12 +135,38 @@ const server = createServer(async (req, res) => {
 
     if (req.url === '/api/ai/chat') {
       const { client, model } = createClient(providerId, body.model, runtimeProvider);
-      const completion = await client.chat.completions.create({
+      const requestPayload = {
         model,
         messages: Array.isArray(body.messages) ? body.messages : [],
         temperature: typeof body.temperature === 'number' ? body.temperature : 0.7,
         max_tokens: typeof body.max_tokens === 'number' ? body.max_tokens : 1000,
-      });
+      };
+
+      if (body.stream) {
+        openSse(res);
+
+        try {
+          const stream = await client.chat.completions.create({
+            ...requestPayload,
+            stream: true,
+          });
+
+          for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta?.content;
+            if (!delta) continue;
+            sendSse(res, { delta });
+          }
+
+          res.write('data: [DONE]\n\n');
+          res.end();
+        } catch (error) {
+          sendSse(res, { error: error instanceof Error ? error.message : '代理服务错误。' });
+          res.end();
+        }
+        return;
+      }
+
+      const completion = await client.chat.completions.create(requestPayload);
 
       const content = completion.choices[0]?.message?.content;
       if (!content) throw new Error('模型没有返回内容。');

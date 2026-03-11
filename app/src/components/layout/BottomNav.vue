@@ -21,7 +21,8 @@ interface NavItem {
 }
 
 const items: NavItem[] = [
-  { label: '首页', path: '/' },
+  { label: '日历', path: '/calendar' },
+  { label: '朋友', path: '/friends' },
   { label: '我的', path: '/me' },
 ];
 
@@ -29,9 +30,6 @@ const router = useRouter();
 const route = useRoute();
 
 function isActive(path: string): boolean {
-  if (path === '/') {
-    return route.path === '/';
-  }
   return route.path.startsWith(path);
 }
 

@@ -39,30 +39,53 @@ export const useAIStore = defineStore('ai', () => {
     lowInfoMode.value = false;
     activeFriendId.value = friend.id;
 
-    const history = messages.value.slice(-12);
-    const runtimeContext = await aiService.prepareAskRuntimeContext();
-
-    messages.value.push({
-      role: 'user',
-      content: question,
-      timestamp: new Date().toISOString(),
-    });
-    await persistMessages(friend.id);
-
     try {
-      const result = await aiService.askAI(friend, question, history, runtimeContext);
+      const history = messages.value.slice(-12);
+      const runtimeContextPromise = aiService.prepareAskRuntimeContext();
 
       messages.value.push({
-        role: 'assistant',
-        content: result.content,
+        role: 'user',
+        content: question,
         timestamp: new Date().toISOString(),
       });
+      await persistMessages(friend.id);
+
+      const assistantIndex = messages.value.push({
+        role: 'assistant',
+        content: '',
+        timestamp: new Date().toISOString(),
+      }) - 1;
+
+      const runtimeContext = await runtimeContextPromise;
+      const result = await aiService.askAIStream(friend, question, history, runtimeContext, (chunk) => {
+        const assistantMessage = messages.value[assistantIndex];
+        if (!assistantMessage) {
+          return;
+        }
+
+        assistantMessage.content += chunk;
+      });
+
+      if (messages.value[assistantIndex]) {
+        messages.value[assistantIndex].content = result.content;
+      }
       followupSuggestions.value = result.suggestions;
       lowInfoMode.value = result.lowInfoMode;
       await persistMessages(friend.id);
 
       return result;
     } catch (err) {
+      const lastMessage = messages.value[messages.value.length - 1];
+      if (lastMessage?.role === 'assistant' && !lastMessage.content.trim()) {
+        messages.value.pop();
+      }
+
+      try {
+        await persistMessages(friend.id);
+      } catch {
+        // Ignore persistence failures here so the primary AI error can surface.
+      }
+
       error.value = err instanceof Error ? err.message : '发生未知错误。';
       throw err;
     } finally {

@@ -55,6 +55,7 @@ export interface Friend {
   major?: string;
   avatarColor: AvatarColor;
   lastContactDate?: string;
+  lastViewedAt?: string;
   isImportant: boolean;
   preferences: string[];
   notes: string;
@@ -120,6 +121,7 @@ export function createEmptyFriend(): Friend {
     major: '',
     avatarColor: 'coral',
     lastContactDate: undefined,
+    lastViewedAt: undefined,
     isImportant: false,
     preferences: [],
     notes: '',

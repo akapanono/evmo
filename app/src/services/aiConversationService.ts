@@ -35,15 +35,16 @@ export const aiConversationService = {
   async saveMessages(friendId: string, messages: ChatMessage[]): Promise<AIConversation> {
     const db = await getDB();
     const existing = await this.getConversation(friendId);
+    const normalizedMessages = messages.map((message) => ({ ...message }));
     const nextConversation: AIConversation = existing
       ? {
         ...existing,
         id: friendId,
         friendId,
-        messages,
+        messages: normalizedMessages,
         updatedAt: new Date().toISOString(),
       }
-      : createConversation(friendId, messages);
+      : createConversation(friendId, normalizedMessages);
 
     await db.put('conversations', nextConversation);
     return nextConversation;
@@ -56,5 +57,10 @@ export const aiConversationService = {
     if (existing) {
       await db.delete('conversations', existing.id);
     }
+  },
+
+  async clearAllConversations(): Promise<void> {
+    const db = await getDB();
+    await db.clear('conversations');
   },
 };

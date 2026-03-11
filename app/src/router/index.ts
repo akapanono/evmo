@@ -3,8 +3,17 @@
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    name: 'home',
+    redirect: '/calendar',
+  },
+  {
+    path: '/calendar',
+    name: 'calendar',
     component: () => import('@/views/HomeView.vue'),
+  },
+  {
+    path: '/friends',
+    name: 'friends',
+    component: () => import('@/views/FriendsView.vue'),
   },
   {
     path: '/friend/:id',
@@ -30,6 +39,16 @@ const routes: RouteRecordRaw[] = [
     path: '/add',
     name: 'add-friend',
     component: () => import('@/views/AddFriendView.vue'),
+  },
+  {
+    path: '/memorial/new',
+    name: 'memorial-create',
+    component: () => import('@/views/MemorialEditorView.vue'),
+  },
+  {
+    path: '/memorial/:id/edit',
+    name: 'memorial-edit',
+    component: () => import('@/views/MemorialEditorView.vue'),
   },
   {
     path: '/edit/:id',

@@ -28,6 +28,10 @@ export function formatBirthday(birthday: string): string {
   return `${month} 月 ${day} 日`;
 }
 
+export function formatMonthDay(monthDay: string): string {
+  return formatBirthday(monthDay);
+}
+
 export function isBirthdayToday(birthday: string): boolean {
   const parts = birthday.split('-');
   if (parts.length !== 2) {
@@ -66,6 +70,10 @@ export function getDaysUntilBirthday(birthday: string): number {
   }
 
   return differenceInDays(birthdayThisYear, today);
+}
+
+export function getDaysUntilMonthDay(monthDay: string): number {
+  return getDaysUntilBirthday(monthDay);
 }
 
 export function getDaysSince(dateStr: string): number {

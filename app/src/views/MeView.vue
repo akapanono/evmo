@@ -1,224 +1,136 @@
-﻿<template>
+<template>
   <section class="app-screen is-active">
     <div class="topbar">
       <div>
-        <p class="eyebrow">我的</p>
-        <h1>账号与设置</h1>
+        <p class="eyebrow">设置</p>
+        <h1>AI 与数据管理</h1>
       </div>
     </div>
 
     <article class="profile-panel">
-      <Avatar size="xxl" color="ink">我</Avatar>
+      <Avatar size="xxl" color="ink">设</Avatar>
       <div>
-        <h2>{{ settingsStore.settings.profileName || '你的账号' }}</h2>
-        <p>用于管理生日提醒、隐私设置和 AI 使用偏好。</p>
+        <h2>当前本地工作区</h2>
+        <p>{{ statsSummary }}</p>
       </div>
     </article>
 
-    <div class="settings-list">
-      <article @click="openSection('account')">
-        <strong>账号信息</strong>
-        <span>{{ accountSummary }}</span>
-      </article>
-      <article @click="openSection('reminder')">
-        <strong>提醒设置</strong>
-        <span>{{ reminderSummary }}</span>
-      </article>
-      <article @click="openSection('privacy')">
-        <strong>隐私与安全</strong>
-        <span>{{ privacySummary }}</span>
-      </article>
-      <article @click="openSection('ai')">
-        <strong>AI 设置</strong>
-        <span>{{ connectionText }}</span>
-      </article>
-    </div>
+    <section class="section-block">
+      <div class="section-head">
+        <h3>AI 设置</h3>
+      </div>
 
-    <Transition name="settings-panel" mode="out-in">
-      <section v-if="activeSection" ref="activeSectionPanel" class="section-block settings-panel">
-        <div class="section-head">
-          <h3>{{ panelTitle }}</h3>
+      <article class="form-card">
+        <div :class="['connection-status', connectionSummary.configured ? 'connected' : 'disconnected']">
+          <strong>{{ connectionSummary.configured ? '已配置 AI 接入' : '尚未配置 AI 接入' }}</strong>
+          <span>{{ summaryLine }}</span>
         </div>
 
-        <article v-if="activeSection === 'account'" class="form-card">
-          <div class="field-grid">
+        <div class="field-grid">
+          <label class="field">
+            <span>接入方式</span>
+            <select v-model="accessMode" class="model-select">
+              <option value="direct">前端直连</option>
+              <option value="proxy">代理服务</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>API Key</span>
+            <input v-model="apiKey" type="password" placeholder="填写你的服务 API Key" />
+            <p v-if="accessMode === 'direct'" class="field-hint warning">前端直连仅适合测试，密钥会保存在本地。</p>
+          </label>
+
+          <label class="field">
+            <span>Base URL</span>
+            <input v-model="baseUrl" type="text" placeholder="例如：https://ark.cn-beijing.volces.com/api/v3" />
+          </label>
+
+          <label class="field">
+            <span>模型名</span>
+            <input v-model="model" type="text" placeholder="例如：gpt-4o-mini / doubao-1-5-pro" />
+          </label>
+
+          <template v-if="accessMode === 'proxy'">
             <label class="field">
-              <span>显示名称</span>
-              <input v-model="profileName" type="text" placeholder="例如：我的账号" />
-            </label>
-
-            <label class="field">
-              <span>手机号</span>
-              <input v-model="profilePhone" type="text" placeholder="仅本地保存，例如：138****1234" />
-              <p class="field-hint">这里只做本地记录，不接真实登录系统。</p>
-            </label>
-
-            <label class="field">
-              <span>设备备注</span>
-              <input v-model="profileDeviceName" type="text" placeholder="例如：Pixel 9 / iPhone 15" />
-            </label>
-          </div>
-
-          <div class="section-actions-row">
-            <button type="button" class="action-btn" @click="closeSection">取消</button>
-            <button type="button" class="action-btn primary" @click="saveAccountSettings">保存</button>
-          </div>
-        </article>
-
-        <article v-else-if="activeSection === 'reminder'" class="form-card">
-          <div class="toggle-row">
-            <div>
-              <strong>生日提醒</strong>
-              <p>用于后续接入系统通知时作为默认规则。</p>
-            </div>
-            <label class="switch">
-              <input v-model="birthdayReminderEnabled" type="checkbox" />
-              <span></span>
-            </label>
-          </div>
-
-          <div class="field-grid two-col">
-            <label class="field">
-              <span>提前天数</span>
-              <select v-model.number="birthdayReminderDaysBefore" class="model-select">
-                <option :value="0">当天</option>
-                <option :value="1">提前 1 天</option>
-                <option :value="3">提前 3 天</option>
-                <option :value="7">提前 7 天</option>
-              </select>
+              <span>代理地址</span>
+              <input v-model="proxyServerUrl" type="text" placeholder="http://localhost:8787" />
             </label>
 
             <label class="field">
-              <span>提醒时间</span>
-              <input v-model="birthdayReminderTime" type="time" />
+              <span>中转站标识</span>
+              <input v-model="proxyProviderId" type="text" placeholder="可留空" />
             </label>
+          </template>
+
+          <label class="field">
+            <span>回答风格</span>
+            <select v-model="aiStyle" class="model-select">
+              <option value="friendly">亲切友好</option>
+              <option value="professional">专业周到</option>
+              <option value="concise">简洁直接</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="section-actions-row">
+          <button type="button" class="action-btn" @click="resetAISettings">重置 AI 设置</button>
+          <button type="button" class="action-btn" @click="testConnection" :disabled="testing || !canTestConnection">
+            {{ testing ? '测试中...' : '测试连接' }}
+          </button>
+          <button type="button" class="action-btn primary" @click="saveAISettings">保存</button>
+        </div>
+
+        <p v-if="testResult" :class="['test-result', testResult.success ? 'success' : 'error']">{{ testResult.message }}</p>
+      </article>
+    </section>
+
+    <section class="section-block">
+      <div class="section-head">
+        <h3>数据管理</h3>
+      </div>
+
+      <article class="form-card data-card">
+        <div class="data-summary">
+          <div>
+            <strong>{{ friendsStore.friends.length }}</strong>
+            <span>朋友档案</span>
           </div>
-
-          <div class="section-actions-row">
-            <button type="button" class="action-btn" @click="closeSection">取消</button>
-            <button type="button" class="action-btn primary" @click="saveReminderSettings">保存</button>
+          <div>
+            <strong>{{ memorialDaysStore.memorialDays.length }}</strong>
+            <span>纪念日</span>
           </div>
-        </article>
+        </div>
 
-        <article v-else-if="activeSection === 'privacy'" class="form-card">
-          <div class="toggle-row">
-            <div>
-              <strong>锁屏隐藏</strong>
-              <p>后续接入手机端后，可作为锁屏或切后台时的隐藏策略。</p>
-            </div>
-            <label class="switch">
-              <input v-model="lockScreen" type="checkbox" />
-              <span></span>
-            </label>
-          </div>
+        <div class="section-actions-row">
+          <button type="button" class="action-btn" @click="triggerImport">导入数据</button>
+          <button type="button" class="action-btn" @click="exportData">导出数据</button>
+        </div>
 
-          <div class="toggle-row compact-gap">
-            <div>
-              <strong>隐藏敏感信息</strong>
-              <p>开启后，档案中的生日等信息可在后续版本做默认弱化显示。</p>
-            </div>
-            <label class="switch">
-              <input v-model="hideSensitiveInfo" type="checkbox" />
-              <span></span>
-            </label>
-          </div>
-
-          <div class="section-actions-row">
-            <button type="button" class="action-btn" @click="closeSection">取消</button>
-            <button type="button" class="action-btn primary" @click="savePrivacySettings">保存</button>
-          </div>
-        </article>
-
-        <article v-else class="form-card">
-          <div :class="['connection-status', connectionSummary.configured ? 'connected' : 'disconnected']">
-            <strong>{{ connectionSummary.configured ? '已配置 AI 接入' : '尚未配置 AI 接入' }}</strong>
-            <span>{{ summaryLine }}</span>
-          </div>
-
-          <div class="field-grid">
-            <label class="field">
-              <span>接入方式</span>
-              <select v-model="accessMode" class="model-select">
-                <option value="direct">前端直连</option>
-                <option value="proxy">代理服务</option>
-              </select>
-              <p class="field-hint">测试豆包或其他兼容服务时，两种方式都支持直接填写地址、API Key 和模型。</p>
-            </label>
-
-            <label class="field">
-              <span>API Key</span>
-              <input v-model="apiKey" type="password" placeholder="填你的服务 API Key" />
-              <p v-if="accessMode === 'direct'" class="field-hint warning">当前为前端直连模式，API Key 保存在浏览器本地，只适合测试。</p>
-              <p v-else class="field-hint">代理模式下，如果不填中转站标识，就会直接使用这里填写的 API Key 转发。</p>
-            </label>
-
-            <label class="field">
-              <span>Base URL</span>
-              <input v-model="baseUrl" type="text" placeholder="例如：https://ark.cn-beijing.volces.com/api/v3" />
-              <p class="field-hint">填写 OpenAI 兼容地址即可，豆包和多数中转站都可这样接。</p>
-            </label>
-
-            <label class="field">
-              <span>模型名</span>
-              <input v-model="model" type="text" placeholder="例如：doubao-1-5-pro-32k-250115" list="model-suggestions" />
-              <datalist id="model-suggestions">
-                <option value="gpt-4o-mini"></option>
-                <option value="gpt-4o"></option>
-                <option value="doubao-1-5-pro-32k-250115"></option>
-                <option value="doubao-1-5-lite-32k-250115"></option>
-                <option value="claude-3-5-sonnet"></option>
-                <option value="gemini-2.0-flash"></option>
-              </datalist>
-            </label>
-
-            <template v-if="accessMode === 'proxy'">
-              <label class="field">
-                <span>代理地址</span>
-                <input v-model="proxyServerUrl" type="text" placeholder="http://localhost:8787" />
-                <p class="field-hint">本地代理默认监听 `http://localhost:8787`。</p>
-              </label>
-
-              <label class="field">
-                <span>中转站标识</span>
-                <input v-model="proxyProviderId" type="text" placeholder="可留空；留空则直接使用上面的 API Key 和 Base URL" />
-                <p class="field-hint">只有在你想使用服务端预置配置时才填写。</p>
-              </label>
-            </template>
-
-            <label class="field">
-              <span>回答风格</span>
-              <select v-model="aiStyle" class="model-select">
-                <option value="friendly">亲切友好</option>
-                <option value="professional">专业周到</option>
-                <option value="concise">简洁直接</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="section-actions-row">
-            <button type="button" class="action-btn" @click="closeSection">取消</button>
-            <button type="button" class="action-btn" @click="testConnection" :disabled="testing || !canTestConnection">
-              {{ testing ? '测试中...' : '测试连接' }}
-            </button>
-            <button type="button" class="action-btn primary" @click="saveAISettings">保存</button>
-          </div>
-
-          <p v-if="testResult" :class="['test-result', testResult.success ? 'success' : 'error']">{{ testResult.message }}</p>
-        </article>
-      </section>
-    </Transition>
+        <input ref="fileInput" class="hidden-input" type="file" accept="application/json" @change="handleImport" />
+        <p v-if="dataMessage" class="success-message">{{ dataMessage }}</p>
+        <p v-if="dataError" class="error-message">{{ dataError }}</p>
+      </article>
+    </section>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import Avatar from '@/components/common/Avatar.vue';
 import { aiService } from '@/services/aiService';
+import { getDB } from '@/database';
+import { useFriendsStore } from '@/stores/friends';
+import { useMemorialDaysStore } from '@/stores/memorialDays';
 import { useSettingsStore } from '@/stores/settings';
+import { DEFAULT_SETTINGS } from '@/types/settings';
+import type { Friend } from '@/types/friend';
+import type { MemorialDay } from '@/types/memorial';
 
 const settingsStore = useSettingsStore();
+const friendsStore = useFriendsStore();
+const memorialDaysStore = useMemorialDaysStore();
 
-const activeSection = ref<'account' | 'reminder' | 'privacy' | 'ai' | null>(null);
 const DEFAULT_AI_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3';
 const DEFAULT_AI_MODEL = 'ep-20260309112425-mwdsp';
 const accessMode = ref<'direct' | 'proxy'>('direct');
@@ -230,78 +142,37 @@ const model = ref(DEFAULT_AI_MODEL);
 const aiStyle = ref<'friendly' | 'professional' | 'concise'>('friendly');
 const testing = ref(false);
 const testResult = ref<{ success: boolean; message: string } | null>(null);
-const activeSectionPanel = ref<HTMLElement | null>(null);
-
-const profileName = ref('');
-const profilePhone = ref('');
-const profileDeviceName = ref('');
-const birthdayReminderEnabled = ref(true);
-const birthdayReminderDaysBefore = ref(1);
-const birthdayReminderTime = ref('09:00');
-const lockScreen = ref(false);
-const hideSensitiveInfo = ref(false);
+const dataMessage = ref('');
+const dataError = ref('');
+const fileInput = ref<HTMLInputElement | null>(null);
 
 const connectionSummary = computed(() => {
   const settings = settingsStore.settings;
   const modelName = settings.openaiModel?.trim() || DEFAULT_AI_MODEL;
   const directBaseUrl = settings.openaiBaseUrl?.trim() || DEFAULT_AI_BASE_URL;
-  const proxyBaseUrl = settings.proxyServerUrl?.trim() || 'http://localhost:8787';
+  const proxyBase = settings.proxyServerUrl?.trim() || 'http://localhost:8787';
 
   return {
     configured: settings.aiAccessMode === 'proxy'
-      ? Boolean(proxyBaseUrl && directBaseUrl && settings.openaiApiKey && modelName)
+      ? Boolean(proxyBase && directBaseUrl && settings.openaiApiKey && modelName)
       : Boolean(settings.openaiApiKey),
     mode: settings.aiAccessMode,
-    baseUrl: settings.aiAccessMode === 'proxy' ? proxyBaseUrl : directBaseUrl,
+    baseUrl: settings.aiAccessMode === 'proxy' ? proxyBase : directBaseUrl,
     model: modelName,
     providerId: settings.proxyProviderId,
   };
 });
+
 const summaryLine = computed(() => {
   if (connectionSummary.value.mode === 'proxy') {
     const provider = connectionSummary.value.providerId?.trim() || '前端填写配置';
-    return `${connectionSummary.value.baseUrl || '未配置代理地址'} · ${provider} · ${connectionSummary.value.model}`;
+    return `${connectionSummary.value.baseUrl} · ${provider} · ${connectionSummary.value.model}`;
   }
-  return `${connectionSummary.value.baseUrl || '未配置地址'} · ${connectionSummary.value.model}`;
+  return `${connectionSummary.value.baseUrl} · ${connectionSummary.value.model}`;
 });
-const connectionText = computed(() => {
-  if (connectionSummary.value.mode === 'proxy') {
-    return connectionSummary.value.providerId?.trim() ? '代理服务 / 预置中转站' : '代理服务 / 前端填写';
-  }
-  return connectionSummary.value.configured ? `${connectionSummary.value.model} · 已配置` : '未配置 API Key';
-});
-const accountSummary = computed(() => {
-  const name = settingsStore.settings.profileName?.trim() || '未命名账号';
-  const phone = settingsStore.settings.profilePhone?.trim() || '未填写手机号';
-  return `${name} · ${phone}`;
-});
-const reminderSummary = computed(() => {
-  const reminder = settingsStore.settings.birthdayReminder;
-  if (!reminder.enabled) {
-    return '生日提醒已关闭';
-  }
-  return `提前 ${reminder.daysBefore} 天 · ${reminder.time}`;
-});
-const privacySummary = computed(() => {
-  const labels: string[] = [];
-  if (settingsStore.settings.lockScreen) labels.push('锁屏隐藏');
-  if (settingsStore.settings.hideSensitiveInfo) labels.push('隐藏敏感信息');
-  return labels.length > 0 ? labels.join(' · ') : '当前为标准显示';
-});
-const panelTitle = computed(() => {
-  switch (activeSection.value) {
-    case 'account':
-      return '账号信息';
-    case 'reminder':
-      return '提醒设置';
-    case 'privacy':
-      return '隐私与安全';
-    case 'ai':
-      return 'AI 设置';
-    default:
-      return '';
-  }
-});
+
+const statsSummary = computed(() => `当前已保存 ${friendsStore.friends.length} 位朋友、${memorialDaysStore.memorialDays.length} 个纪念日。`);
+
 const canTestConnection = computed(() => {
   if (!apiKey.value.trim() || !baseUrl.value.trim() || !model.value.trim()) {
     return false;
@@ -314,19 +185,15 @@ const canTestConnection = computed(() => {
   return true;
 });
 
-onMounted(() => {
-  loadAllSettings();
+onMounted(async () => {
+  await Promise.all([
+    friendsStore.loadFriends(),
+    memorialDaysStore.loadMemorialDays(),
+  ]);
+  loadAISettings();
 });
 
-function loadAllSettings(): void {
-  profileName.value = settingsStore.settings.profileName || '我的账号';
-  profilePhone.value = settingsStore.settings.profilePhone || '';
-  profileDeviceName.value = settingsStore.settings.profileDeviceName || '当前设备';
-  birthdayReminderEnabled.value = settingsStore.settings.birthdayReminder.enabled;
-  birthdayReminderDaysBefore.value = settingsStore.settings.birthdayReminder.daysBefore;
-  birthdayReminderTime.value = settingsStore.settings.birthdayReminder.time;
-  lockScreen.value = settingsStore.settings.lockScreen;
-  hideSensitiveInfo.value = settingsStore.settings.hideSensitiveInfo;
+function loadAISettings(): void {
   accessMode.value = settingsStore.settings.aiAccessMode;
   apiKey.value = settingsStore.settings.openaiApiKey || '';
   baseUrl.value = settingsStore.settings.openaiBaseUrl || DEFAULT_AI_BASE_URL;
@@ -336,46 +203,36 @@ function loadAllSettings(): void {
   aiStyle.value = settingsStore.settings.aiStyle;
 }
 
-async function openSection(section: 'account' | 'reminder' | 'privacy' | 'ai'): Promise<void> {
-  activeSection.value = section;
-  loadAllSettings();
+function resetMessages(): void {
+  dataError.value = '';
+  dataMessage.value = '';
+}
+
+function saveAISettings(): void {
   testResult.value = null;
-  await nextTick();
-  activeSectionPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  settingsStore.updateSettings({
+    aiAccessMode: accessMode.value,
+    openaiApiKey: apiKey.value || undefined,
+    openaiBaseUrl: baseUrl.value.trim() || undefined,
+    openaiModel: model.value.trim() || DEFAULT_AI_MODEL,
+    proxyServerUrl: proxyServerUrl.value.trim() || undefined,
+    proxyProviderId: proxyProviderId.value.trim() || undefined,
+    aiStyle: aiStyle.value,
+  });
 }
 
-function closeSection(): void {
-  activeSection.value = null;
+function resetAISettings(): void {
   testResult.value = null;
-  loadAllSettings();
-}
-
-function saveAccountSettings(): void {
   settingsStore.updateSettings({
-    profileName: profileName.value.trim() || '我的账号',
-    profilePhone: profilePhone.value.trim(),
-    profileDeviceName: profileDeviceName.value.trim() || '当前设备',
+    aiAccessMode: DEFAULT_SETTINGS.aiAccessMode,
+    openaiApiKey: DEFAULT_SETTINGS.openaiApiKey,
+    openaiBaseUrl: DEFAULT_SETTINGS.openaiBaseUrl,
+    openaiModel: DEFAULT_SETTINGS.openaiModel,
+    proxyServerUrl: DEFAULT_SETTINGS.proxyServerUrl,
+    proxyProviderId: DEFAULT_SETTINGS.proxyProviderId,
+    aiStyle: DEFAULT_SETTINGS.aiStyle,
   });
-  activeSection.value = null;
-}
-
-function saveReminderSettings(): void {
-  settingsStore.updateSettings({
-    birthdayReminder: {
-      enabled: birthdayReminderEnabled.value,
-      daysBefore: birthdayReminderDaysBefore.value,
-      time: birthdayReminderTime.value || '09:00',
-    },
-  });
-  activeSection.value = null;
-}
-
-function savePrivacySettings(): void {
-  settingsStore.updateSettings({
-    lockScreen: lockScreen.value,
-    hideSensitiveInfo: hideSensitiveInfo.value,
-  });
-  activeSection.value = null;
+  loadAISettings();
 }
 
 async function testConnection(): Promise<void> {
@@ -383,15 +240,7 @@ async function testConnection(): Promise<void> {
   testResult.value = null;
 
   try {
-    settingsStore.updateSettings({
-      aiAccessMode: accessMode.value,
-      openaiApiKey: apiKey.value || undefined,
-      openaiBaseUrl: baseUrl.value.trim() || undefined,
-      openaiModel: model.value.trim() || DEFAULT_AI_MODEL,
-      proxyServerUrl: proxyServerUrl.value.trim() || undefined,
-      proxyProviderId: proxyProviderId.value.trim() || undefined,
-    });
-
+    saveAISettings();
     testResult.value = accessMode.value === 'proxy'
       ? await aiService.testProxyConnection()
       : await aiService.testAPIKey(apiKey.value, model.value, baseUrl.value);
@@ -402,40 +251,80 @@ async function testConnection(): Promise<void> {
   }
 }
 
-function saveAISettings(): void {
-  settingsStore.updateSettings({
-    aiAccessMode: accessMode.value,
-    openaiApiKey: apiKey.value || undefined,
-    openaiBaseUrl: baseUrl.value.trim() || undefined,
-    openaiModel: model.value.trim() || DEFAULT_AI_MODEL,
-    proxyServerUrl: proxyServerUrl.value.trim() || undefined,
-    proxyProviderId: proxyProviderId.value.trim() || undefined,
-    aiStyle: aiStyle.value,
-  });
-  activeSection.value = null;
+function triggerImport(): void {
+  resetMessages();
+  fileInput.value?.click();
 }
+
+async function exportData(): Promise<void> {
+  resetMessages();
+
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    friends: friendsStore.friends,
+    memorialDays: memorialDaysStore.memorialDays,
+    settings: settingsStore.settings,
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `evmo-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  dataMessage.value = '数据已导出。';
+}
+
+async function handleImport(event: Event): Promise<void> {
+  resetMessages();
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) {
+    return;
+  }
+
+  try {
+    const raw = JSON.parse(await file.text()) as {
+      friends?: Friend[];
+      memorialDays?: MemorialDay[];
+      settings?: typeof settingsStore.settings;
+    };
+    const db = await getDB();
+    const tx = db.transaction(['friends', 'memorialDays'], 'readwrite');
+    await tx.objectStore('friends').clear();
+    for (const friend of raw.friends ?? []) {
+      await tx.objectStore('friends').put(friend);
+    }
+    await tx.objectStore('memorialDays').clear();
+    for (const item of raw.memorialDays ?? []) {
+      await tx.objectStore('memorialDays').put(item);
+    }
+    await tx.done;
+
+    if (raw.settings) {
+      settingsStore.updateSettings(raw.settings);
+    }
+
+    await Promise.all([
+      friendsStore.loadFriends(),
+      memorialDaysStore.loadMemorialDays(),
+    ]);
+    loadAISettings();
+    dataMessage.value = '数据已导入。';
+  } catch (err) {
+    dataError.value = `导入失败：${(err as Error).message}`;
+  } finally {
+    input.value = '';
+  }
+}
+
 </script>
 
 <style scoped>
-.settings-list article {
-  cursor: pointer;
-}
-
-.settings-panel {
-  margin-top: 18px;
-}
-
-.settings-panel-enter-active,
-.settings-panel-leave-active {
-  transition: opacity 180ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.settings-panel-enter-from,
-.settings-panel-leave-to {
-  opacity: 0;
-  transform: translateY(18px);
-}
-
 .model-select {
   width: 100%;
   border: 1px solid var(--line);
@@ -487,66 +376,38 @@ function saveAISettings(): void {
   margin-top: 14px;
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
-.toggle-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 12px 0;
+.data-card {
+  display: grid;
+  gap: 14px;
 }
 
-.toggle-row p {
-  margin: 6px 0 0;
+.data-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.data-summary > div {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.data-summary strong {
+  font-size: 24px;
+}
+
+.data-summary span {
   color: var(--muted);
-  line-height: 1.5;
-  font-size: 13px;
 }
 
-.compact-gap {
-  border-top: 1px solid var(--line);
-}
-
-.switch {
-  position: relative;
-  width: 48px;
-  height: 28px;
-  flex-shrink: 0;
-}
-
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.switch span {
-  position: absolute;
-  inset: 0;
-  border-radius: 999px;
-  background: rgba(29, 40, 49, 0.14);
-  transition: background 0.2s ease;
-}
-
-.switch span::after {
-  content: '';
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #fff;
-  transition: transform 0.2s ease;
-}
-
-.switch input:checked + span {
-  background: var(--ink);
-}
-
-.switch input:checked + span::after {
-  transform: translateX(20px);
+.hidden-input {
+  display: none;
 }
 
 .test-result {
@@ -567,19 +428,11 @@ function saveAISettings(): void {
   color: var(--coral);
 }
 
-.two-col {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 @media (max-width: 520px) {
-  .section-actions-row {
+  .section-actions-row,
+  .data-summary {
     display: grid;
     grid-template-columns: 1fr;
-  }
-
-  .two-col,
-  .toggle-row {
-    display: grid;
   }
 }
 </style>

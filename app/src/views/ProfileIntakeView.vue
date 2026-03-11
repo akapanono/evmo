@@ -73,7 +73,7 @@
 
   <section v-else class="app-screen is-active">
     <div class="topbar compact">
-      <button class="back-link" type="button" @click="router.push('/')">返回</button>
+      <button class="back-link" type="button" @click="router.push('/friends')">返回</button>
       <div class="topbar-title">
         <p class="eyebrow">错误</p>
         <h1>朋友不存在</h1>
@@ -84,9 +84,9 @@
       <div class="empty-icon">:(</div>
       <h2>找不到这位朋友</h2>
       <p>该朋友可能已被删除，或者链接无效。</p>
-      <button type="button" class="action-btn primary" @click="router.push('/')">
-        返回首页
-      </button>
+        <button type="button" class="action-btn primary" @click="router.push('/friends')">
+          返回首页
+        </button>
     </article>
   </section>
 </template>
@@ -192,7 +192,7 @@ function getReturnRoute() {
     };
   }
 
-  return { name: 'home' as const };
+  return { name: 'friends' as const };
 }
 
 function handleBack(): void {

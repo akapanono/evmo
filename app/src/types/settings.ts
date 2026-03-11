@@ -1,4 +1,4 @@
-﻿export interface AppSettings {
+export interface AppSettings {
   profileName?: string;
   profilePhone?: string;
   profileDeviceName?: string;
@@ -21,6 +21,7 @@
 
   aiStyle: 'friendly' | 'professional' | 'concise';
   defaultQuestions: string[];
+  friendSortMode: 'name' | 'contact' | 'viewed';
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -45,4 +46,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
     '你现在最想聊什么？',
     '我现在联系你合适吗？',
   ],
+  friendSortMode: 'viewed',
 };

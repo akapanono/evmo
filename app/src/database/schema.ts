@@ -1,5 +1,6 @@
 import type { Friend, Reminder, ContactLog } from '@/types/friend';
 import type { AIConversation } from '@/types/api';
+import type { MemorialDay } from '@/types/memorial';
 
 export interface DatabaseSchema {
   friends: {
@@ -21,5 +22,10 @@ export interface DatabaseSchema {
     key: string;
     value: AIConversation;
     indexes: { 'by-friendId': string };
+  };
+  memorialDays: {
+    key: string;
+    value: MemorialDay;
+    indexes: { 'by-monthDay': string; 'by-updatedAt': string };
   };
 }

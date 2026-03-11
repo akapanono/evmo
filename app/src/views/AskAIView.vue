@@ -8,6 +8,9 @@
             <p class="eyebrow">朋友对话</p>
             <h1>问问 {{ friend.name }}</h1>
           </div>
+          <button type="button" class="context-clear-btn" @click="clearConversation" :disabled="aiStore.loading || !hasMessages">
+            清空上下文
+          </button>
         </div>
 
         <article class="ask-context-card" :class="{ 'is-compact': hasMessages }">
@@ -42,7 +45,7 @@
 
         <div v-for="(msg, idx) in aiStore.messages" :key="`${msg.role}-${idx}-${msg.timestamp}`" class="bubble-row" :class="msg.role">
           <article class="message-bubble" :class="msg.role === 'user' ? 'user-bubble' : 'assistant-bubble'">
-            <p>{{ msg.content }}</p>
+            <p>{{ getMessageContent(msg, idx) }}</p>
           </article>
         </div>
 
@@ -69,12 +72,6 @@
             </button>
           </div>
         </article>
-
-        <div v-if="aiStore.loading" class="bubble-row assistant">
-          <article class="message-bubble assistant-bubble loading-bubble">
-            <p>正在整理回复...</p>
-          </article>
-        </div>
       </div>
 
       <div class="composer-dock">
@@ -128,11 +125,13 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router';
 import { useAIStore } from '@/stores/ai';
 import { useFriendsStore } from '@/stores/friends';
+import { useMemorialDaysStore } from '@/stores/memorialDays';
 import type { Friend } from '@/types/friend';
 
 const route = useRoute();
 const router = useRouter();
 const friendsStore = useFriendsStore();
+const memorialDaysStore = useMemorialDaysStore();
 const aiStore = useAIStore();
 
 const friend = ref<Friend | null>(null);
@@ -141,16 +140,19 @@ const messagesContainer = ref<HTMLElement | null>(null);
 const defaultQuestions = aiStore.getDefaultQuestions();
 
 const hasMessages = computed(() => aiStore.messages.length > 0);
+const messageSignature = computed(() => aiStore.messages.map((message) => `${message.role}:${message.content}`).join('\n'));
 const contextTags = computed(() => {
   if (!friend.value) {
     return [];
   }
 
+  const currentFriendId = friend.value.id;
   const tags: string[] = [];
   if (friend.value.birthday) tags.push('生日');
   if (friend.value.preferences.length > 0) tags.push('偏好');
   if (friend.value.customFields.some((field) => field.temporalScope === 'timebound')) tags.push('事件');
   if (friend.value.customFields.some((field) => field.temporalScope === 'stable')) tags.push('稳定信息');
+  if (memorialDaysStore.memorialDays.some((item) => item.friendIds.includes(currentFriendId))) tags.push('纪念日');
   if (friend.value.aiProfile.overview || friend.value.aiProfile.traits.length > 0) tags.push('画像');
   if (friend.value.relationship) tags.push(friend.value.relationship);
 
@@ -159,7 +161,10 @@ const contextTags = computed(() => {
 
 onMounted(async () => {
   const id = route.params.id as string;
-  await loadCurrentFriend(id);
+  await Promise.all([
+    loadCurrentFriend(id),
+    memorialDaysStore.loadMemorialDays(),
+  ]);
   await aiStore.loadConversation(id);
 });
 
@@ -168,7 +173,7 @@ onBeforeUnmount(() => {
 });
 
 watch(
-  () => [aiStore.messages.length, aiStore.loading, aiStore.followupSuggestions.length],
+  () => [aiStore.messages.length, messageSignature.value, aiStore.loading, aiStore.followupSuggestions.length],
   async () => {
     await nextTick();
     if (messagesContainer.value) {
@@ -208,6 +213,22 @@ async function handleSend(): Promise<void> {
   }
 }
 
+async function clearConversation(): Promise<void> {
+  if (!friend.value || aiStore.loading || !hasMessages.value) {
+    return;
+  }
+
+  await aiStore.clearConversation(friend.value.id);
+}
+
+function getMessageContent(msg: { role: 'user' | 'assistant'; content: string }, idx: number): string {
+  if (msg.role === 'assistant' && !msg.content && aiStore.loading && idx === aiStore.messages.length - 1) {
+    return '思考中...';
+  }
+
+  return msg.content;
+}
+
 function goToSupplementInput(suggestion: string): void {
   if (!friend.value) {
     return;
@@ -238,7 +259,7 @@ function goBack(): void {
     return;
   }
 
-  router.push('/');
+  router.push('/friends');
 }
 
 async function loadCurrentFriend(id: string): Promise<void> {
@@ -267,6 +288,25 @@ async function loadCurrentFriend(id: string): Promise<void> {
 .ask-header {
   display: grid;
   gap: 10px;
+}
+
+.topbar.compact {
+  align-items: center;
+}
+
+.context-clear-btn {
+  margin-left: auto;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: rgba(29, 40, 49, 0.08);
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.context-clear-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .ask-context-card.is-compact {

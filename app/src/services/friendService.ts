@@ -143,6 +143,7 @@ function normalizeFriendInput(friend: Partial<Friend>, existing?: Friend): Frien
     major: normalizeOptionalText(friend.major, existing?.major),
     avatarColor: friend.avatarColor ?? existing?.avatarColor ?? 'coral',
     lastContactDate: normalizeText(typeof friend.lastContactDate === 'string' ? friend.lastContactDate : existing?.lastContactDate),
+    lastViewedAt: normalizeText(typeof friend.lastViewedAt === 'string' ? friend.lastViewedAt : existing?.lastViewedAt),
     isImportant: typeof friend.isImportant === 'boolean' ? friend.isImportant : existing?.isImportant ?? false,
     preferences,
     notes: typeof friend.notes === 'string' ? friend.notes.trim() : existing?.notes ?? '',
@@ -333,6 +334,19 @@ export const friendService = {
     const normalizedId = normalizeFriendId(id);
     const db = await getDB();
     await db.delete('friends', normalizedId);
+
+    const memorialDays = await db.getAll('memorialDays');
+    for (const memorialDay of memorialDays) {
+      if (!memorialDay.friendIds.includes(normalizedId)) {
+        continue;
+      }
+
+      await db.put('memorialDays', {
+        ...memorialDay,
+        friendIds: memorialDay.friendIds.filter((friendId: string) => friendId !== normalizedId),
+        updatedAt: new Date().toISOString(),
+      });
+    }
 
     const reminders = await db.getAllFromIndex('reminders', 'by-friendId', normalizedId);
     for (const reminder of reminders) {

@@ -35,6 +35,13 @@ export async function getDB(): Promise<IDBPDatabase<DatabaseSchema>> {
         const store = db.createObjectStore('conversations', { keyPath: 'id' });
         store.createIndex('by-friendId', 'friendId');
       }
+
+      // Memorial days store
+      if (!db.objectStoreNames.contains('memorialDays')) {
+        const store = db.createObjectStore('memorialDays', { keyPath: 'id' });
+        store.createIndex('by-monthDay', 'monthDay');
+        store.createIndex('by-updatedAt', 'updatedAt');
+      }
     },
   });
 
