@@ -1,7 +1,7 @@
 ﻿<template>
   <header class="status-bar">
     <span>{{ time }}</span>
-    <span>记得我</span>
+    <span>友记</span>
     <span>5G 92%</span>
   </header>
 </template>

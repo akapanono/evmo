@@ -1,5 +1,5 @@
 import { getDB } from '@/database';
-import type { BasicInfoField, ContactLog, Friend, Reminder } from '@/types/friend';
+import type { AvatarPreset, BasicInfoField, ContactLog, Friend, Reminder } from '@/types/friend';
 import { createEmptyAIPersona } from '@/types/friend';
 import { aiService } from '@/services/aiService';
 import { compileFriendAIPersona } from '@/utils/friendAIPersona';
@@ -51,6 +51,17 @@ function normalizeNumber(value: unknown, fallback?: number): number | undefined 
   }
 
   return fallback;
+}
+
+function normalizeAvatarPreset(value: unknown, fallback: AvatarPreset = 'initial'): AvatarPreset {
+  return value === 'orbit'
+    || value === 'spark'
+    || value === 'bloom'
+    || value === 'kite'
+    || value === 'wave'
+    || value === 'initial'
+    ? value
+    : fallback;
 }
 
 function inferTimeline(value: string): boolean {
@@ -142,6 +153,8 @@ function normalizeFriendInput(friend: Partial<Friend>, existing?: Friend): Frien
     school: normalizeOptionalText(friend.school, existing?.school),
     major: normalizeOptionalText(friend.major, existing?.major),
     avatarColor: friend.avatarColor ?? existing?.avatarColor ?? 'coral',
+    avatarPreset: normalizeAvatarPreset(friend.avatarPreset, existing?.avatarPreset ?? 'initial'),
+    avatarImage: normalizeText(typeof friend.avatarImage === 'string' ? friend.avatarImage : existing?.avatarImage),
     lastContactDate: normalizeText(typeof friend.lastContactDate === 'string' ? friend.lastContactDate : existing?.lastContactDate),
     lastViewedAt: normalizeText(typeof friend.lastViewedAt === 'string' ? friend.lastViewedAt : existing?.lastViewedAt),
     isImportant: typeof friend.isImportant === 'boolean' ? friend.isImportant : existing?.isImportant ?? false,

@@ -1,6 +1,18 @@
 <template>
-  <section class="app-screen is-active friends-screen" @click="handleScreenClick">
-    <div class="home-content">
+  <section
+    ref="screenRef"
+    class="app-screen is-active friends-screen"
+    @click="handleScreenClick"
+    @touchstart.passive="handleTouchStart"
+    @touchmove.passive="handleTouchMove"
+    @touchend="handleTouchEnd"
+    @touchcancel="handleTouchEnd"
+  >
+    <div class="pull-indicator" :class="{ visible: pullDistance > 8 || refreshing }">
+      {{ refreshing ? '刷新中...' : pullDistance >= REFRESH_TRIGGER ? '松开刷新' : '下滑刷新' }}
+    </div>
+
+    <div class="home-content" :style="contentStyle">
       <div class="topbar">
         <div>
           <p class="eyebrow">朋友</p>
@@ -8,28 +20,42 @@
         </div>
       </div>
 
-      <div class="search-box">
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="搜索姓名、昵称、关系、偏好或备注"
-          @input="handleSearch"
-        />
-      </div>
-
-      <section class="section-block sort-block">
-        <div class="sort-row">
-          <label class="sort-field">
-            <span>排序方式</span>
-            <select v-model="sortMode">
-              <option value="name">首字母</option>
-              <option value="contact">最常聊</option>
-              <option value="viewed">最后浏览</option>
-            </select>
-          </label>
-          <p class="sort-hint">星标朋友会优先显示</p>
+      <div class="toolbar-row">
+        <div class="search-box friend-search">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="搜索姓名、昵称、关系、偏好或备注"
+            @input="handleSearch"
+          />
         </div>
-      </section>
+
+        <div class="sort-menu" data-no-press-feedback="true">
+          <button
+            type="button"
+            class="sort-trigger"
+            data-no-press-feedback="true"
+            @click.stop="toggleSortMenu"
+          >
+            <span>{{ activeSortLabel }}</span>
+            <span class="sort-caret" :class="{ open: sortMenuOpen }">⌄</span>
+          </button>
+
+          <div v-if="sortMenuOpen" class="sort-dropdown">
+            <button
+              v-for="option in sortOptions"
+              :key="option.value"
+              type="button"
+              class="sort-option"
+              :class="{ active: sortMode === option.value }"
+              data-no-press-feedback="true"
+              @click.stop="selectSortMode(option.value)"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <section class="section-block">
         <div class="section-head">
@@ -53,11 +79,16 @@
             @pointerup="cancelLongPress"
             @pointercancel="cancelLongPress"
             @pointermove="handleCardPointerMove"
+            @pointerleave="handleCardPointerLeave"
           >
             <button
               v-if="isDeleteMode"
               type="button"
               class="home-delete-badge"
+              data-no-press-feedback="true"
+              @pointerdown.stop.prevent
+              @pointerup.stop.prevent
+              @pointercancel.stop.prevent
               @click.stop="deleteFriend(friend.id)"
             >
               ×
@@ -67,19 +98,29 @@
               type="button"
               class="star-toggle"
               :class="{ active: friend.isImportant }"
+              data-no-press-feedback="true"
+              @pointerdown.stop.prevent
+              @pointerup.stop.prevent
+              @pointercancel.stop.prevent
               @click.stop="toggleFriendStar(friend)"
             >
               ★
             </button>
+
             <div class="grid-top">
-              <Avatar size="xl" :color="friend.avatarColor">
+              <Avatar
+                size="xl"
+                :color="friend.avatarColor"
+                :preset="friend.avatarPreset"
+                :image-src="friend.avatarImage"
+              >
                 {{ friend.name.charAt(0) }}
               </Avatar>
               <span v-if="isFriendBirthdayToday(friend.birthday)" class="mini-chip">今天生日</span>
             </div>
 
             <h3>{{ friend.name }}</h3>
-            <p>{{ friend.relationship || '未填写关系' }}</p>
+            <p>{{ friend.relationship || '关系待补充' }}</p>
 
             <div v-if="friend.preferences.length > 0" class="inline-tags">
               <span v-for="tag in friend.preferences.slice(0, 2)" :key="tag">
@@ -90,10 +131,10 @@
         </div>
 
         <div v-else class="empty-state-card compact-empty">
-          <h2 v-if="isSearching && searchQuery.trim()">没有找到相关朋友</h2>
-          <h2 v-else>还没有档案</h2>
-          <p v-if="isSearching && searchQuery.trim()">试试换一个关键词，或者检查输入内容。</p>
-          <p v-else>点击底部中间的加号，先添加第一位朋友。</p>
+          <h2 v-if="isSearching && searchQuery.trim()">没有找到匹配的朋友</h2>
+          <h2 v-else>还没有朋友档案</h2>
+          <p v-if="isSearching && searchQuery.trim()">换个关键词试试，或者补充更多备注和偏好。</p>
+          <p v-else>先新增一位朋友，后面问一问和纪念日关联才会更完整。</p>
         </div>
       </section>
     </div>
@@ -111,6 +152,12 @@ import { isBirthdayToday } from '@/utils/dateHelpers';
 
 type FriendSortMode = 'name' | 'contact' | 'viewed';
 
+const sortOptions: Array<{ value: FriendSortMode; label: string }> = [
+  { value: 'name', label: '首字母' },
+  { value: 'contact', label: '最常聊' },
+  { value: 'viewed', label: '最后浏览' },
+];
+
 const friendsStore = useFriendsStore();
 const settingsStore = useSettingsStore();
 const router = useRouter();
@@ -118,16 +165,33 @@ const searchQuery = ref('');
 const searchResults = ref<Friend[]>([]);
 const isSearching = ref(false);
 const sortMode = ref<FriendSortMode>('viewed');
+const sortMenuOpen = ref(false);
 const isDeleteMode = ref(false);
 const longPressTargetId = ref<string | null>(null);
 const starPrioritySnapshot = ref<Record<string, boolean>>({});
+const screenRef = ref<HTMLElement | null>(null);
+const pullDistance = ref(0);
+const refreshing = ref(false);
 let longPressTimer: number | null = null;
 let searchTimer: number | null = null;
 let longPressStartX = 0;
 let longPressStartY = 0;
-const LONG_PRESS_DELAY = 460;
+let touchStartY = 0;
+let pullActive = false;
+const PRESS_FEEDBACK_DELAY = 300;
+const LONG_PRESS_DELAY = 320;
 const LONG_PRESS_MOVE_LIMIT = 12;
 const SEARCH_DEBOUNCE_DELAY = 180;
+const REFRESH_TRIGGER = 72;
+
+const contentStyle = computed(() => ({
+  transform: pullDistance.value > 0 ? `translateY(${pullDistance.value}px)` : undefined,
+  transition: refreshing.value || pullDistance.value === 0 ? 'transform 180ms ease' : undefined,
+}));
+
+const activeSortLabel = computed(() => (
+  sortOptions.find((option) => option.value === sortMode.value)?.label ?? '排序'
+));
 
 const displayFriends = computed(() => {
   const baseFriends = isSearching.value && searchQuery.value.trim()
@@ -178,6 +242,32 @@ function handleSearch(): void {
     searchResults.value = await friendsStore.searchFriends(keyword);
     searchTimer = null;
   }, SEARCH_DEBOUNCE_DELAY);
+}
+
+function toggleSortMenu(): void {
+  sortMenuOpen.value = !sortMenuOpen.value;
+}
+
+function selectSortMode(mode: FriendSortMode): void {
+  sortMode.value = mode;
+  sortMenuOpen.value = false;
+}
+
+async function refreshFriends(): Promise<void> {
+  if (refreshing.value) {
+    return;
+  }
+
+  refreshing.value = true;
+  try {
+    await friendsStore.loadFriends();
+    if (isSearching.value && searchQuery.value.trim()) {
+      searchResults.value = await friendsStore.searchFriends(searchQuery.value.trim());
+    }
+    captureStarPrioritySnapshot();
+  } finally {
+    refreshing.value = false;
+  }
 }
 
 function openFriend(friendId: string): void {
@@ -253,7 +343,12 @@ function cancelLongPress(): void {
 }
 
 function handleCardPointerDown(friendId: string, event: PointerEvent): void {
-  if (isDeleteMode.value) {
+  const target = event.target;
+  if (
+    isDeleteMode.value
+    || !(target instanceof Element)
+    || target.closest('[data-no-press-feedback="true"]')
+  ) {
     return;
   }
 
@@ -264,7 +359,7 @@ function handleCardPointerDown(friendId: string, event: PointerEvent): void {
   longPressTimer = window.setTimeout(() => {
     longPressTimer = null;
     isDeleteMode.value = true;
-  }, LONG_PRESS_DELAY);
+  }, LONG_PRESS_DELAY + PRESS_FEEDBACK_DELAY);
 }
 
 function handleCardPointerMove(event: PointerEvent): void {
@@ -279,6 +374,10 @@ function handleCardPointerMove(event: PointerEvent): void {
   }
 }
 
+function handleCardPointerLeave(): void {
+  cancelLongPress();
+}
+
 async function deleteFriend(friendId: string): Promise<void> {
   await friendsStore.deleteFriend(friendId);
 
@@ -288,13 +387,20 @@ async function deleteFriend(friendId: string): Promise<void> {
 }
 
 function handleScreenClick(event: MouseEvent): void {
-  if (!isDeleteMode.value) {
+  const target = event.target;
+  if (!(target instanceof Element)) {
+    sortMenuOpen.value = false;
+    if (isDeleteMode.value) {
+      isDeleteMode.value = false;
+    }
     return;
   }
 
-  const target = event.target;
-  if (!(target instanceof Element)) {
-    isDeleteMode.value = false;
+  if (!target.closest('.sort-menu')) {
+    sortMenuOpen.value = false;
+  }
+
+  if (!isDeleteMode.value) {
     return;
   }
 
@@ -303,6 +409,47 @@ function handleScreenClick(event: MouseEvent): void {
   }
 
   isDeleteMode.value = false;
+}
+
+function handleTouchStart(event: TouchEvent): void {
+  if (screenRef.value?.scrollTop) {
+    pullActive = false;
+    pullDistance.value = 0;
+    return;
+  }
+
+  touchStartY = event.touches[0]?.clientY ?? 0;
+  pullActive = true;
+}
+
+function handleTouchMove(event: TouchEvent): void {
+  if (!pullActive || refreshing.value) {
+    return;
+  }
+
+  const currentY = event.touches[0]?.clientY ?? touchStartY;
+  const deltaY = currentY - touchStartY;
+  if (deltaY <= 0) {
+    pullDistance.value = 0;
+    return;
+  }
+
+  pullDistance.value = Math.min(96, deltaY * 0.42);
+}
+
+async function handleTouchEnd(): Promise<void> {
+  if (!pullActive) {
+    pullDistance.value = 0;
+    return;
+  }
+
+  pullActive = false;
+  const shouldRefresh = pullDistance.value >= REFRESH_TRIGGER;
+  pullDistance.value = 0;
+
+  if (shouldRefresh) {
+    await refreshFriends();
+  }
 }
 
 onBeforeUnmount(() => {
@@ -322,44 +469,101 @@ onBeforeUnmount(() => {
   margin: 0 auto;
 }
 
+.pull-indicator {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  opacity: 0;
+  transition: height 180ms ease, opacity 180ms ease;
+}
+
+.pull-indicator.visible {
+  height: 28px;
+  opacity: 1;
+}
+
 .brand-title {
   color: #26404a;
   letter-spacing: 0.03em;
   text-shadow: 0 8px 18px rgba(38, 64, 74, 0.06);
 }
 
-.sort-block {
-  padding: 14px 18px;
-}
-
-.sort-row {
+.toolbar-row {
   display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 14px;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 18px;
 }
 
-.sort-field {
-  display: grid;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 13px;
+.friend-search {
+  flex: 1 1 auto;
 }
 
-.sort-field select {
-  min-width: 144px;
+.sort-menu {
+  position: relative;
+  flex: 0 0 104px;
+}
+
+.sort-trigger {
+  width: 100%;
+  height: 100%;
+  min-height: 54px;
   border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 10px 14px;
+  border-radius: 24px;
   background: rgba(255, 255, 255, 0.88);
   color: var(--ink);
-  font: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 14px;
+  font-size: 12px;
 }
 
-.sort-hint {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
+.sort-caret {
+  font-size: 14px;
+  line-height: 1;
+  transition: transform 180ms ease;
+}
+
+.sort-caret.open {
+  transform: rotate(180deg);
+}
+
+.sort-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 4;
+  min-width: 112px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 252, 247, 0.98);
+  box-shadow: 0 14px 30px rgba(29, 40, 49, 0.12);
+  display: grid;
+  gap: 4px;
+}
+
+.sort-option {
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.sort-option.active {
+  background: rgba(29, 40, 49, 0.08);
 }
 
 .friend-grid {
@@ -371,7 +575,7 @@ onBeforeUnmount(() => {
 }
 
 .grid-card.is-home-editing {
-  animation: home-card-wiggle 220ms ease-in-out infinite alternate;
+  animation: home-card-wiggle 100ms ease-in-out infinite alternate;
 }
 
 .home-delete-badge {
@@ -401,10 +605,28 @@ onBeforeUnmount(() => {
   color: rgba(255, 255, 255, 0.96);
   font-size: 22px;
   line-height: 1;
+  transform: none !important;
+  -webkit-text-stroke: 0.55px rgba(29, 40, 49, 0.16);
 }
 
 .star-toggle.active {
   color: #e2a329;
+}
+
+.coral-card .star-toggle {
+  -webkit-text-stroke-color: rgba(155, 78, 58, 0.42);
+}
+
+.teal-card .star-toggle {
+  -webkit-text-stroke-color: rgba(33, 95, 89, 0.42);
+}
+
+.gold-card .star-toggle {
+  -webkit-text-stroke-color: rgba(145, 110, 35, 0.42);
+}
+
+.ink-card .star-toggle {
+  -webkit-text-stroke-color: rgba(35, 49, 57, 0.42);
 }
 
 .compact-empty {
@@ -424,18 +646,34 @@ onBeforeUnmount(() => {
 
 @keyframes home-card-wiggle {
   from {
-    transform: rotate(-0.55deg);
+    transform: rotate(-0.38deg);
   }
 
   to {
-    transform: rotate(0.55deg);
+    transform: rotate(0.38deg);
   }
 }
 
 @media (max-width: 600px) {
-  .sort-row {
-    align-items: stretch;
-    flex-direction: column;
+  .toolbar-row {
+    gap: 6px;
+  }
+
+  .sort-menu {
+    flex-basis: 96px;
+  }
+
+  .sort-trigger,
+  .sort-option {
+    font-size: 11px;
+  }
+
+  .friend-search input {
+    font-size: 14px;
+  }
+
+  .friend-search input::placeholder {
+    font-size: 12px;
   }
 }
 </style>

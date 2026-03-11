@@ -95,6 +95,30 @@
       <div class="field-grid">
         <label class="field">
           <span>头像颜色</span>
+          <div class="avatar-editor">
+            <Avatar
+              size="xxl"
+              :color="form.avatarColor"
+              :preset="form.avatarPreset"
+              :image-src="form.avatarImage"
+            >
+              {{ form.name?.trim().charAt(0) || '友' }}
+            </Avatar>
+
+            <div class="avatar-upload-actions">
+              <button type="button" class="small ghost-btn" @click="triggerAvatarUpload">自选头像</button>
+              <button
+                v-if="form.avatarImage"
+                type="button"
+                class="small ghost-btn"
+                @click="clearAvatarImage"
+              >
+                清除图片
+              </button>
+            </div>
+            <input ref="avatarInput" class="hidden-avatar-input" type="file" accept="image/*" @change="handleAvatarChange" />
+          </div>
+
           <div class="color-picker">
             <button
               v-for="color in colors"
@@ -103,6 +127,18 @@
               :class="['color-option', color, { active: form.avatarColor === color }]"
               @click="form.avatarColor = color"
             ></button>
+          </div>
+
+          <div class="preset-picker">
+            <button
+              v-for="preset in avatarPresets"
+              :key="preset"
+              type="button"
+              :class="['preset-option', { active: form.avatarPreset === preset }]"
+              @click="form.avatarPreset = preset"
+            >
+              <Avatar size="md" :color="form.avatarColor" :preset="preset" />
+            </button>
           </div>
         </label>
 
@@ -150,11 +186,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import Avatar from '@/components/common/Avatar.vue';
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
 import { friendService } from '@/services/friendService';
 import { useFriendsStore } from '@/stores/friends';
-import { AVATAR_COLORS, createEmptyFriend } from '@/types/friend';
-import type { AvatarColor, BasicInfoField, CustomField, Friend } from '@/types/friend';
+import { AVATAR_COLORS, AVATAR_PRESETS, createEmptyFriend } from '@/types/friend';
+import type { AvatarColor, AvatarPreset, BasicInfoField, CustomField, Friend } from '@/types/friend';
 import { getAvatarColorFromName } from '@/utils/color';
 import { applyBasicInfoExtraction } from '@/utils/basicInfo';
 import { parseSupplementInputBatch } from '@/utils/semantic';
@@ -165,9 +202,11 @@ const router = useRouter();
 const friendsStore = useFriendsStore();
 
 const colors: AvatarColor[] = AVATAR_COLORS;
+const avatarPresets: AvatarPreset[] = AVATAR_PRESETS;
 const saving = ref(false);
 const errors = ref<ValidationError[]>([]);
 const showCancelDialog = ref(false);
+const avatarInput = ref<HTMLInputElement | null>(null);
 
 const friendId = computed(() => route.params.id as string | undefined);
 const isEdit = computed(() => Boolean(friendId.value));
@@ -303,6 +342,35 @@ function addBasicInfoDraft(): void {
   });
 }
 
+function triggerAvatarUpload(): void {
+  avatarInput.value?.click();
+}
+
+async function handleAvatarChange(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) {
+    return;
+  }
+
+  const dataUrl = await readFileAsDataUrl(file);
+  form.value.avatarImage = dataUrl;
+  input.value = '';
+}
+
+function clearAvatarImage(): void {
+  form.value.avatarImage = undefined;
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+    reader.onerror = () => reject(reader.error ?? new Error('头像读取失败'));
+    reader.readAsDataURL(file);
+  });
+}
+
 function removeBasicInfoDraft(id: string): void {
   basicInfoDrafts.value = basicInfoDrafts.value.filter((field) => field.id !== id);
 }
@@ -340,6 +408,8 @@ function buildDraftSnapshot(): string {
       .filter((field) => field.label && field.value)
       .sort((a, b) => `${a.label}${a.value}`.localeCompare(`${b.label}${b.value}`)),
     avatarColor: form.value.avatarColor,
+    avatarPreset: form.value.avatarPreset,
+    avatarImage: form.value.avatarImage ?? '',
     preferences: normalizePreferences(preferencesInput.value),
     supplement: supplementInput.value.trim(),
     customFields: form.value.customFields
@@ -498,6 +568,8 @@ async function handleSave(): Promise<void> {
     school: normalizeTextInput(form.value.school),
     major: normalizeTextInput(form.value.major),
     basicInfoFields: buildBasicInfoFields(),
+    avatarPreset: form.value.avatarPreset,
+    avatarImage: form.value.avatarImage,
     preferences: normalizePreferences(preferencesInput.value),
     notes: '',
   };
@@ -542,10 +614,28 @@ async function handleSave(): Promise<void> {
 </script>
 
 <style scoped>
+.avatar-editor {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.avatar-upload-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hidden-avatar-input {
+  display: none;
+}
+
 .color-picker {
   display: flex;
   gap: 10px;
   padding: 4px 0;
+  flex-wrap: wrap;
 }
 
 .color-option {
@@ -575,6 +665,25 @@ async function handleSave(): Promise<void> {
 .color-option.active {
   border-color: var(--ink);
   box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink);
+}
+
+.preset-picker {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.preset-option {
+  border: 2px solid transparent;
+  border-radius: 16px;
+  background: rgba(29, 40, 49, 0.04);
+  padding: 6px;
+}
+
+.preset-option.active {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(29, 40, 49, 0.14);
 }
 
 .field-tip {

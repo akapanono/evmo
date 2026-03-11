@@ -1,117 +1,130 @@
 <template>
-  <section class="app-screen is-active">
-    <div class="topbar">
-      <div>
-        <p class="eyebrow">设置</p>
-        <h1>AI 与数据管理</h1>
-      </div>
+  <section
+    ref="screenRef"
+    class="app-screen is-active"
+    @touchstart.passive="handleTouchStart"
+    @touchmove.passive="handleTouchMove"
+    @touchend="handleTouchEnd"
+    @touchcancel="handleTouchEnd"
+  >
+    <div class="pull-indicator" :class="{ visible: pullDistance > 8 || refreshing }">
+      {{ refreshing ? '刷新中...' : pullDistance >= REFRESH_TRIGGER ? '松开刷新' : '下滑刷新' }}
     </div>
 
-    <article class="profile-panel">
-      <Avatar size="xxl" color="ink">设</Avatar>
-      <div>
-        <h2>当前本地工作区</h2>
-        <p>{{ statsSummary }}</p>
-      </div>
-    </article>
-
-    <section class="section-block">
-      <div class="section-head">
-        <h3>AI 设置</h3>
+    <div :style="contentStyle">
+      <div class="topbar">
+        <div>
+          <p class="eyebrow">我的</p>
+          <h1>基础设置</h1>
+        </div>
       </div>
 
-      <article class="form-card">
-        <div :class="['connection-status', connectionSummary.configured ? 'connected' : 'disconnected']">
-          <strong>{{ connectionSummary.configured ? '已配置 AI 接入' : '尚未配置 AI 接入' }}</strong>
-          <span>{{ summaryLine }}</span>
+      <article class="profile-panel">
+        <Avatar size="xxl" color="ink">我</Avatar>
+        <div>
+          <h2>本地资料与 AI 配置</h2>
+          <p>{{ statsSummary }}</p>
+        </div>
+      </article>
+
+      <section class="section-block">
+        <div class="section-head">
+          <h3>AI 设置</h3>
         </div>
 
-        <div class="field-grid">
-          <label class="field">
-            <span>接入方式</span>
-            <select v-model="accessMode" class="model-select">
-              <option value="direct">前端直连</option>
-              <option value="proxy">代理服务</option>
-            </select>
-          </label>
+        <article class="form-card">
+          <div :class="['connection-status', connectionSummary.configured ? 'connected' : 'disconnected']">
+            <strong>{{ connectionSummary.configured ? '已连接 AI 服务' : '还没有完成 AI 配置' }}</strong>
+            <span>{{ summaryLine }}</span>
+          </div>
 
-          <label class="field">
-            <span>API Key</span>
-            <input v-model="apiKey" type="password" placeholder="填写你的服务 API Key" />
-            <p v-if="accessMode === 'direct'" class="field-hint warning">前端直连仅适合测试，密钥会保存在本地。</p>
-          </label>
-
-          <label class="field">
-            <span>Base URL</span>
-            <input v-model="baseUrl" type="text" placeholder="例如：https://ark.cn-beijing.volces.com/api/v3" />
-          </label>
-
-          <label class="field">
-            <span>模型名</span>
-            <input v-model="model" type="text" placeholder="例如：gpt-4o-mini / doubao-1-5-pro" />
-          </label>
-
-          <template v-if="accessMode === 'proxy'">
+          <div class="field-grid">
             <label class="field">
-              <span>代理地址</span>
-              <input v-model="proxyServerUrl" type="text" placeholder="http://localhost:8787" />
+              <span>接入方式</span>
+              <select v-model="accessMode" class="model-select">
+                <option value="direct">直连模型</option>
+                <option value="proxy">代理转发</option>
+              </select>
             </label>
 
             <label class="field">
-              <span>中转站标识</span>
-              <input v-model="proxyProviderId" type="text" placeholder="可留空" />
+              <span>API Key</span>
+              <input v-model="apiKey" type="password" placeholder="输入你的 API Key" />
+              <p v-if="accessMode === 'direct'" class="field-hint warning">直连模式下，密钥会保存在本地设备里。</p>
             </label>
-          </template>
 
-          <label class="field">
-            <span>回答风格</span>
-            <select v-model="aiStyle" class="model-select">
-              <option value="friendly">亲切友好</option>
-              <option value="professional">专业周到</option>
-              <option value="concise">简洁直接</option>
-            </select>
-          </label>
-        </div>
+            <label class="field">
+              <span>Base URL</span>
+              <input v-model="baseUrl" type="text" placeholder="例如 https://ark.cn-beijing.volces.com/api/v3" />
+            </label>
 
-        <div class="section-actions-row">
-          <button type="button" class="action-btn" @click="resetAISettings">重置 AI 设置</button>
-          <button type="button" class="action-btn" @click="testConnection" :disabled="testing || !canTestConnection">
-            {{ testing ? '测试中...' : '测试连接' }}
-          </button>
-          <button type="button" class="action-btn primary" @click="saveAISettings">保存</button>
-        </div>
+            <label class="field">
+              <span>模型</span>
+              <input v-model="model" type="text" placeholder="例如 gpt-4o-mini / doubao-1-5-pro" />
+            </label>
 
-        <p v-if="testResult" :class="['test-result', testResult.success ? 'success' : 'error']">{{ testResult.message }}</p>
-      </article>
-    </section>
+            <template v-if="accessMode === 'proxy'">
+              <label class="field">
+                <span>代理地址</span>
+                <input v-model="proxyServerUrl" type="text" placeholder="http://localhost:8787" />
+              </label>
 
-    <section class="section-block">
-      <div class="section-head">
-        <h3>数据管理</h3>
-      </div>
+              <label class="field">
+                <span>提供方 ID</span>
+                <input v-model="proxyProviderId" type="text" placeholder="可留空" />
+              </label>
+            </template>
 
-      <article class="form-card data-card">
-        <div class="data-summary">
-          <div>
-            <strong>{{ friendsStore.friends.length }}</strong>
-            <span>朋友档案</span>
+            <label class="field">
+              <span>回复风格</span>
+              <select v-model="aiStyle" class="model-select">
+                <option value="friendly">自然亲切</option>
+                <option value="professional">理性清晰</option>
+                <option value="concise">简短直接</option>
+              </select>
+            </label>
           </div>
-          <div>
-            <strong>{{ memorialDaysStore.memorialDays.length }}</strong>
-            <span>纪念日</span>
+
+          <div class="section-actions-row">
+            <button type="button" class="action-btn" @click="resetAISettings">重置 AI 设置</button>
+            <button type="button" class="action-btn" @click="testConnection" :disabled="testing || !canTestConnection">
+              {{ testing ? '测试中...' : '测试连接' }}
+            </button>
+            <button type="button" class="action-btn primary" @click="saveAISettings">保存</button>
           </div>
+
+          <p v-if="testResult" :class="['test-result', testResult.success ? 'success' : 'error']">{{ testResult.message }}</p>
+        </article>
+      </section>
+
+      <section class="section-block">
+        <div class="section-head">
+          <h3>基础设置</h3>
         </div>
 
-        <div class="section-actions-row">
-          <button type="button" class="action-btn" @click="triggerImport">导入数据</button>
-          <button type="button" class="action-btn" @click="exportData">导出数据</button>
-        </div>
+        <article class="form-card data-card">
+          <div class="data-summary">
+            <div>
+              <strong>{{ friendsStore.friends.length }}</strong>
+              <span>朋友档案</span>
+            </div>
+            <div>
+              <strong>{{ memorialDaysStore.memorialDays.length }}</strong>
+              <span>纪念日</span>
+            </div>
+          </div>
 
-        <input ref="fileInput" class="hidden-input" type="file" accept="application/json" @change="handleImport" />
-        <p v-if="dataMessage" class="success-message">{{ dataMessage }}</p>
-        <p v-if="dataError" class="error-message">{{ dataError }}</p>
-      </article>
-    </section>
+          <div class="section-actions-row">
+            <button type="button" class="action-btn" @click="triggerImport">导入数据</button>
+            <button type="button" class="action-btn" @click="exportData">导出数据</button>
+          </div>
+
+          <input ref="fileInput" class="hidden-input" type="file" accept="application/json" @change="handleImport" />
+          <p v-if="dataMessage" class="test-result success">{{ dataMessage }}</p>
+          <p v-if="dataError" class="test-result error">{{ dataError }}</p>
+        </article>
+      </section>
+    </div>
   </section>
 </template>
 
@@ -145,6 +158,17 @@ const testResult = ref<{ success: boolean; message: string } | null>(null);
 const dataMessage = ref('');
 const dataError = ref('');
 const fileInput = ref<HTMLInputElement | null>(null);
+const screenRef = ref<HTMLElement | null>(null);
+const pullDistance = ref(0);
+const refreshing = ref(false);
+let touchStartY = 0;
+let pullActive = false;
+const REFRESH_TRIGGER = 72;
+
+const contentStyle = computed(() => ({
+  transform: pullDistance.value > 0 ? `translateY(${pullDistance.value}px)` : undefined,
+  transition: refreshing.value || pullDistance.value === 0 ? 'transform 180ms ease' : undefined,
+}));
 
 const connectionSummary = computed(() => {
   const settings = settingsStore.settings;
@@ -165,13 +189,16 @@ const connectionSummary = computed(() => {
 
 const summaryLine = computed(() => {
   if (connectionSummary.value.mode === 'proxy') {
-    const provider = connectionSummary.value.providerId?.trim() || '前端填写配置';
+    const provider = connectionSummary.value.providerId?.trim() || '默认提供方';
     return `${connectionSummary.value.baseUrl} · ${provider} · ${connectionSummary.value.model}`;
   }
+
   return `${connectionSummary.value.baseUrl} · ${connectionSummary.value.model}`;
 });
 
-const statsSummary = computed(() => `当前已保存 ${friendsStore.friends.length} 位朋友、${memorialDaysStore.memorialDays.length} 个纪念日。`);
+const statsSummary = computed(
+  () => `当前共保存 ${friendsStore.friends.length} 位朋友、${memorialDaysStore.memorialDays.length} 条纪念日记录。`,
+);
 
 const canTestConnection = computed(() => {
   if (!apiKey.value.trim() || !baseUrl.value.trim() || !model.value.trim()) {
@@ -192,6 +219,23 @@ onMounted(async () => {
   ]);
   loadAISettings();
 });
+
+async function refreshPage(): Promise<void> {
+  if (refreshing.value) {
+    return;
+  }
+
+  refreshing.value = true;
+  try {
+    await Promise.all([
+      friendsStore.loadFriends(),
+      memorialDaysStore.loadMemorialDays(),
+    ]);
+    loadAISettings();
+  } finally {
+    refreshing.value = false;
+  }
+}
 
 function loadAISettings(): void {
   accessMode.value = settingsStore.settings.aiAccessMode;
@@ -293,6 +337,7 @@ async function handleImport(event: Event): Promise<void> {
       memorialDays?: MemorialDay[];
       settings?: typeof settingsStore.settings;
     };
+
     const db = await getDB();
     const tx = db.transaction(['friends', 'memorialDays'], 'readwrite');
     await tx.objectStore('friends').clear();
@@ -322,9 +367,69 @@ async function handleImport(event: Event): Promise<void> {
   }
 }
 
+function handleTouchStart(event: TouchEvent): void {
+  if (screenRef.value?.scrollTop) {
+    pullActive = false;
+    pullDistance.value = 0;
+    return;
+  }
+
+  touchStartY = event.touches[0]?.clientY ?? 0;
+  pullActive = true;
+}
+
+function handleTouchMove(event: TouchEvent): void {
+  if (!pullActive || refreshing.value) {
+    return;
+  }
+
+  const currentY = event.touches[0]?.clientY ?? touchStartY;
+  const deltaY = currentY - touchStartY;
+  if (deltaY <= 0) {
+    pullDistance.value = 0;
+    return;
+  }
+
+  pullDistance.value = Math.min(96, deltaY * 0.42);
+}
+
+async function handleTouchEnd(): Promise<void> {
+  if (!pullActive) {
+    pullDistance.value = 0;
+    return;
+  }
+
+  pullActive = false;
+  const shouldRefresh = pullDistance.value >= REFRESH_TRIGGER;
+  pullDistance.value = 0;
+
+  if (shouldRefresh) {
+    await refreshPage();
+  }
+}
 </script>
 
 <style scoped>
+.pull-indicator {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  opacity: 0;
+  transition: height 180ms ease, opacity 180ms ease;
+}
+
+.pull-indicator.visible {
+  height: 28px;
+  opacity: 1;
+}
+
 .model-select {
   width: 100%;
   border: 1px solid var(--line);

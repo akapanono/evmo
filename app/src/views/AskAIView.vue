@@ -235,7 +235,7 @@ function goToSupplementInput(suggestion: string): void {
   }
 
   router.push({
-    name: 'friend-detail',
+    name: 'friend-supplement',
     params: { id: friend.value.id },
     query: { suggestion },
   });

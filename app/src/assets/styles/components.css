@@ -257,6 +257,8 @@ h3 {
   color: #fffaf4;
   font-weight: 700;
   flex: 0 0 auto;
+  position: relative;
+  overflow: hidden;
 }
 
 .avatar.xl {
@@ -287,6 +289,45 @@ h3 {
 
 .avatar.ink {
   background: var(--ink-soft);
+}
+
+.avatar-image,
+.avatar-graphic {
+  width: 100%;
+  height: 100%;
+}
+
+.avatar-image {
+  object-fit: cover;
+}
+
+.avatar-graphic {
+  padding: 10px;
+}
+
+.avatar-mark {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 4;
+}
+
+.avatar-fill {
+  fill: rgba(255, 250, 244, 0.92);
+  stroke: none;
+}
+
+.avatar-core {
+  fill: rgba(38, 64, 74, 0.22);
+  stroke: none;
+}
+
+.avatar-stroke {
+  stroke: rgba(255, 250, 244, 0.92);
+}
+
+.avatar-stroke.faint {
+  opacity: 0.48;
 }
 
 /* Hero Profile */
@@ -570,11 +611,29 @@ button:active {
 .small.is-releasing,
 .nav-item.is-releasing,
 .floating-add.is-releasing,
-.floating-ask.is-releasing,
-.grid-card.is-releasing,
-.settings-list article.is-releasing {
+.floating-ask.is-releasing {
   transform: translateY(2px) scale(0.965);
   box-shadow: 0 8px 18px rgba(29, 40, 49, 0.08);
+}
+
+.grid-card.is-releasing,
+.settings-list article.is-releasing {
+  transform: none;
+  box-shadow: 0 12px 22px rgba(29, 40, 49, 0.08);
+}
+
+.grid-card.is-tapping,
+.settings-list article.is-tapping {
+  animation: card-tap-pop 220ms ease;
+  border-color: rgba(220, 108, 86, 0.22);
+  box-shadow: 0 18px 30px rgba(29, 40, 49, 0.14);
+}
+
+.grid-card:hover,
+.settings-list article:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--line);
 }
 
 .floating-add.is-releasing,
@@ -598,4 +657,18 @@ button:active {
 .floating-add.is-pressing,
 .floating-ask.is-pressing {
   transform: translateX(-50%) translateY(-2px) scale(1.02);
+}
+
+@keyframes card-tap-pop {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+
+  45% {
+    transform: translateY(-4px) scale(1.015);
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+  }
 }

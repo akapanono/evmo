@@ -3,8 +3,8 @@
     <div class="topbar compact">
       <button class="back-link" type="button" @click="handleBack">返回</button>
       <div class="topbar-title">
-        <p class="eyebrow">资料补充</p>
-        <h1>补充 {{ friend.name }} 的资料</h1>
+        <p class="eyebrow">画像补充</p>
+        <h1>补充 {{ friend.name }} 的画像</h1>
       </div>
       <button class="icon-btn soft" type="button" @click="skipForNow">稍后</button>
     </div>
@@ -18,23 +18,7 @@
       </div>
     </article>
 
-    <article class="question-card intake-card">
-      <p class="mini-label">{{ currentQuestion.eyebrow }}</p>
-      <textarea
-        ref="answerInput"
-        v-model="answers[currentQuestion.id]"
-        rows="6"
-        :placeholder="currentQuestion.placeholder"
-      ></textarea>
-      <p class="field-hint">{{ currentQuestion.hint }}</p>
-    </article>
-
-    <article class="ask-context-card summary-card">
-      <p class="mini-label">为什么问这些</p>
-      <p>这里优先补充相处方式、表达习惯和选择偏好。这些信息比基础字段更能帮助系统理解这个人本身。</p>
-    </article>
-
-    <div class="sticky-actions intake-actions">
+    <div class="intake-actions">
       <button type="button" class="action-btn" @click="goPrev" :disabled="currentStep === 0 || saving">
         上一项
       </button>
@@ -63,9 +47,25 @@
         @click="saveAnswers"
         :disabled="saving"
       >
-        {{ saving ? '保存中...' : '写入档案' }}
+        {{ saving ? '保存中...' : '保存画像' }}
       </button>
     </div>
+
+    <article class="question-card intake-card">
+      <p class="mini-label">{{ currentQuestion.eyebrow }}</p>
+      <textarea
+        ref="answerInput"
+        v-model="answers[currentQuestion.id]"
+        rows="6"
+        :placeholder="currentQuestion.placeholder"
+      ></textarea>
+      <p class="field-hint">{{ currentQuestion.hint }}</p>
+    </article>
+
+    <article class="ask-context-card summary-card">
+      <p class="mini-label">为什么问这些</p>
+      <p>这里优先补充相处方式、表达习惯和选择偏好。这些信息比基础字段更能帮助系统理解这个人本身。</p>
+    </article>
 
     <p v-if="message" class="success-message">{{ message }}</p>
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
@@ -75,18 +75,18 @@
     <div class="topbar compact">
       <button class="back-link" type="button" @click="router.push('/friends')">返回</button>
       <div class="topbar-title">
-        <p class="eyebrow">错误</p>
-        <h1>朋友不存在</h1>
+        <p class="eyebrow">未找到</p>
+        <h1>朋友资料不存在</h1>
       </div>
     </div>
 
     <article class="empty-state-card">
       <div class="empty-icon">:(</div>
-      <h2>找不到这位朋友</h2>
-      <p>该朋友可能已被删除，或者链接无效。</p>
-        <button type="button" class="action-btn primary" @click="router.push('/friends')">
-          返回首页
-        </button>
+      <h2>没有找到这位朋友</h2>
+      <p>可以先回到朋友列表确认，或者重新进入对应朋友的详情页。</p>
+      <button type="button" class="action-btn primary" @click="router.push('/friends')">
+        返回朋友页
+      </button>
     </article>
   </section>
 </template>
@@ -118,7 +118,7 @@ const message = ref('');
 const errorMessage = ref('');
 const answerInput = ref<HTMLTextAreaElement | null>(null);
 
-const currentQuestion = computed((): typeof fallbackQuestion => questions[currentStep.value] ?? fallbackQuestion);
+const currentQuestion = computed(() => questions[currentStep.value] ?? fallbackQuestion);
 const isLastStep = computed(() => currentStep.value === questions.length - 1);
 const progressPercent = computed(() => ((currentStep.value + 1) / questions.length) * 100);
 
@@ -217,7 +217,7 @@ async function saveAnswers(): Promise<void> {
     await friendsStore.updateFriend(friend.value.id, updates);
     await friendsStore.loadFriends();
     friend.value = friendsStore.friends.find((item) => item.id === friend.value!.id) ?? friend.value;
-    message.value = '资料已写入档案。';
+    message.value = '画像补充已保存。';
     await router.push(getReturnRoute());
   } catch (err) {
     errorMessage.value = `保存失败：${(err as Error).message}`;
@@ -238,6 +238,7 @@ async function loadCurrentFriend(id: string): Promise<void> {
 }
 
 .intake-hero,
+.intake-actions,
 .intake-card,
 .summary-card {
   margin-top: 16px;
@@ -260,6 +261,15 @@ async function loadCurrentFriend(id: string): Promise<void> {
   transition: width 180ms ease;
 }
 
+.intake-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.intake-actions .action-btn {
+  flex: 1;
+}
+
 .intake-card {
   display: grid;
   gap: 12px;
@@ -279,10 +289,6 @@ async function loadCurrentFriend(id: string): Promise<void> {
 .summary-card p:last-child {
   margin-top: 8px;
   line-height: 1.6;
-}
-
-.intake-actions {
-  margin-top: 18px;
 }
 
 .success-message,
@@ -320,5 +326,12 @@ async function loadCurrentFriend(id: string): Promise<void> {
   color: var(--muted);
   margin-bottom: 24px;
   line-height: 1.6;
+}
+
+@media (max-width: 760px) {
+  .intake-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
 }
 </style>

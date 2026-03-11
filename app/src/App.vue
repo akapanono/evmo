@@ -8,7 +8,7 @@
           'has-floating-action': showFloatingAction,
         },
       ]"
-      aria-label="记得我应用界面"
+      aria-label="友记应用界面"
     >
       <router-view v-slot="{ Component }">
         <Transition name="screen-slide" mode="out-in" appear>
@@ -68,7 +68,7 @@ const currentRouteHasFriend = computed(() => {
 
 const showBottomNav = computed(() => mainTabs.has(route.path));
 const floatingAction = computed<'add' | 'ask' | null>(() => {
-  if (route.path === '/calendar' || route.path === '/friends') {
+  if (route.path === '/friends') {
     return 'add';
   }
 
@@ -105,14 +105,40 @@ function handleFloatingAction(): void {
   navigateToAdd();
 }
 
+function getNativeBackTarget(): string | null {
+  if (route.name === 'friend-detail' || route.name === 'edit-friend') {
+    return '/friends';
+  }
+
+  if (
+    route.name === 'ask-ai'
+    || route.name === 'friend-supplement'
+    || route.name === 'profile-intake'
+    || route.name === 'friend-record-list'
+  ) {
+    return currentFriendId.value ? `/friend/${currentFriendId.value}` : '/friends';
+  }
+
+  if (route.name === 'add-friend') {
+    return '/friends';
+  }
+
+  if (route.name === 'memorial-create' || route.name === 'memorial-edit') {
+    return '/calendar';
+  }
+
+  return null;
+}
+
 async function bindNativeBackButton(): Promise<void> {
   if (!isNativeApp) {
     return;
   }
 
-  const listener = await CapacitorApp.addListener('backButton', async ({ canGoBack }) => {
-    if (canGoBack || window.history.length > 1) {
-      router.back();
+  const listener = await CapacitorApp.addListener('backButton', async () => {
+    const target = getNativeBackTarget();
+    if (target) {
+      await router.push(target);
       return;
     }
 
@@ -145,7 +171,7 @@ onUnmounted(() => {
 
 .screen-slide-enter-active,
 .screen-slide-leave-active {
-  transition: opacity 220ms ease, transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 140ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .screen-slide-enter-from {
@@ -160,7 +186,7 @@ onUnmounted(() => {
 
 .floating-switch-enter-active,
 .floating-switch-leave-active {
-  transition: opacity 220ms ease, transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 140ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .floating-switch-enter-from {

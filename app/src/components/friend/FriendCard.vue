@@ -1,7 +1,12 @@
 ﻿<template>
   <article :class="['grid-card', `${friend.avatarColor}-card`]" @click="handleClick">
     <div class="grid-top">
-      <Avatar size="xl" :color="friend.avatarColor">
+      <Avatar
+        size="xl"
+        :color="friend.avatarColor"
+        :preset="friend.avatarPreset"
+        :image-src="friend.avatarImage"
+      >
         {{ friend.name.charAt(0) }}
       </Avatar>
       <span v-if="birthdayChipVisible" class="mini-chip">今天生日</span>

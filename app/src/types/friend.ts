@@ -16,6 +16,7 @@ export interface CustomField {
 }
 
 export type AvatarColor = 'coral' | 'teal' | 'gold' | 'ink';
+export type AvatarPreset = 'initial' | 'orbit' | 'spark' | 'bloom' | 'kite' | 'wave';
 
 export interface BasicInfoField {
   id: string;
@@ -54,6 +55,8 @@ export interface Friend {
   school?: string;
   major?: string;
   avatarColor: AvatarColor;
+  avatarPreset: AvatarPreset;
+  avatarImage?: string;
   lastContactDate?: string;
   lastViewedAt?: string;
   isImportant: boolean;
@@ -85,6 +88,7 @@ export interface ContactLog {
 }
 
 export const AVATAR_COLORS: AvatarColor[] = ['coral', 'teal', 'gold', 'ink'];
+export const AVATAR_PRESETS: AvatarPreset[] = ['initial', 'orbit', 'spark', 'bloom', 'kite', 'wave'];
 
 export function createEmptyAIPersona(updatedAt = new Date().toISOString()): FriendAIPersona {
   return {
@@ -120,6 +124,8 @@ export function createEmptyFriend(): Friend {
     school: '',
     major: '',
     avatarColor: 'coral',
+    avatarPreset: 'initial',
+    avatarImage: undefined,
     lastContactDate: undefined,
     lastViewedAt: undefined,
     isImportant: false,

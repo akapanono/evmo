@@ -89,7 +89,7 @@ function isRecentQuestion(question: string): boolean {
 }
 
 function isGreetingQuestion(question: string): boolean {
-  return /你好|在吗|还记得我吗|最近好吗|想你|在干嘛/.test(question);
+  return /你好|在吗|还记不记得我|最近好吗|想你|在干嘛/.test(question);
 }
 
 function describeMemorialDay(item: MemorialDay): string {
