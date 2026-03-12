@@ -4,7 +4,7 @@
       <div class="topbar">
         <div>
           <p class="eyebrow">日历</p>
-          <h1 class="brand-title">重要事件历</h1>
+          <h1 class="brand-title">纪念日和行程</h1>
         </div>
       </div>
 
@@ -47,8 +47,9 @@
                   @click="cell.inMonth && selectDay(cell.monthDay)"
                 >
                   <span class="day-number">{{ cell.day || '' }}</span>
-                  <span class="event-line birthday-line">{{ cell.birthdayLabel || '' }}</span>
-                  <span class="event-line memorial-line">{{ cell.memorialLabel || '' }}</span>
+                  <span class="event-line birthday-line">{{ cell.birthdayLabel }}</span>
+                  <span class="event-line memorial-line">{{ cell.memorialLabel }}</span>
+                  <span class="event-line timeline-line">{{ cell.timelineLabel }}</span>
                 </button>
               </div>
             </Transition>
@@ -63,14 +64,14 @@
                 <h3>{{ selectedDay.label }}</h3>
               </div>
               <button type="button" class="action-btn primary day-add-btn" @click="createMemorialForSelectedDay">
-                新建纪念日
+                新增纪念日
               </button>
             </div>
 
             <div v-if="selectedDay.birthdays.length > 0" class="day-group">
               <div class="section-inline-head day-group-head">
                 <p class="mini-label">生日</p>
-                <span class="day-summary">{{ selectedDay.birthdays.length }} 位</span>
+                <span class="day-summary">{{ selectedDay.birthdays.length }} 条</span>
               </div>
               <button
                 v-for="entry in selectedDay.birthdays"
@@ -105,7 +106,31 @@
                   </div>
                 </article>
               </div>
-              <p v-else class="field-hint">这一天还没有单独记录的纪念日。</p>
+              <p v-else class="field-hint">当天还没有纪念日。</p>
+            </div>
+
+            <div class="day-group">
+              <div class="section-inline-head day-group-head">
+                <p class="mini-label">行程</p>
+                <span class="day-summary">{{ selectedDay.timelineEvents.length }} 条</span>
+              </div>
+
+              <div v-if="selectedDay.timelineEvents.length > 0" class="memorial-list">
+                <article v-for="item in selectedDay.timelineEvents" :key="item.id" class="memorial-item">
+                  <div class="memorial-main">
+                    <strong>{{ item.title }}</strong>
+                    <p>{{ item.friendName }} · {{ item.relationship || '朋友' }}</p>
+                    <p>
+                      {{ item.resolvedDateText }}
+                      <template v-if="item.timeText"> {{ item.timeText }}</template>
+                    </p>
+                  </div>
+                  <div class="record-actions">
+                    <button type="button" class="mini-action" @click="openFriend(item.friendId)">查看朋友</button>
+                  </div>
+                </article>
+              </div>
+              <p v-else class="field-hint">当天还没有可推算到具体日期的时间线事件。</p>
             </div>
           </article>
         </Transition>
@@ -122,8 +147,9 @@ import { useMemorialDaysStore } from '@/stores/memorialDays';
 import type { Friend } from '@/types/friend';
 import type { MemorialDay } from '@/types/memorial';
 import { normalizeMonthDay } from '@/services/memorialDayService';
-import { formatMonthDay } from '@/utils/dateHelpers';
+import { formatMonthDay, getBeijingDateParts, getTodayMonthDayInBeijing } from '@/utils/dateHelpers';
 import { getFriendSourceQuery } from '@/utils/friendNavigation';
+import { buildTimelineCalendarEvents } from '@/utils/timelineCalendar';
 
 type CalendarCell = {
   key: string;
@@ -133,14 +159,16 @@ type CalendarCell = {
   isToday: boolean;
   birthdayLabel: string;
   memorialLabel: string;
+  timelineLabel: string;
 };
 
 const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
 const friendsStore = useFriendsStore();
 const memorialDaysStore = useMemorialDaysStore();
 const router = useRouter();
-const today = new Date();
-const currentMonth = ref(new Date(today.getFullYear(), today.getMonth(), 1));
+const todayParts = getBeijingDateParts();
+const todayMonthDay = getTodayMonthDayInBeijing();
+const currentMonth = ref(new Date(todayParts.year, todayParts.month - 1, 1));
 const selectedMonthDay = ref('');
 const monthTransitionName = ref<'month-slide-next' | 'month-slide-prev'>('month-slide-next');
 let calendarTouchStartX = 0;
@@ -150,6 +178,7 @@ const MONTH_SWIPE_VERTICAL_LIMIT = 48;
 
 const monthKey = computed(() => `${currentMonth.value.getFullYear()}-${currentMonth.value.getMonth() + 1}`);
 const monthTitle = computed(() => `${currentMonth.value.getFullYear()} 年 ${currentMonth.value.getMonth() + 1} 月`);
+const timelineEvents = computed(() => buildTimelineCalendarEvents(friendsStore.friends));
 
 const calendarDays = computed<CalendarCell[]>(() => {
   const firstDay = new Date(currentMonth.value.getFullYear(), currentMonth.value.getMonth(), 1);
@@ -168,6 +197,7 @@ const calendarDays = computed<CalendarCell[]>(() => {
       isToday: false,
       birthdayLabel: '',
       memorialLabel: '',
+      timelineLabel: '',
     });
   }
 
@@ -176,15 +206,17 @@ const calendarDays = computed<CalendarCell[]>(() => {
     const monthDay = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const birthdayCount = friendsStore.friends.filter((friend) => friend.birthday === monthDay).length;
     const memorialCount = memorialDaysStore.getByMonthDay(monthDay).length;
+    const timelineCount = timelineEvents.value.filter((item) => item.monthDay === monthDay).length;
 
     cells.push({
       key: monthDay,
       day,
       inMonth: true,
       monthDay,
-      isToday: normalizeMonthDay(monthDay) === normalizeMonthDay(`${today.getMonth() + 1}-${today.getDate()}`),
+      isToday: normalizeMonthDay(monthDay) === normalizeMonthDay(todayMonthDay),
       birthdayLabel: birthdayCount > 1 ? `生日+${birthdayCount}` : birthdayCount === 1 ? '生日' : '',
       memorialLabel: memorialCount > 1 ? `纪念日+${memorialCount}` : memorialCount === 1 ? '纪念日' : '',
+      timelineLabel: timelineCount > 1 ? `行程+${timelineCount}` : timelineCount === 1 ? '行程' : '',
     });
   }
 
@@ -197,6 +229,7 @@ const calendarDays = computed<CalendarCell[]>(() => {
       isToday: false,
       birthdayLabel: '',
       memorialLabel: '',
+      timelineLabel: '',
     });
   }
 
@@ -214,6 +247,7 @@ const selectedDay = computed(() => {
     label: formatMonthDay(monthDay),
     birthdays: friendsStore.friends.filter((friend) => friend.birthday === monthDay),
     memorials: memorialDaysStore.getByMonthDay(monthDay),
+    timelineEvents: timelineEvents.value.filter((item) => item.monthDay === monthDay),
   };
 });
 
@@ -237,12 +271,12 @@ function shiftMonth(offset: number): void {
 }
 
 function jumpToToday(): void {
-  const targetMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const targetMonth = new Date(todayParts.year, todayParts.month - 1, 1);
   monthTransitionName.value = targetMonth.getTime() >= currentMonth.value.getTime()
     ? 'month-slide-next'
     : 'month-slide-prev';
   currentMonth.value = targetMonth;
-  selectedMonthDay.value = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  selectedMonthDay.value = todayMonthDay;
 }
 
 function selectDay(monthDay: string): void {
@@ -276,14 +310,14 @@ function handleCalendarTouchEnd(event: TouchEvent): void {
 }
 
 function createMemorialForSelectedDay(): void {
-  router.push({
+  void router.push({
     name: 'memorial-create',
     query: selectedDay.value ? { monthDay: selectedDay.value.monthDay } : {},
   });
 }
 
 function editMemorial(id: string): void {
-  router.push({
+  void router.push({
     name: 'memorial-edit',
     params: { id },
   });
@@ -294,7 +328,7 @@ function linkedFriends(item: MemorialDay): Friend[] {
 }
 
 function openFriend(friendId: string): void {
-  router.push({
+  void router.push({
     name: 'friend-detail',
     params: { id: friendId },
     query: getFriendSourceQuery('calendar'),
@@ -404,7 +438,7 @@ function openFriend(friendId: string): void {
 }
 
 .calendar-cell {
-  min-height: 68px;
+  min-height: 72px;
   border: 0;
   border-right: 1px solid rgba(38, 64, 74, 0.08);
   border-bottom: 1px solid rgba(38, 64, 74, 0.08);
@@ -412,7 +446,7 @@ function openFriend(friendId: string): void {
   background: rgba(255, 252, 247, 0.72);
   padding: 6px 5px;
   display: grid;
-  grid-template-rows: auto 16px 16px;
+  grid-template-rows: auto 14px 14px 14px;
   gap: 2px;
   text-align: left;
   position: relative;
@@ -452,7 +486,6 @@ function openFriend(friendId: string): void {
   border-bottom: 0;
 }
 
-
 .calendar-cell.is-today .day-number {
   color: var(--coral);
 }
@@ -467,7 +500,7 @@ function openFriend(friendId: string): void {
   display: block;
   min-width: 0;
   font-size: 9px;
-  line-height: 16px;
+  line-height: 14px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -479,6 +512,10 @@ function openFriend(friendId: string): void {
 
 .memorial-line {
   color: #26404a;
+}
+
+.timeline-line {
+  color: #705293;
 }
 
 .day-group {
@@ -551,7 +588,7 @@ function openFriend(friendId: string): void {
 .day-panel-drop-leave-from {
   opacity: 1;
   transform: translateY(0);
-  max-height: 720px;
+  max-height: 880px;
 }
 
 .day-panel-drop-enter-active {
@@ -599,9 +636,8 @@ function openFriend(friendId: string): void {
   }
 
   .calendar-cell {
-    min-height: 62px;
+    min-height: 66px;
     padding: 5px 4px;
-    grid-template-rows: auto 15px 15px;
   }
 
   .day-number {
@@ -610,7 +646,6 @@ function openFriend(friendId: string): void {
 
   .event-line {
     font-size: 8px;
-    line-height: 15px;
   }
 
   .memorial-item {

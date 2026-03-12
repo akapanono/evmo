@@ -1,10 +1,14 @@
 import type { LocationQueryValue, RouteLocationNormalizedLoaded, RouteLocationRaw } from 'vue-router';
 
-export type FriendSourcePage = 'calendar' | 'friends';
+export type FriendSourcePage = 'home' | 'calendar' | 'friends';
 
 export function resolveFriendSourcePage(
   value: LocationQueryValue | LocationQueryValue[] | undefined,
 ): FriendSourcePage {
+  if (value === 'home') {
+    return 'home';
+  }
+
   return value === 'calendar' ? 'calendar' : 'friends';
 }
 
@@ -16,7 +20,11 @@ export function getFriendSourceQuery(sourcePage: FriendSourcePage): { fromPage: 
   return { fromPage: sourcePage };
 }
 
-export function getFriendBackPath(sourcePage: FriendSourcePage): '/calendar' | '/friends' {
+export function getFriendBackPath(sourcePage: FriendSourcePage): '/home' | '/calendar' | '/friends' {
+  if (sourcePage === 'home') {
+    return '/home';
+  }
+
   return sourcePage === 'calendar' ? '/calendar' : '/friends';
 }
 

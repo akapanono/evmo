@@ -1,3 +1,5 @@
+import type { OccasionRecommendation } from '@/types/recommendation';
+
 export type SemanticType = 'preference' | 'restriction' | 'status' | 'event' | 'milestone' | 'note';
 export type TemporalScope = 'stable' | 'timebound';
 export type ExtractionMethod = 'rule' | 'llm' | 'manual';
@@ -106,6 +108,7 @@ export interface Friend {
   preferences: string[];
   preferenceItems: PreferenceItem[];
   notes: string;
+  birthdayRecommendation?: OccasionRecommendation;
   basicInfoFields: BasicInfoField[];
   customFields: CustomField[];
   aiProfile: FriendAIPersona;
@@ -214,6 +217,7 @@ export function createEmptyFriend(): Friend {
     preferences: [],
     preferenceItems: [],
     notes: '',
+    birthdayRecommendation: undefined,
     basicInfoFields: [],
     customFields: [],
     aiProfile: createEmptyAIPersona(now),

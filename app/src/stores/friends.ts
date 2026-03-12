@@ -2,11 +2,13 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { Friend } from '@/types/friend';
 import { friendService } from '@/services/friendService';
+import { useMemorialDaysStore } from '@/stores/memorialDays';
 
 export const useFriendsStore = defineStore('friends', () => {
   const friends = ref<Friend[]>([]);
   const loading = ref(false);
   const selectedFriendId = ref<string | null>(null);
+  const memorialDaysStore = useMemorialDaysStore();
 
   const selectedFriend = computed(() =>
     friends.value.find((f) => f.id === selectedFriendId.value)
@@ -24,6 +26,7 @@ export const useFriendsStore = defineStore('friends', () => {
   async function addFriend(friend: Partial<Friend>): Promise<Friend> {
     const newFriend = await friendService.createFriend(friend);
     friends.value.unshift(newFriend);
+    await memorialDaysStore.loadMemorialDays();
     return newFriend;
   }
 
@@ -41,11 +44,12 @@ export const useFriendsStore = defineStore('friends', () => {
   async function updateFriend(
     id: string,
     updates: Partial<Friend>,
-    options?: { refreshPersona?: boolean },
+    options?: { refreshPersona?: boolean; refreshRecommendations?: boolean },
   ): Promise<Friend | undefined> {
     const updated = await friendService.updateFriend(id, updates, options);
     if (updated) {
       upsertFriend(updated);
+      await memorialDaysStore.loadMemorialDays();
     }
 
     return updated;
@@ -69,6 +73,7 @@ export const useFriendsStore = defineStore('friends', () => {
     const updated = await friendService.refreshFriendPersona(id);
     if (updated) {
       upsertFriend(updated);
+      await memorialDaysStore.loadMemorialDays();
     }
 
     return updated;
@@ -77,6 +82,7 @@ export const useFriendsStore = defineStore('friends', () => {
   async function deleteFriend(id: string): Promise<void> {
     await friendService.deleteFriend(id);
     friends.value = friends.value.filter((f) => f.id !== id);
+    await memorialDaysStore.loadMemorialDays();
     if (selectedFriendId.value === id) {
       selectedFriendId.value = null;
     }

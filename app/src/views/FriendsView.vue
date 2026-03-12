@@ -138,6 +138,18 @@
         </div>
       </section>
     </div>
+
+    <ConfirmDialog
+      :open="confirmState.open"
+      :eyebrow="confirmState.eyebrow"
+      :title="confirmState.title"
+      :message="confirmState.message"
+      :confirm-text="confirmState.confirmText"
+      :cancel-text="confirmState.cancelText"
+      :danger="confirmState.danger"
+      @confirm="runConfirmedAction"
+      @cancel="closeConfirmDialog"
+    />
   </section>
 </template>
 
@@ -145,6 +157,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import Avatar from '@/components/common/Avatar.vue';
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
 import { useFriendsStore } from '@/stores/friends';
 import { useSettingsStore } from '@/stores/settings';
 import type { Friend } from '@/types/friend';
@@ -173,12 +186,22 @@ const starPrioritySnapshot = ref<Record<string, boolean>>({});
 const screenRef = ref<HTMLElement | null>(null);
 const pullDistance = ref(0);
 const refreshing = ref(false);
+const confirmState = ref({
+  open: false,
+  eyebrow: '删除朋友',
+  title: '',
+  message: '',
+  confirmText: '删除',
+  cancelText: '保留',
+  danger: true,
+});
 let longPressTimer: number | null = null;
 let searchTimer: number | null = null;
 let longPressStartX = 0;
 let longPressStartY = 0;
 let touchStartY = 0;
 let pullActive = false;
+let pendingConfirmAction: (() => void | Promise<void>) | null = null;
 const PRESS_FEEDBACK_DELAY = 300;
 const LONG_PRESS_DELAY = 320;
 const LONG_PRESS_MOVE_LIMIT = 12;
@@ -381,11 +404,21 @@ function handleCardPointerLeave(): void {
 }
 
 async function deleteFriend(friendId: string): Promise<void> {
-  await friendsStore.deleteFriend(friendId);
-
-  if (friendsStore.friends.length === 0) {
-    isDeleteMode.value = false;
+  const friend = friendsStore.friends.find((item) => item.id === friendId);
+  if (!friend) {
+    return;
   }
+
+  openConfirmDialog({
+    title: `确认删除 ${friend.name}？`,
+    message: '删除后，这位朋友的资料会一起移除。',
+    onConfirm: async () => {
+      await friendsStore.deleteFriend(friendId);
+      if (friendsStore.friends.length === 0) {
+        isDeleteMode.value = false;
+      }
+    },
+  });
 }
 
 function handleScreenClick(event: MouseEvent): void {
@@ -451,6 +484,36 @@ async function handleTouchEnd(): Promise<void> {
 
   if (shouldRefresh) {
     await refreshFriends();
+  }
+}
+
+function openConfirmDialog(options: {
+  title: string;
+  message: string;
+  onConfirm: () => void | Promise<void>;
+}): void {
+  pendingConfirmAction = options.onConfirm;
+  confirmState.value = {
+    open: true,
+    eyebrow: '删除朋友',
+    title: options.title,
+    message: options.message,
+    confirmText: '删除',
+    cancelText: '保留',
+    danger: true,
+  };
+}
+
+function closeConfirmDialog(): void {
+  confirmState.value.open = false;
+  pendingConfirmAction = null;
+}
+
+async function runConfirmedAction(): Promise<void> {
+  const action = pendingConfirmAction;
+  closeConfirmDialog();
+  if (action) {
+    await action();
   }
 }
 
@@ -631,6 +694,7 @@ onBeforeUnmount(() => {
 
 .star-toggle.active {
   color: #e2a329;
+  -webkit-text-stroke: 0 transparent;
 }
 
 .coral-card .star-toggle {

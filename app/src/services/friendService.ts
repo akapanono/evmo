@@ -2,12 +2,15 @@ import { getDB } from '@/database';
 import type { AvatarPreset, BasicInfoField, ContactLog, Friend, PreferenceItem, Reminder } from '@/types/friend';
 import { createEmptyAIPersona } from '@/types/friend';
 import { aiService } from '@/services/aiService';
+import { memorialDayService } from '@/services/memorialDayService';
 import { compileFriendAIPersona } from '@/utils/friendAIPersona';
 import { searchBasicInfoCorpus } from '@/utils/basicInfo';
 import { flattenPreferenceItems, normalizePreferenceItems } from '@/utils/preferences';
+import { buildBirthdayRecommendation } from '@/utils/occasionRecommendations';
 
 interface UpdateFriendOptions {
   refreshPersona?: boolean;
+  refreshRecommendations?: boolean;
 }
 
 function normalizeText(value: string | undefined): string | undefined {
@@ -194,6 +197,7 @@ function normalizeFriendInput(friend: Partial<Friend>, existing?: Friend): Frien
     preferences,
     preferenceItems,
     notes: typeof friend.notes === 'string' ? friend.notes.trim() : existing?.notes ?? '',
+    birthdayRecommendation: friend.birthdayRecommendation ?? existing?.birthdayRecommendation,
     basicInfoFields: normalizeBasicInfoFields(friend.basicInfoFields ?? existing?.basicInfoFields),
     customFields: normalizeCustomFields(friend.customFields ?? existing?.customFields),
     aiProfile: friend.aiProfile ?? existing?.aiProfile ?? createEmptyAIPersona(now),
@@ -235,6 +239,20 @@ async function enrichFriendPersona(friend: Friend, existing?: Friend): Promise<F
       aiProfile: fallbackPersona,
     };
   }
+}
+
+async function enrichFriendRecommendations(friend: Friend): Promise<Friend> {
+  if (!friend.birthday) {
+    return {
+      ...friend,
+      birthdayRecommendation: undefined,
+    };
+  }
+
+  return {
+    ...friend,
+    birthdayRecommendation: buildBirthdayRecommendation(friend),
+  };
 }
 
 async function normalizeStoredFriend(friend: Friend): Promise<Friend> {
@@ -338,8 +356,10 @@ export const friendService = {
     const db = await getDB();
     const plainFriend = JSON.parse(JSON.stringify(friend)) as Partial<Friend>;
     const normalizedBase = normalizeFriendInput(plainFriend);
-    const newFriend = await enrichFriendPersona(normalizedBase);
+    const withPersona = await enrichFriendPersona(normalizedBase);
+    const newFriend = await enrichFriendRecommendations(withPersona);
     await db.add('friends', newFriend);
+    await memorialDayService.refreshRecommendationsByFriend(newFriend);
     return newFriend;
   },
 
@@ -354,13 +374,20 @@ export const friendService = {
     const plainUpdates = JSON.parse(JSON.stringify(updates)) as Partial<Friend>;
     const normalizedBase = normalizeFriendInput({ ...plainUpdates, id: normalizeFriendId(id) || id }, existing);
     const shouldRefreshPersona = options.refreshPersona ?? false;
-    const updatedFriend = shouldRefreshPersona
+    const shouldRefreshRecommendations = options.refreshRecommendations ?? true;
+    const friendWithPersona = shouldRefreshPersona
       ? await enrichFriendPersona(normalizedBase, existing)
       : {
         ...normalizedBase,
         aiProfile: compileFriendAIPersona(normalizedBase, normalizedBase.updatedAt),
       };
+    const updatedFriend = shouldRefreshRecommendations
+      ? await enrichFriendRecommendations(friendWithPersona)
+      : friendWithPersona;
     await db.put('friends', updatedFriend);
+    if (shouldRefreshRecommendations) {
+      await memorialDayService.refreshRecommendationsByFriend(updatedFriend);
+    }
     return updatedFriend;
   },
 
@@ -373,8 +400,20 @@ export const friendService = {
     }
 
     const refreshedFriend = await enrichFriendPersona(existing, existing);
-    await db.put('friends', refreshedFriend);
-    return refreshedFriend;
+    const latestStored = await this.getFriendById(id);
+    if (!latestStored) {
+      return undefined;
+    }
+
+    const mergedFriend: Friend = {
+      ...latestStored,
+      aiProfile: refreshedFriend.aiProfile,
+      updatedAt: new Date().toISOString(),
+    };
+    const enrichedFriend = await enrichFriendRecommendations(mergedFriend);
+    await db.put('friends', enrichedFriend);
+    await memorialDayService.refreshRecommendationsByFriend(enrichedFriend);
+    return enrichedFriend;
   },
 
   async deleteFriend(id: string): Promise<void> {
@@ -424,7 +463,7 @@ export const friendService = {
     await this.updateFriend(log.friendId, {
       lastContactDate: newLog.date,
       contactCount: (existingFriend?.contactCount ?? 0) + 1,
-    });
+    }, { refreshRecommendations: false });
 
     return newLog;
   },

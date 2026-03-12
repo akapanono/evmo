@@ -28,7 +28,7 @@
           <input v-model="form.birthday" type="text" inputmode="numeric" placeholder="例如：03-07" />
         </label>
         <label class="field">
-          <span>性别</span>
+          <span>性别 *</span>
           <input v-model="form.gender" type="text" placeholder="例如：男、女、非二元" />
         </label>
         <label class="field">

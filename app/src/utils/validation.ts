@@ -63,7 +63,7 @@ export function validateFriend(friend: Partial<Friend>): ValidationError[] {
   if (!friend.name || friend.name.trim().length === 0) {
     errors.push({ field: 'name', message: '姓名不能为空。' });
   } else if (!looksReasonableName(friend.name)) {
-    errors.push({ field: 'name', message: '姓名看起来不合常理，请检查后再保存。' });
+    errors.push({ field: 'name', message: '姓名格式不太合理，请检查后再保存。' });
   }
 
   if (friend.nickname && friend.nickname.trim().length > 30) {
@@ -73,11 +73,17 @@ export function validateFriend(friend: Partial<Friend>): ValidationError[] {
   if (!friend.relationship || friend.relationship.trim().length === 0) {
     errors.push({ field: 'relationship', message: '关系不能为空。' });
   } else if (!looksReasonableRelationship(friend.relationship)) {
-    errors.push({ field: 'relationship', message: '关系信息看起来不合常理，请检查后再保存。' });
+    errors.push({ field: 'relationship', message: '关系格式不太合理，请检查后再保存。' });
   }
 
   if (friend.birthday && !isLikelyValidMonthDay(friend.birthday)) {
-    errors.push({ field: 'birthday', message: '生日格式或日期不合理，应为 MM-DD，例如 03-07。' });
+    errors.push({ field: 'birthday', message: '生日格式应为 MM-DD，例如 03-07。' });
+  }
+
+  if (!friend.gender || friend.gender.trim().length === 0) {
+    errors.push({ field: 'gender', message: '性别不能为空。' });
+  } else if (friend.gender.trim().length > 12) {
+    errors.push({ field: 'gender', message: '性别字段不宜超过 12 个字符。' });
   }
 
   if (friend.age !== undefined && !isReasonableNumber(friend.age, 0, 130)) {
@@ -89,23 +95,19 @@ export function validateFriend(friend: Partial<Friend>): ValidationError[] {
   }
 
   if (friend.weightKg !== undefined && !isReasonableNumber(friend.weightKg, 2, 300)) {
-    errors.push({ field: 'weightKg', message: '体重应在 2 到 300 公斤之间。' });
-  }
-
-  if (friend.gender && friend.gender.trim().length > 12) {
-    errors.push({ field: 'gender', message: '性别字段不宜超过 12 个字符。' });
+    errors.push({ field: 'weightKg', message: '体重应在 2 到 300 千克之间。' });
   }
 
   if (friend.preferences && friend.preferences.some((item) => item.trim().length > 30)) {
-    errors.push({ field: 'preferences', message: '偏好标签单项不能超过 30 个字符。' });
+    errors.push({ field: 'preferences', message: '单条偏好内容不宜超过 30 个字符。' });
   }
 
   if (friend.preferenceItems && friend.preferenceItems.some((item) => item.value.trim().length > 30)) {
-    errors.push({ field: 'preferenceItems', message: '喜好单项不能超过 30 个字符。' });
+    errors.push({ field: 'preferenceItems', message: '单条喜好内容不宜超过 30 个字符。' });
   }
 
   const shortTextFields: Array<{ key: keyof Friend; label: string; max: number }> = [
-    { key: 'city', label: '常住城市', max: 40 },
+    { key: 'city', label: '所在城市', max: 40 },
     { key: 'hometown', label: '家乡', max: 40 },
     { key: 'occupation', label: '职业', max: 40 },
     { key: 'company', label: '公司', max: 60 },

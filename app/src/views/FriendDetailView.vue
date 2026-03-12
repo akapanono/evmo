@@ -260,6 +260,16 @@
     />
   </section>
 
+  <section v-else-if="detailState === 'loading'" class="app-screen is-active">
+    <div class="topbar compact">
+      <button class="back-link" type="button" @click="goBack">返回</button>
+      <div class="topbar-title">
+        <p class="eyebrow">加载中</p>
+        <h1>正在加载朋友信息</h1>
+      </div>
+    </div>
+  </section>
+
   <section v-else class="app-screen is-active">
     <div class="topbar compact">
       <button class="back-link" type="button" @click="goBack">返回</button>
@@ -297,6 +307,7 @@ const friendsStore = useFriendsStore();
 const memorialDaysStore = useMemorialDaysStore();
 
 const friend = ref<Friend | null>(null);
+const detailState = ref<'loading' | 'ready' | 'not-found'>('loading');
 const deleting = ref(false);
 const busyFieldId = ref<string | null>(null);
 const busyPreferenceValue = ref<string | null>(null);
@@ -386,7 +397,7 @@ const basicInfoRows = computed<BasicInfoRow[]>(() => {
       label: entry.label,
       value: formatBasicInfoValue(entry.key, entry.value),
       key: entry.key,
-      deletable: true,
+      deletable: entry.key !== 'gender',
     });
   }
 
@@ -667,6 +678,8 @@ async function runConfirmedAction(): Promise<void> {
 }
 
 async function loadCurrentFriend(id: string): Promise<void> {
+  detailState.value = 'loading';
+
   if (friendsStore.friends.length === 0) {
     await friendsStore.loadFriends();
   }
@@ -674,13 +687,12 @@ async function loadCurrentFriend(id: string): Promise<void> {
   const currentFriend = await friendsStore.getFriendById(id);
   if (!currentFriend) {
     friend.value = null;
+    detailState.value = 'not-found';
     return;
   }
 
-  const touchedFriend = await friendsStore.updateFriend(currentFriend.id, {
-    lastViewedAt: new Date().toISOString(),
-  });
-  friend.value = touchedFriend ?? currentFriend;
+  detailState.value = 'ready';
+  friend.value = currentFriend;
 
   if (
     friend.value

@@ -136,6 +136,12 @@ async function applyParsedResult(parsed: SemanticExtractionResult, mode: 'rule' 
   ];
 
   const basicInfoUpdates = applyBasicInfoExtraction(friend.value, parsed.basicInfoFields);
+  const shouldRefreshRecommendations = Boolean(
+    parsed.birthday
+    || parsed.basicInfoFields.length > 0
+    || parsed.preferences.length > 0
+    || explicitPreferenceItems.length > 0,
+  );
   const updated = await friendsStore.updateFriend(friend.value.id, {
     birthday: parsed.birthday ?? friend.value.birthday,
     preferenceItems: nextPreferenceItems,
@@ -152,6 +158,8 @@ async function applyParsedResult(parsed: SemanticExtractionResult, mode: 'rule' 
     major: basicInfoUpdates.major,
     basicInfoFields: basicInfoUpdates.basicInfoFields,
     customFields: nextFields,
+  }, {
+    refreshRecommendations: shouldRefreshRecommendations,
   });
 
   if (updated) {

@@ -47,7 +47,7 @@ const router = useRouter();
 const friendsStore = useFriendsStore();
 const isNativeApp = Capacitor.isNativePlatform();
 
-const mainTabs = new Set(['/calendar', '/friends', '/me']);
+const mainTabs = new Set(['/home', '/calendar', '/friends', '/me']);
 let removeBackButtonListener: (() => Promise<void>) | null = null;
 
 const currentFriendId = computed(() => {
@@ -132,6 +132,14 @@ function getNativeBackTarget(): RouteLocationRaw | null {
 
   if (route.name === 'add-friend') {
     return '/friends';
+  }
+
+  if (route.name === 'home-occasion-more') {
+    return '/home';
+  }
+
+  if (route.name === 'home-occasion-detail') {
+    return '/home';
   }
 
   if (route.name === 'memorial-create' || route.name === 'memorial-edit') {

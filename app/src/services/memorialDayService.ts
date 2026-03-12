@@ -1,5 +1,7 @@
 import { getDB } from '@/database';
 import type { MemorialDay } from '@/types/memorial';
+import type { Friend } from '@/types/friend';
+import { buildMemorialRecommendation } from '@/utils/occasionRecommendations';
 
 function pad(value: number): string {
   return String(value).padStart(2, '0');
@@ -52,9 +54,16 @@ function normalizeMemorial(input: Partial<MemorialDay>, existing?: MemorialDay):
     note: typeof input.note === 'string'
       ? input.note.trim() || undefined
       : existing?.note,
+    recommendation: input.recommendation ?? existing?.recommendation,
     createdAt: existing?.createdAt ?? input.createdAt ?? now,
     updatedAt: now,
   };
+}
+
+async function getLinkedFriends(friendIds: string[]): Promise<Friend[]> {
+  const db = await getDB();
+  const friends = await Promise.all(friendIds.map((id) => db.get('friends', id)));
+  return friends.filter((friend): friend is Friend => Boolean(friend));
 }
 
 function sortMemorials(items: MemorialDay[]): MemorialDay[] {
@@ -74,7 +83,12 @@ export const memorialDayService = {
 
   async createMemorialDay(input: Partial<MemorialDay>): Promise<MemorialDay> {
     const db = await getDB();
-    const memorialDay = normalizeMemorial(input);
+    const normalized = normalizeMemorial(input);
+    const linkedFriends = await getLinkedFriends(normalized.friendIds);
+    const memorialDay = {
+      ...normalized,
+      recommendation: buildMemorialRecommendation(normalized, linkedFriends),
+    };
     await db.add('memorialDays', memorialDay);
     return memorialDay;
   },
@@ -86,7 +100,12 @@ export const memorialDayService = {
       return undefined;
     }
 
-    const memorialDay = normalizeMemorial({ ...updates, id }, existing);
+    const normalized = normalizeMemorial({ ...updates, id }, existing);
+    const linkedFriends = await getLinkedFriends(normalized.friendIds);
+    const memorialDay = {
+      ...normalized,
+      recommendation: buildMemorialRecommendation(normalized, linkedFriends),
+    };
     await db.put('memorialDays', memorialDay);
     return memorialDay;
   },
@@ -104,5 +123,24 @@ export const memorialDayService = {
       await tx.store.put(normalizeMemorial(item, item));
     }
     await tx.done;
+  },
+
+  async refreshRecommendationsByFriend(friend: Friend): Promise<MemorialDay[]> {
+    const db = await getDB();
+    const linkedItems = (await db.getAll('memorialDays')).filter((item) => item.friendIds.includes(friend.id));
+    const updatedItems: MemorialDay[] = [];
+
+    for (const item of linkedItems) {
+      const linkedFriends = await getLinkedFriends(item.friendIds);
+      const updated: MemorialDay = {
+        ...item,
+        recommendation: buildMemorialRecommendation(item, linkedFriends),
+        updatedAt: new Date().toISOString(),
+      };
+      await db.put('memorialDays', updated);
+      updatedItems.push(updated);
+    }
+
+    return updatedItems;
   },
 };

@@ -3,7 +3,22 @@
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    redirect: '/calendar',
+    redirect: '/home',
+  },
+  {
+    path: '/home',
+    name: 'home',
+    component: () => import('@/views/HomeDashboardView.vue'),
+  },
+  {
+    path: '/home/more/:range',
+    name: 'home-occasion-more',
+    component: () => import('@/views/HomeOccasionListView.vue'),
+  },
+  {
+    path: '/home/occasion/:type/:id',
+    name: 'home-occasion-detail',
+    component: () => import('@/views/HomeOccasionDetailView.vue'),
   },
   {
     path: '/calendar',

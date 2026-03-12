@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <nav class="bottom-nav" aria-label="底部导航">
     <button
       v-for="item in items"
@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-import { useRouter, useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 interface NavItem {
   label: string;
@@ -21,6 +21,7 @@ interface NavItem {
 }
 
 const items: NavItem[] = [
+  { label: '首页', path: '/home' },
   { label: '日历', path: '/calendar' },
   { label: '朋友', path: '/friends' },
   { label: '我的', path: '/me' },
@@ -34,6 +35,8 @@ function isActive(path: string): boolean {
 }
 
 function navigateTo(path: string): void {
-  router.push(path);
+  if (route.path !== path) {
+    void router.push(path);
+  }
 }
 </script>
