@@ -123,6 +123,7 @@ import type { Friend } from '@/types/friend';
 import type { MemorialDay } from '@/types/memorial';
 import { normalizeMonthDay } from '@/services/memorialDayService';
 import { formatMonthDay } from '@/utils/dateHelpers';
+import { getFriendSourceQuery } from '@/utils/friendNavigation';
 
 type CalendarCell = {
   key: string;
@@ -296,6 +297,7 @@ function openFriend(friendId: string): void {
   router.push({
     name: 'friend-detail',
     params: { id: friendId },
+    query: getFriendSourceQuery('calendar'),
   });
 }
 </script>

@@ -1,9 +1,10 @@
 import { getDB } from '@/database';
-import type { AvatarPreset, BasicInfoField, ContactLog, Friend, Reminder } from '@/types/friend';
+import type { AvatarPreset, BasicInfoField, ContactLog, Friend, PreferenceItem, Reminder } from '@/types/friend';
 import { createEmptyAIPersona } from '@/types/friend';
 import { aiService } from '@/services/aiService';
 import { compileFriendAIPersona } from '@/utils/friendAIPersona';
 import { searchBasicInfoCorpus } from '@/utils/basicInfo';
+import { flattenPreferenceItems, normalizePreferenceItems } from '@/utils/preferences';
 
 interface UpdateFriendOptions {
   refreshPersona?: boolean;
@@ -141,11 +142,26 @@ function normalizeBasicInfoFields(value: Friend['basicInfoFields'] | undefined):
     }));
 }
 
+function normalizePreferenceItemList(
+  value: PreferenceItem[] | undefined,
+  fallbackPreferences: string[] = [],
+): PreferenceItem[] {
+  return normalizePreferenceItems(value, fallbackPreferences);
+}
+
 function normalizeFriendInput(friend: Partial<Friend>, existing?: Friend): Friend {
   const now = new Date().toISOString();
-  const preferences = Array.isArray(friend.preferences)
+  const hasExplicitPreferenceItems = Object.prototype.hasOwnProperty.call(friend, 'preferenceItems');
+  const hasExplicitPreferences = Object.prototype.hasOwnProperty.call(friend, 'preferences');
+  const rawPreferences = Array.isArray(friend.preferences)
     ? friend.preferences.map((item) => String(item).trim()).filter(Boolean)
     : (existing?.preferences ?? []);
+  const preferenceItems = hasExplicitPreferenceItems
+    ? normalizePreferenceItemList(friend.preferenceItems, rawPreferences)
+    : hasExplicitPreferences
+      ? normalizePreferenceItemList(undefined, rawPreferences)
+      : normalizePreferenceItemList(existing?.preferenceItems, rawPreferences);
+  const preferences = flattenPreferenceItems(preferenceItems);
 
   const name = typeof friend.name === 'string'
     ? friend.name.trim()
@@ -176,6 +192,7 @@ function normalizeFriendInput(friend: Partial<Friend>, existing?: Friend): Frien
     lastViewedAt: normalizeText(typeof friend.lastViewedAt === 'string' ? friend.lastViewedAt : existing?.lastViewedAt),
     isImportant: typeof friend.isImportant === 'boolean' ? friend.isImportant : existing?.isImportant ?? false,
     preferences,
+    preferenceItems,
     notes: typeof friend.notes === 'string' ? friend.notes.trim() : existing?.notes ?? '',
     basicInfoFields: normalizeBasicInfoFields(friend.basicInfoFields ?? existing?.basicInfoFields),
     customFields: normalizeCustomFields(friend.customFields ?? existing?.customFields),

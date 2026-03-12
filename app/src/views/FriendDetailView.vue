@@ -35,7 +35,7 @@
         </div>
         <div class="profile-stat-strip">
           <div class="profile-stat">
-            <strong>{{ friend.preferences.length }}</strong>
+            <strong>{{ preferenceItems.length }}</strong>
             <span>偏好</span>
           </div>
           <div class="profile-stat">
@@ -76,10 +76,18 @@
       <div class="section-head">
         <h3>基础信息</h3>
         <div class="basic-info-head-actions">
-          <button type="button" class="more-link" @click="toggleBasicInfoCreator">
+          <button
+            type="button"
+            :class="['delete-link', 'basic-info-action', 'basic-info-edit-toggle', { 'is-active': basicInfoDeleteMode }]"
+            @click="toggleBasicInfoDeleteMode"
+          >
             {{ showBasicInfoCreator ? '收起' : '新增' }}
           </button>
-          <button type="button" class="delete-link" @click="toggleBasicInfoDeleteMode">
+          <button
+            type="button"
+            :class="['more-link', 'basic-info-action', 'basic-info-create-toggle', { 'is-active': showBasicInfoCreator }]"
+            @click="toggleBasicInfoCreator"
+          >
             {{ basicInfoDeleteMode ? '完成' : '删除' }}
           </button>
         </div>
@@ -131,20 +139,27 @@
         </div>
       </div>
 
-      <article v-if="friend.preferences.length > 0" class="custom-card">
-        <p class="mini-label">偏好标签</p>
-        <div class="tag-group compact-tags compact-tags-preview">
-          <div v-for="pref in friend.preferences" :key="pref" class="editable-tag">
-            {{ pref }}
+      <article v-if="preferenceGroups.length > 0" class="custom-card">
+        <p class="mini-label">喜好</p>
+        <div
+          v-for="group in preferenceGroups"
+          :key="group.category"
+          class="preference-column"
+        >
+          <p class="mini-label">{{ group.label }}</p>
+          <div class="tag-group compact-tags compact-tags-preview">
+            <div v-for="item in group.items" :key="item.id" class="editable-tag">
+            {{ item.value }}
             <button
               v-if="stableDeleteMode"
               type="button"
               class="tag-remove-btn"
-              @click="removePreference(pref)"
-              :disabled="busyPreferenceValue === pref"
+              @click="removePreference(item.id)"
+              :disabled="busyPreferenceValue === item.id"
             >
               ×
             </button>
+            </div>
           </div>
         </div>
       </article>
@@ -173,7 +188,7 @@
         </div>
       </article>
 
-      <article v-if="friend.preferences.length === 0 && stableFields.length === 0" class="note-card">
+      <article v-if="preferenceItems.length === 0 && stableFields.length === 0" class="note-card">
         <p>还没有补充信息。</p>
       </article>
     </section>
@@ -263,11 +278,13 @@ import Avatar from '@/components/common/Avatar.vue';
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
 import { useFriendsStore } from '@/stores/friends';
 import { useMemorialDaysStore } from '@/stores/memorialDays';
-import type { CustomField, Friend, SemanticType } from '@/types/friend';
+import type { CustomField, Friend, PreferenceItem, SemanticType } from '@/types/friend';
 import type { MemorialDay } from '@/types/memorial';
 import { formatDate, formatMonthDay, getDaysUntilMonthDay } from '@/utils/dateHelpers';
 import { PROFILE_INTAKE_FIELD_LABELS } from '@/utils/profileIntake';
 import { getStandardBasicInfoEntries, removeBasicInfoField as pruneBasicInfoField, upsertBasicInfoField, type StandardBasicInfoKey } from '@/utils/basicInfo';
+import { getFriendBackPath, getFriendSourcePageFromRoute, getFriendSourceQuery } from '@/utils/friendNavigation';
+import { getFriendPreferenceItems, getPreferenceCategoryLabel, groupPreferenceItems } from '@/utils/preferences';
 
 type BasicInfoRow =
   | { id: string; type: 'relationship'; label: string; value: string; deletable: false }
@@ -303,6 +320,15 @@ const confirmState = ref({
 let pendingConfirmAction: (() => void | Promise<void>) | null = null;
 const stablePreviewLimit = 4;
 const timelinePreviewLimit = 4;
+const sourcePage = computed(() => getFriendSourcePageFromRoute(route));
+const preferenceItems = computed(() => friend.value ? getFriendPreferenceItems(friend.value) : [] as PreferenceItem[]);
+const preferenceGroups = computed(() => Object.entries(groupPreferenceItems(preferenceItems.value))
+  .map(([category, items]) => ({
+    category,
+    label: getPreferenceCategoryLabel(category as PreferenceItem['category']),
+    items,
+  }))
+  .filter((group) => group.items.length > 0));
 
 const stableFields = computed(() => {
   if (!friend.value) return [] as CustomField[];
@@ -336,7 +362,7 @@ const linkedMemorialDays = computed(() => {
 
 const hasSupplementOverflow = computed(() => {
   if (!friend.value) return false;
-  return stableFields.value.length > stablePreviewLimit || friend.value.preferences.length > 6;
+  return stableFields.value.length > stablePreviewLimit || preferenceItems.value.length > 6;
 });
 
 const basicInfoRows = computed<BasicInfoRow[]>(() => {
@@ -419,27 +445,43 @@ function showStableFieldTitle(field: CustomField): boolean {
 }
 
 function goBack(): void {
-  router.push('/friends');
+  router.push(getFriendBackPath(sourcePage.value));
 }
 
 function openAskAI(): void {
   if (!friend.value) return;
-  router.push({ name: 'ask-ai', params: { id: friend.value.id } });
+  router.push({
+    name: 'ask-ai',
+    params: { id: friend.value.id },
+    query: getFriendSourceQuery(sourcePage.value),
+  });
 }
 
 function openSupplementPage(): void {
   if (!friend.value) return;
-  router.push({ name: 'friend-supplement', params: { id: friend.value.id } });
+  router.push({
+    name: 'friend-supplement',
+    params: { id: friend.value.id },
+    query: getFriendSourceQuery(sourcePage.value),
+  });
 }
 
 function openProfileIntake(): void {
   if (!friend.value) return;
-  router.push({ name: 'profile-intake', params: { id: friend.value.id } });
+  router.push({
+    name: 'profile-intake',
+    params: { id: friend.value.id },
+    query: getFriendSourceQuery(sourcePage.value),
+  });
 }
 
 function editFriend(): void {
   if (friend.value) {
-    router.push(`/edit/${friend.value.id}`);
+    router.push({
+      name: 'edit-friend',
+      params: { id: friend.value.id },
+      query: getFriendSourceQuery(sourcePage.value),
+    });
   }
 }
 
@@ -449,7 +491,11 @@ function goToCalendar(): void {
 
 function openRecordList(section: 'stable' | 'timeline'): void {
   if (!friend.value) return;
-  router.push({ name: 'friend-record-list', params: { id: friend.value.id, section } });
+  router.push({
+    name: 'friend-record-list',
+    params: { id: friend.value.id, section },
+    query: getFriendSourceQuery(sourcePage.value),
+  });
 }
 
 function memorialRelativeText(monthDay: string): string {
@@ -540,16 +586,16 @@ async function removeBasicInfoRow(row: BasicInfoRow): Promise<void> {
   });
 }
 
-async function removePreference(value: string): Promise<void> {
-  if (!friend.value || busyPreferenceValue.value === value) return;
+async function removePreference(id: string): Promise<void> {
+  if (!friend.value || busyPreferenceValue.value === id) return;
 
-  busyPreferenceValue.value = value;
+  busyPreferenceValue.value = id;
   try {
-    const nextPreferences = friend.value.preferences.filter((item) => item !== value);
-    const updated = await friendsStore.updateFriend(friend.value.id, { preferences: nextPreferences });
+    const nextPreferenceItems = getFriendPreferenceItems(friend.value).filter((item) => item.id !== id);
+    const updated = await friendsStore.updateFriend(friend.value.id, { preferenceItems: nextPreferenceItems });
     if (updated) friend.value = updated;
     queuePersonaRefresh(friend.value.id);
-    if (friend.value.preferences.length === 0 && stableFields.value.length === 0) {
+    if (getFriendPreferenceItems(friend.value).length === 0 && stableFields.value.length === 0) {
       stableDeleteMode.value = false;
     }
   } finally {
@@ -679,7 +725,7 @@ async function handleDelete(): Promise<void> {
       deleting.value = true;
       try {
         await friendsStore.deleteFriend(friend.value!.id);
-        await router.push('/friends');
+        await router.push(getFriendBackPath(sourcePage.value));
       } finally {
         deleting.value = false;
       }
@@ -754,7 +800,39 @@ async function handleDelete(): Promise<void> {
 .basic-info-head-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+}
+
+.basic-info-action {
+  position: relative;
+  padding: 0;
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
+}
+
+.basic-info-action::after {
+  display: block;
+  color: #11181c;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.basic-info-edit-toggle::after {
+  content: '编辑';
+}
+
+.basic-info-edit-toggle.is-active::after {
+  content: '完成';
+}
+
+.basic-info-create-toggle::after {
+  content: '新增';
+}
+
+.basic-info-create-toggle.is-active::after {
+  content: '收起';
 }
 
 .basic-info-row,
@@ -825,6 +903,18 @@ async function handleDelete(): Promise<void> {
   gap: 10px;
 }
 
+.preference-column {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(29, 40, 49, 0.08);
+}
+
+.preference-column:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
 .compact-tags-preview {
   max-height: 152px;
   overflow: hidden;
@@ -839,7 +929,7 @@ async function handleDelete(): Promise<void> {
   background: rgba(29, 40, 49, 0.06);
 }
 
-.delete-link,
+.delete-link:not(.basic-info-action),
 .delete-x,
 .tag-remove-btn {
   color: #c74848;

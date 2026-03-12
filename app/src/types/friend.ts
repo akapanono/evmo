@@ -1,6 +1,13 @@
 export type SemanticType = 'preference' | 'restriction' | 'status' | 'event' | 'milestone' | 'note';
 export type TemporalScope = 'stable' | 'timebound';
 export type ExtractionMethod = 'rule' | 'llm' | 'manual';
+export type PreferenceCategory = 'food' | 'entertainment' | 'lifestyle' | 'social' | 'travel' | 'shopping' | 'other';
+
+export interface PreferenceItem {
+  id: string;
+  category: PreferenceCategory;
+  value: string;
+}
 
 export interface CustomField {
   id: string;
@@ -97,6 +104,7 @@ export interface Friend {
   lastViewedAt?: string;
   isImportant: boolean;
   preferences: string[];
+  preferenceItems: PreferenceItem[];
   notes: string;
   basicInfoFields: BasicInfoField[];
   customFields: CustomField[];
@@ -204,6 +212,7 @@ export function createEmptyFriend(): Friend {
     lastViewedAt: undefined,
     isImportant: false,
     preferences: [],
+    preferenceItems: [],
     notes: '',
     basicInfoFields: [],
     customFields: [],

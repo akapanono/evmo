@@ -142,9 +142,16 @@ function extractBasicInfo(text: string): BasicInfoExtractionField[] {
 
   const customMatch = text.match(/^([^：:，。,；;]{1,12})[：:](.+)$/);
   if (customMatch?.[1] && customMatch[2]) {
+    const label = customMatch[1].trim();
+    const value = customMatch[2].trim();
+
+    if (!shouldTreatAsFallbackBasicInfo(label, value, text)) {
+      return [];
+    }
+
     return [{
-      label: customMatch[1].trim(),
-      value: customMatch[2].trim(),
+      label,
+      value,
       sourceText: text,
       confidence: 0.72,
     }];
@@ -154,7 +161,7 @@ function extractBasicInfo(text: string): BasicInfoExtractionField[] {
   if (relationLikeMatch?.[1] && relationLikeMatch[2] && !TIMEBOUND_PATTERN.test(text) && !PREFERENCE_PATTERN.test(text)) {
     const label = relationLikeMatch[1].trim();
     const value = relationLikeMatch[2].trim();
-    if (!/最近|今天|明天|下周|准备|喜欢|讨厌|不吃/.test(label + value)) {
+    if (shouldTreatAsFallbackBasicInfo(label, value, text)) {
       return [{
         label,
         value,
@@ -165,6 +172,42 @@ function extractBasicInfo(text: string): BasicInfoExtractionField[] {
   }
 
   return [];
+}
+
+function shouldTreatAsFallbackBasicInfo(label: string, value: string, sourceText: string): boolean {
+  const combined = `${label}${value}${sourceText}`;
+
+  if (!label || !value) {
+    return false;
+  }
+
+  if (/最近|今天|明天|下周|准备|喜欢|讨厌|不吃|总是|经常|有点|比较|特别|说话|聊天|脾气|性格|风格|感觉|容易|显得|看起来/.test(combined)) {
+    return false;
+  }
+
+  if (/^(他|她|TA|ta|我|你)/.test(label)) {
+    return false;
+  }
+
+  if (/[的是在会很太都就]/.test(label)) {
+    return false;
+  }
+
+  if (label.length <= 1) {
+    return false;
+  }
+
+  const likelyBasicInfoLabel = /家乡|城市|学校|公司|职业|工作|专业|性别|年龄|身高|体重|昵称|外号|住址|住处|生日|星座|属相|宠物|车|房|称呼/;
+  if (likelyBasicInfoLabel.test(label)) {
+    return true;
+  }
+
+  const descriptiveValue = /大惊小怪|慢热|外向|内向|毒舌|幽默|安静|健谈|直接|敏感|细腻|强势|温柔|社恐|话多|话少/;
+  if (descriptiveValue.test(value)) {
+    return false;
+  }
+
+  return /^[\u4e00-\u9fa5A-Za-z0-9]{2,12}$/.test(label);
 }
 
 function extractEventTimeText(text: string): string | undefined {

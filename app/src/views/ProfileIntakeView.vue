@@ -73,7 +73,7 @@
 
   <section v-else class="app-screen is-active">
     <div class="topbar compact">
-      <button class="back-link" type="button" @click="router.push('/friends')">返回</button>
+      <button class="back-link" type="button" @click="router.push(fallbackRoute)">返回</button>
       <div class="topbar-title">
         <p class="eyebrow">未找到</p>
         <h1>朋友资料不存在</h1>
@@ -84,7 +84,7 @@
       <div class="empty-icon">:(</div>
       <h2>没有找到这位朋友</h2>
       <p>可以先回到朋友列表确认，或者重新进入对应朋友的详情页。</p>
-      <button type="button" class="action-btn primary" @click="router.push('/friends')">
+      <button type="button" class="action-btn primary" @click="router.push(fallbackRoute)">
         返回朋友页
       </button>
     </article>
@@ -103,6 +103,7 @@ import {
   createEmptyProfileIntakeAnswers,
   getProfileIntakeAnswersFromFriend,
 } from '@/utils/profileIntake';
+import { getFriendBackPath, getFriendDetailRoute, getFriendSourcePageFromRoute, getFriendSourceQuery } from '@/utils/friendNavigation';
 
 const route = useRoute();
 const router = useRouter();
@@ -117,6 +118,8 @@ const saving = ref(false);
 const message = ref('');
 const errorMessage = ref('');
 const answerInput = ref<HTMLTextAreaElement | null>(null);
+const sourcePage = computed(() => getFriendSourcePageFromRoute(route));
+const fallbackRoute = computed(() => getFriendBackPath(sourcePage.value));
 
 const currentQuestion = computed(() => questions[currentStep.value] ?? fallbackQuestion);
 const isLastStep = computed(() => currentStep.value === questions.length - 1);
@@ -182,17 +185,15 @@ function getReturnRoute() {
     return {
       name: 'ask-ai',
       params: { id: friend.value.id },
+      query: getFriendSourceQuery(sourcePage.value),
     };
   }
 
   if (friend.value) {
-    return {
-      name: 'friend-detail',
-      params: { id: friend.value.id },
-    };
+    return getFriendDetailRoute(friend.value.id, sourcePage.value);
   }
 
-  return { name: 'friends' as const };
+  return fallbackRoute.value;
 }
 
 function handleBack(): void {

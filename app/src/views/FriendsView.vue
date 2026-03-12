@@ -149,6 +149,7 @@ import { useFriendsStore } from '@/stores/friends';
 import { useSettingsStore } from '@/stores/settings';
 import type { Friend } from '@/types/friend';
 import { isBirthdayToday } from '@/utils/dateHelpers';
+import { getFriendSourceQuery } from '@/utils/friendNavigation';
 
 type FriendSortMode = 'name' | 'contact' | 'viewed';
 
@@ -278,6 +279,7 @@ function openFriend(friendId: string): void {
   router.push({
     name: 'friend-detail',
     params: { id: friendId },
+    query: getFriendSourceQuery('friends'),
   });
 }
 

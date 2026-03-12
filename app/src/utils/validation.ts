@@ -100,6 +100,10 @@ export function validateFriend(friend: Partial<Friend>): ValidationError[] {
     errors.push({ field: 'preferences', message: '偏好标签单项不能超过 30 个字符。' });
   }
 
+  if (friend.preferenceItems && friend.preferenceItems.some((item) => item.value.trim().length > 30)) {
+    errors.push({ field: 'preferenceItems', message: '喜好单项不能超过 30 个字符。' });
+  }
+
   const shortTextFields: Array<{ key: keyof Friend; label: string; max: number }> = [
     { key: 'city', label: '常住城市', max: 40 },
     { key: 'hometown', label: '家乡', max: 40 },

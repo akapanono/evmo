@@ -190,6 +190,7 @@ import { useFriendsStore } from '@/stores/friends';
 import type { CustomField, Friend, SemanticType } from '@/types/friend';
 import { formatDate } from '@/utils/dateHelpers';
 import { PROFILE_INTAKE_FIELD_LABELS } from '@/utils/profileIntake';
+import { getFriendBackPath, getFriendDetailRoute, getFriendSourcePageFromRoute } from '@/utils/friendNavigation';
 
 const route = useRoute();
 const router = useRouter();
@@ -217,6 +218,7 @@ const fieldDraft = ref({
   value: '',
   eventTimeText: '',
 });
+const sourcePage = computed(() => getFriendSourcePageFromRoute(route));
 
 const section = computed(() => route.params.section as 'stable' | 'timeline');
 const pageTitle = computed(() => section.value === 'timeline' ? '记录时间线' : '补充信息');
@@ -475,11 +477,11 @@ async function removePreference(value: string): Promise<void> {
 
 function goBack(): void {
   if (friend.value) {
-    router.push(`/friend/${friend.value.id}`);
+    router.push(getFriendDetailRoute(friend.value.id, sourcePage.value));
     return;
   }
 
-  router.push('/');
+  router.push(getFriendBackPath(sourcePage.value));
 }
 
 async function loadCurrentFriend(id: string): Promise<void> {

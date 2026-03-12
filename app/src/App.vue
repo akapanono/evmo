@@ -36,10 +36,11 @@
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { computed, onMounted, onUnmounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router';
 import BottomNav from '@/components/layout/BottomNav.vue';
 import FloatingButton from '@/components/layout/FloatingButton.vue';
 import { useFriendsStore } from '@/stores/friends';
+import { getFriendBackPath, getFriendDetailRoute, getFriendSourcePageFromRoute } from '@/utils/friendNavigation';
 
 const route = useRoute();
 const router = useRouter();
@@ -92,7 +93,13 @@ function navigateToAdd(): void {
 function navigateToAsk(): void {
   const friendId = route.path.split('/')[2];
   if (friendId) {
-    router.push(`/friend/${friendId}/ask`);
+    router.push({
+      name: 'ask-ai',
+      params: { id: friendId },
+      query: {
+        fromPage: getFriendSourcePageFromRoute(route),
+      },
+    });
   }
 }
 
@@ -105,9 +112,11 @@ function handleFloatingAction(): void {
   navigateToAdd();
 }
 
-function getNativeBackTarget(): string | null {
+function getNativeBackTarget(): RouteLocationRaw | null {
+  const sourcePage = getFriendSourcePageFromRoute(route);
+
   if (route.name === 'friend-detail' || route.name === 'edit-friend') {
-    return '/friends';
+    return getFriendBackPath(sourcePage);
   }
 
   if (
@@ -116,7 +125,9 @@ function getNativeBackTarget(): string | null {
     || route.name === 'profile-intake'
     || route.name === 'friend-record-list'
   ) {
-    return currentFriendId.value ? `/friend/${currentFriendId.value}` : '/friends';
+    return currentFriendId.value
+      ? getFriendDetailRoute(currentFriendId.value, sourcePage)
+      : getFriendBackPath(sourcePage);
   }
 
   if (route.name === 'add-friend') {

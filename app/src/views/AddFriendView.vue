@@ -144,11 +144,20 @@
           </div>
         </div>
 
-        <label class="field">
-          <span>偏好 / 特点</span>
-          <input v-model="preferencesInput" type="text" placeholder="例如：喜欢乌龙茶，不吃香菜、手作礼物" />
-          <small class="field-tip">支持逗号、顿号、分号或换行分隔</small>
-        </label>
+        <div class="field preference-field">
+          <span>喜好</span>
+          <div class="preference-grid">
+            <label v-for="option in preferenceCategoryOptions" :key="option.value" class="field preference-subfield">
+              <span>{{ option.label }}</span>
+              <textarea
+                v-model="preferenceInputs[option.value]"
+                rows="2"
+                :placeholder="preferencePlaceholders[option.value]"
+              ></textarea>
+            </label>
+          </div>
+          <small class="field-tip">每类可填写多个关键词，支持用逗号、顿号、分号或换行分隔。</small>
+        </div>
       </div>
     </article>
 
@@ -228,10 +237,12 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
 import { friendService } from '@/services/friendService';
 import { useFriendsStore } from '@/stores/friends';
 import { AVATAR_COLORS, AVATAR_PRESETS, createEmptyFriend } from '@/types/friend';
-import type { AvatarColor, AvatarPreset, BasicInfoField, CustomField, Friend } from '@/types/friend';
+import type { AvatarColor, AvatarPreset, BasicInfoField, CustomField, Friend, PreferenceCategory } from '@/types/friend';
 import { getAvatarColorFromName } from '@/utils/color';
 import { applyBasicInfoExtraction } from '@/utils/basicInfo';
 import { parseSupplementInputBatch } from '@/utils/semantic';
+import { getFriendDetailRoute, getFriendSourcePageFromRoute } from '@/utils/friendNavigation';
+import { buildPreferenceInputs, flattenPreferenceItems, getFriendPreferenceItems, parsePreferenceInputs, PREFERENCE_CATEGORY_OPTIONS } from '@/utils/preferences';
 import { validateFriend, type ValidationError } from '@/utils/validation';
 
 const route = useRoute();
@@ -243,6 +254,7 @@ const avatarPresets: AvatarPreset[] = AVATAR_PRESETS;
 const saving = ref(false);
 const errors = ref<ValidationError[]>([]);
 const showCancelDialog = ref(false);
+const sourcePage = computed(() => getFriendSourcePageFromRoute(route));
 const avatarInput = ref<HTMLInputElement | null>(null);
 const cropImage = ref<HTMLImageElement | null>(null);
 const cropState = ref({
@@ -270,7 +282,25 @@ const cancelDialogMessage = computed(() =>
 );
 
 const form = ref<Friend>(createEmptyFriend());
-const preferencesInput = ref('');
+const preferenceCategoryOptions = PREFERENCE_CATEGORY_OPTIONS;
+const preferenceInputs = ref<Record<PreferenceCategory, string>>({
+  food: '',
+  entertainment: '',
+  lifestyle: '',
+  social: '',
+  travel: '',
+  shopping: '',
+  other: '',
+});
+const preferencePlaceholders: Record<PreferenceCategory, string> = {
+  food: '例如：乌龙茶、烧烤、不要香菜',
+  entertainment: '例如：电影、桌游、K歌',
+  lifestyle: '例如：早睡、健身、安静环境',
+  social: '例如：熟人局、讨厌尬聊、喜欢小聚',
+  travel: '例如：自驾、海边、怕赶行程',
+  shopping: '例如：实用型、香薰、电子产品',
+  other: '例如：宠物、礼物、特殊雷区',
+};
 const supplementInput = ref('');
 const ageInput = ref('');
 const heightInput = ref('');
@@ -303,8 +333,9 @@ onMounted(async () => {
     basicInfoFields: [...existing.basicInfoFields],
     customFields: [...existing.customFields],
     preferences: [...existing.preferences],
+    preferenceItems: [...getFriendPreferenceItems(existing)],
   };
-  preferencesInput.value = existing.preferences.join('，');
+  preferenceInputs.value = buildPreferenceInputs(form.value.preferenceItems);
   supplementInput.value = '';
   ageInput.value = existing.age !== undefined ? String(existing.age) : '';
   heightInput.value = existing.heightCm !== undefined ? String(existing.heightCm) : '';
@@ -332,10 +363,7 @@ function goBack(): void {
 
 function leaveCurrentPage(): void {
   if (isEdit.value && friendId.value) {
-    router.push({
-      name: 'friend-detail',
-      params: { id: friendId.value },
-    });
+    router.push(getFriendDetailRoute(friendId.value, sourcePage.value));
     return;
   }
 
@@ -370,15 +398,12 @@ function normalizeTextInput(value: string | undefined): string {
   return value?.trim() ?? '';
 }
 
+/*
 function splitTokens(value: string): string[] {
-  return value
+  return splitTokens(value);
     .split(/[，,、；;\n]+/)
     .map((item) => item.trim())
     .filter(Boolean);
-}
-
-function normalizePreferences(value: string): string[] {
-  return splitTokens(value);
 }
 
 function parseSupplementLines(value: string): string[] {
@@ -386,6 +411,19 @@ function parseSupplementLines(value: string): string[] {
     .split(/[\n；;]+/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+*/
+
+function splitPreferenceTokens(value: string): string[] {
+  return value
+    .split(/[，,、；;\n]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseSupplementLines(value: string): string[] {
+  return splitPreferenceTokens(value);
 }
 
 function mergeUnique(values: string[]): string[] {
@@ -567,7 +605,7 @@ function buildDraftSnapshot(): string {
     avatarColor: form.value.avatarColor,
     avatarPreset: form.value.avatarPreset,
     avatarImage: form.value.avatarImage ?? '',
-    preferences: normalizePreferences(preferencesInput.value),
+    preferenceItems: parsePreferenceInputs(preferenceInputs.value, form.value.preferenceItems),
     supplement: supplementInput.value.trim(),
     customFields: form.value.customFields
       .map((field) => ({
@@ -599,16 +637,19 @@ function buildCustomFieldRecord(field: CustomField | Omit<CustomField, 'id' | 'c
 
 function applySupplementToForm(base: Friend, rawSupplement: string): Friend {
   const segments = parseSupplementLines(rawSupplement);
+  const manualPreferenceItems = parsePreferenceInputs(preferenceInputs.value, base.preferenceItems);
   if (segments.length === 0) {
     return {
       ...base,
-      preferences: mergeUnique(base.preferences),
+      preferences: flattenPreferenceItems(manualPreferenceItems),
+      preferenceItems: manualPreferenceItems,
       basicInfoFields: [...base.basicInfoFields],
       customFields: [...base.customFields],
     };
   }
 
   const preferencePool = [...base.preferences];
+  const preferenceItems = [...manualPreferenceItems];
   let nextBirthday = base.birthday;
   let nextGender = base.gender;
   let nextAge = base.age;
@@ -633,6 +674,13 @@ function applySupplementToForm(base: Friend, rawSupplement: string): Friend {
 
     if (parsed.preferences.length > 0) {
       preferencePool.push(...parsed.preferences);
+      preferenceItems.push(
+        ...parsed.preferences.map((value) => ({
+          id: crypto.randomUUID(),
+          category: 'other' as const,
+          value,
+        })),
+      );
     }
 
     if (parsed.basicInfoFields.length > 0) {
@@ -684,6 +732,7 @@ function applySupplementToForm(base: Friend, rawSupplement: string): Friend {
     school: nextSchool,
     major: nextMajor,
     preferences: mergeUnique(preferencePool),
+    preferenceItems,
     basicInfoFields: nextBasicInfoFields.slice(0, 20),
     customFields: nextFields.slice(0, 30),
     notes: '',
@@ -708,6 +757,8 @@ async function handleSave(): Promise<void> {
     return;
   }
 
+  const manualPreferenceItems = parsePreferenceInputs(preferenceInputs.value, form.value.preferenceItems);
+
   let nextForm: Friend = {
     ...form.value,
     name: form.value.name.trim(),
@@ -727,7 +778,8 @@ async function handleSave(): Promise<void> {
     basicInfoFields: buildBasicInfoFields(),
     avatarPreset: form.value.avatarPreset,
     avatarImage: form.value.avatarImage,
-    preferences: normalizePreferences(preferencesInput.value),
+    preferences: flattenPreferenceItems(manualPreferenceItems),
+    preferenceItems: manualPreferenceItems,
     notes: '',
   };
 
@@ -748,10 +800,7 @@ async function handleSave(): Promise<void> {
     if (isEdit.value && friendId.value) {
       await friendsStore.updateFriend(friendId.value, nextForm);
       initialSnapshot.value = buildDraftSnapshot();
-      await router.push({
-        name: 'friend-detail',
-        params: { id: friendId.value },
-      });
+      await router.push(getFriendDetailRoute(friendId.value, sourcePage.value));
       return;
     }
 
@@ -788,6 +837,25 @@ async function handleSave(): Promise<void> {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.preference-field {
+  gap: 10px;
+}
+
+.preference-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.preference-subfield {
+  min-width: 0;
+}
+
+.preference-subfield textarea {
+  min-height: 76px;
+  resize: vertical;
 }
 
 .upload-avatar-btn {
@@ -1008,5 +1076,11 @@ async function handleSave(): Promise<void> {
   background: rgba(255, 107, 107, 0.12);
   color: #a63a3a;
   padding: 10px 12px;
+}
+
+@media (max-width: 640px) {
+  .preference-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

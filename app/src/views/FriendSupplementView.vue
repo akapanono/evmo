@@ -40,7 +40,7 @@
 
   <section v-else class="app-screen is-active">
     <div class="topbar compact">
-      <button class="back-link" type="button" @click="router.push('/friends')">返回</button>
+      <button class="back-link" type="button" @click="goBack">返回</button>
       <div class="topbar-title">
         <p class="eyebrow">错误</p>
         <h1>朋友不存在</h1>
@@ -58,6 +58,8 @@ import { parseSupplementInputBatch } from '@/utils/semantic';
 import type { Friend } from '@/types/friend';
 import type { SemanticExtractionResult } from '@/types/extraction';
 import { applyBasicInfoExtraction } from '@/utils/basicInfo';
+import { getFriendBackPath, getFriendDetailRoute, getFriendSourcePageFromRoute } from '@/utils/friendNavigation';
+import { buildPreferenceItemsFromValues, extractCategorizedPreferenceItems, flattenPreferenceItems, getFriendPreferenceItems } from '@/utils/preferences';
 
 const route = useRoute();
 const router = useRouter();
@@ -70,6 +72,7 @@ const savingSupplement = ref(false);
 const aiSavingSupplement = ref(false);
 const message = ref('');
 const errorMessage = ref('');
+const sourcePage = computed(() => getFriendSourcePageFromRoute(route));
 
 const isSubmittingSupplement = computed(() => savingSupplement.value || aiSavingSupplement.value);
 
@@ -85,14 +88,11 @@ onMounted(async () => {
 
 function goBack(): void {
   if (!friend.value) {
-    router.push('/friends');
+    router.push(getFriendBackPath(sourcePage.value));
     return;
   }
 
-  router.push({
-    name: 'friend-detail',
-    params: { id: friend.value.id },
-  });
+  router.push(getFriendDetailRoute(friend.value.id, sourcePage.value));
 }
 
 async function loadCurrentFriend(id: string): Promise<void> {
@@ -100,15 +100,23 @@ async function loadCurrentFriend(id: string): Promise<void> {
   friend.value = await friendsStore.getFriendById(id) ?? null;
 }
 
-async function applyParsedResult(parsed: SemanticExtractionResult, mode: 'rule' | 'llm'): Promise<void> {
+async function applyParsedResult(parsed: SemanticExtractionResult, mode: 'rule' | 'llm', rawText: string): Promise<void> {
   if (!friend.value) {
     return;
   }
 
-  const existingPreferenceSet = new Set(friend.value.preferences);
-  for (const pref of parsed.preferences) {
-    existingPreferenceSet.add(pref);
-  }
+  const existingPreferenceItems = getFriendPreferenceItems(friend.value);
+  const explicitPreferenceItems = extractCategorizedPreferenceItems(rawText, existingPreferenceItems);
+  const explicitValueSet = new Set(explicitPreferenceItems.map((item) => item.value));
+  const inferredPreferenceItems = buildPreferenceItemsFromValues(
+    parsed.preferences.filter((pref) => !explicitValueSet.has(pref)),
+    existingPreferenceItems,
+  );
+  const nextPreferenceItems = [
+    ...existingPreferenceItems,
+    ...explicitPreferenceItems,
+    ...inferredPreferenceItems,
+  ];
 
   const now = new Date().toISOString();
   const nextFields = [
@@ -130,7 +138,8 @@ async function applyParsedResult(parsed: SemanticExtractionResult, mode: 'rule' 
   const basicInfoUpdates = applyBasicInfoExtraction(friend.value, parsed.basicInfoFields);
   const updated = await friendsStore.updateFriend(friend.value.id, {
     birthday: parsed.birthday ?? friend.value.birthday,
-    preferences: Array.from(existingPreferenceSet),
+    preferenceItems: nextPreferenceItems,
+    preferences: flattenPreferenceItems(nextPreferenceItems),
     gender: basicInfoUpdates.gender,
     age: basicInfoUpdates.age,
     heightCm: basicInfoUpdates.heightCm,
@@ -157,7 +166,7 @@ async function applyParsedResult(parsed: SemanticExtractionResult, mode: 'rule' 
     return;
   }
 
-  if (parsed.preferences.length > 0) {
+  if (parsed.preferences.length > 0 || explicitPreferenceItems.length > 0) {
     message.value = '已保存到偏好标签。';
     return;
   }
@@ -188,7 +197,7 @@ async function saveSupplement(mode: 'rule' | 'llm'): Promise<void> {
     const parsed = mode === 'llm'
       ? await aiService.extractSupplement(friend.value, quickNote.value.trim())
       : parseSupplementInputBatch(quickNote.value.trim());
-    await applyParsedResult(parsed, mode);
+    await applyParsedResult(parsed, mode, quickNote.value.trim());
   } catch (err) {
     errorMessage.value = `保存失败：${(err as Error).message}`;
   } finally {

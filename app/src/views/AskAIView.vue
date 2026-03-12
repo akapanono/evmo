@@ -127,6 +127,7 @@ import { useAIStore } from '@/stores/ai';
 import { useFriendsStore } from '@/stores/friends';
 import { useMemorialDaysStore } from '@/stores/memorialDays';
 import type { Friend } from '@/types/friend';
+import { getFriendBackPath, getFriendDetailRoute, getFriendSourcePageFromRoute, getFriendSourceQuery } from '@/utils/friendNavigation';
 
 const route = useRoute();
 const router = useRouter();
@@ -138,6 +139,7 @@ const friend = ref<Friend | null>(null);
 const question = ref('');
 const messagesContainer = ref<HTMLElement | null>(null);
 const defaultQuestions = aiStore.getDefaultQuestions();
+const sourcePage = computed(() => getFriendSourcePageFromRoute(route));
 
 const hasMessages = computed(() => aiStore.messages.length > 0);
 const messageSignature = computed(() => aiStore.messages.map((message) => `${message.role}:${message.content}`).join('\n'));
@@ -237,7 +239,10 @@ function goToSupplementInput(suggestion: string): void {
   router.push({
     name: 'friend-supplement',
     params: { id: friend.value.id },
-    query: { suggestion },
+    query: {
+      suggestion,
+      ...getFriendSourceQuery(sourcePage.value),
+    },
   });
 }
 
@@ -249,17 +254,20 @@ function goToProfileIntake(): void {
   router.push({
     name: 'profile-intake',
     params: { id: friend.value.id },
-    query: { returnTo: 'ask' },
+    query: {
+      returnTo: 'ask',
+      ...getFriendSourceQuery(sourcePage.value),
+    },
   });
 }
 
 function goBack(): void {
   if (friend.value) {
-    router.push(`/friend/${friend.value.id}`);
+    router.push(getFriendDetailRoute(friend.value.id, sourcePage.value));
     return;
   }
 
-  router.push('/friends');
+  router.push(getFriendBackPath(sourcePage.value));
 }
 
 async function loadCurrentFriend(id: string): Promise<void> {
