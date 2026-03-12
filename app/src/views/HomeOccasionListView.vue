@@ -106,8 +106,8 @@ function openOccasion(item: HomeOccasionItem): void {
   padding: 20px 16px 36px;
   overflow-y: auto;
   background:
-    radial-gradient(circle at top right, rgba(215, 167, 111, 0.16), transparent 28%),
-    linear-gradient(180deg, #f6efe7 0%, #f1ebe4 100%);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--gold) 18%, transparent), transparent 28%),
+    linear-gradient(180deg, color-mix(in srgb, var(--body-grad-start) 94%, var(--paper)) 0%, color-mix(in srgb, var(--body-grad-end) 96%, var(--paper)) 100%);
 }
 
 .home-list-shell {
@@ -125,8 +125,8 @@ function openOccasion(item: HomeOccasionItem): void {
   height: 38px;
   border: 0;
   border-radius: 16px;
-  background: rgba(37, 31, 26, 0.08);
-  color: #1f1914;
+  background: var(--surface-3);
+  color: var(--ink);
 }
 
 .mini-label,
@@ -137,7 +137,7 @@ function openOccasion(item: HomeOccasionItem): void {
 }
 
 .mini-label {
-  color: #8c6a53;
+  color: var(--muted);
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -150,7 +150,7 @@ function openOccasion(item: HomeOccasionItem): void {
 }
 
 .list-header h1 {
-  color: #1f1a17;
+  color: var(--ink);
   font-size: 28px;
 }
 
@@ -159,8 +159,8 @@ function openOccasion(item: HomeOccasionItem): void {
   gap: 14px;
   padding: 18px;
   border-radius: 24px;
-  background: rgba(255, 251, 247, 0.94);
-  box-shadow: 0 16px 40px rgba(84, 56, 28, 0.08);
+  background: color-mix(in srgb, var(--card-soft) 96%, transparent);
+  box-shadow: 0 16px 40px var(--nav-shadow);
 }
 
 .list-top {
@@ -174,7 +174,7 @@ function openOccasion(item: HomeOccasionItem): void {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  color: #7a6553;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -189,13 +189,13 @@ function openOccasion(item: HomeOccasionItem): void {
 }
 
 .occasion-badge.birthday {
-  background: rgba(223, 108, 80, 0.12);
-  color: #b85441;
+  background: color-mix(in srgb, var(--coral) 22%, var(--paper));
+  color: color-mix(in srgb, var(--coral) 88%, var(--ink));
 }
 
 .occasion-badge.memorial {
-  background: rgba(54, 117, 101, 0.12);
-  color: #2d6f61;
+  background: color-mix(in srgb, var(--teal) 22%, var(--paper));
+  color: color-mix(in srgb, var(--teal) 88%, var(--ink));
 }
 
 .friend-actions {
@@ -208,19 +208,22 @@ function openOccasion(item: HomeOccasionItem): void {
 .friend-chip {
   padding: 7px 12px;
   border: 0;
-  background: rgba(255, 232, 204, 0.88);
-  color: #35261d;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--teal) 18%, var(--paper)), color-mix(in srgb, var(--gold) 24%, var(--paper)));
+  color: color-mix(in srgb, var(--ink) 90%, var(--teal));
   font-size: 12px;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--teal) 18%, transparent),
+    0 8px 18px color-mix(in srgb, var(--teal) 10%, transparent);
 }
 
 .list-main h2 {
-  color: #241b15;
+  color: var(--ink);
   font-size: 18px;
 }
 
 .summary {
   margin-top: 6px;
-  color: #786351;
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -229,17 +232,18 @@ function openOccasion(item: HomeOccasionItem): void {
   gap: 6px;
   padding: 14px;
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(255, 245, 233, 0.98), rgba(251, 239, 226, 0.9));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--paper) 72%, var(--card-accent-gold)), color-mix(in srgb, var(--paper) 54%, var(--card-accent-teal)));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paper) 62%, transparent);
 }
 
 .gift-title {
-  color: #8d5c26;
+  color: color-mix(in srgb, var(--gold) 82%, var(--ink));
   font-size: 12px;
   font-weight: 700;
 }
 
 .gift-copy {
-  color: #2b1f17;
+  color: color-mix(in srgb, var(--ink) 92%, var(--teal));
   font-size: 15px;
   line-height: 1.6;
 }
@@ -247,8 +251,8 @@ function openOccasion(item: HomeOccasionItem): void {
 .empty-state {
   padding: 18px;
   border-radius: 20px;
-  background: rgba(255, 252, 248, 0.84);
-  color: #8a7460;
+  background: color-mix(in srgb, var(--surface-panel) 84%, transparent);
+  color: var(--muted);
 }
 
 @media (max-width: 640px) {

@@ -278,8 +278,8 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
   padding: 20px 16px 36px;
   overflow-y: auto;
   background:
-    radial-gradient(circle at top left, rgba(224, 171, 118, 0.16), transparent 30%),
-    linear-gradient(180deg, #f5eee6 0%, #f1ebe4 100%);
+    radial-gradient(circle at top left, color-mix(in srgb, var(--gold) 18%, transparent), transparent 30%),
+    linear-gradient(180deg, color-mix(in srgb, var(--body-grad-start) 94%, var(--paper)) 0%, color-mix(in srgb, var(--body-grad-end) 96%, var(--paper)) 100%);
 }
 
 .detail-shell {
@@ -294,8 +294,8 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
 .bucket-card,
 .empty-panel {
   border-radius: 26px;
-  background: rgba(255, 251, 247, 0.94);
-  box-shadow: 0 16px 40px rgba(84, 56, 28, 0.08);
+  background: color-mix(in srgb, var(--card-soft) 96%, transparent);
+  box-shadow: 0 16px 40px var(--nav-shadow);
 }
 
 .detail-header,
@@ -317,8 +317,8 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
   height: 38px;
   border: 0;
   border-radius: 16px;
-  background: rgba(37, 31, 26, 0.08);
-  color: #1f1914;
+  background: var(--surface-3);
+  color: var(--ink);
 }
 
 .mini-label,
@@ -328,7 +328,7 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
 }
 
 .mini-label {
-  color: #8c6a53;
+  color: var(--muted);
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -338,7 +338,7 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
 .card-heading h2,
 .gift-item h3 {
   margin: 6px 0 0;
-  color: #1f1813;
+  color: var(--ink);
 }
 
 .header-copy h1 {
@@ -349,7 +349,7 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
 .plain-copy,
 .score-item p,
 .gift-item p {
-  color: #735f4f;
+  color: var(--muted);
   line-height: 1.6;
 }
 
@@ -370,22 +370,27 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
   padding: 0 18px;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 236, 214, 0.92);
-  color: #2a2019;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--teal) 18%, var(--paper)), color-mix(in srgb, var(--gold) 24%, var(--paper)));
+  color: color-mix(in srgb, var(--ink) 90%, var(--teal));
   font-size: 15px;
   font-weight: 600;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--teal) 18%, transparent),
+    0 8px 18px color-mix(in srgb, var(--teal) 10%, transparent);
 }
 
 .summary-box {
   padding: 14px;
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 245, 233, 0.98), rgba(251, 239, 226, 0.9));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--paper) 72%, var(--card-accent-gold)), color-mix(in srgb, var(--paper) 54%, var(--card-accent-teal)));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paper) 62%, transparent);
 }
 
 .summary-box ul {
   margin: 8px 0 0;
   padding-left: 18px;
-  color: #2a2018;
+  color: color-mix(in srgb, var(--ink) 92%, var(--teal));
   line-height: 1.7;
 }
 
@@ -409,18 +414,18 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
 .radar-grid,
 .radar-axis {
   fill: none;
-  stroke: rgba(71, 55, 39, 0.14);
+  stroke: color-mix(in srgb, var(--ink) 16%, transparent);
   stroke-width: 1;
 }
 
 .radar-area {
-  fill: rgba(183, 100, 69, 0.2);
-  stroke: #b76445;
+  fill: color-mix(in srgb, var(--coral) 22%, transparent);
+  stroke: var(--coral);
   stroke-width: 2;
 }
 
 .radar-point {
-  fill: #b76445;
+  fill: var(--coral);
 }
 
 .radar-legend,
@@ -434,14 +439,15 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
 .score-item {
   padding: 12px;
   border-radius: 18px;
-  background: rgba(246, 239, 231, 0.9);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-panel) 88%, var(--paper)), color-mix(in srgb, var(--surface-2) 42%, var(--paper)));
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
 }
 
 .legend-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: #2a211c;
+  color: var(--ink);
 }
 
 .score-row {
@@ -462,7 +468,7 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
 }
 
 .bucket-header strong {
-  color: #261d17;
+  color: var(--ink);
   font-size: 18px;
 }
 
@@ -473,17 +479,18 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
   gap: 12px;
   padding: 14px;
   border-radius: 18px;
-  background: rgba(246, 239, 231, 0.9);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-panel) 88%, var(--paper)), color-mix(in srgb, var(--surface-2) 42%, var(--paper)));
   color: inherit;
   text-decoration: none;
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
 }
 
 .gift-item span {
   min-width: 72px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(53, 36, 21, 0.08);
-  color: #5f4a39;
+  background: color-mix(in srgb, var(--gold) 16%, var(--paper));
+  color: color-mix(in srgb, var(--gold) 74%, var(--ink));
   text-align: center;
   font-size: 12px;
 }

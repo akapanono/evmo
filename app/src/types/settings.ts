@@ -20,6 +20,7 @@ export interface AppSettings {
   hideSensitiveInfo: boolean;
 
   aiStyle: 'friendly' | 'professional' | 'concise';
+  themeScheme: 'default' | 'forest' | 'sunset' | 'ocean';
   defaultQuestions: string[];
   friendSortMode: 'name' | 'contact' | 'viewed';
 }
@@ -28,11 +29,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
   profileName: '我的账号',
   profilePhone: '',
   profileDeviceName: '当前设备',
-  aiAccessMode: 'direct',
+  aiAccessMode: 'proxy',
   openaiBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
   openaiModel: 'ep-20260309112425-mwdsp',
-  proxyServerUrl: 'http://localhost:8787',
-  proxyProviderId: 'openai',
+  proxyServerUrl: 'http://localhost:9090',
+  proxyProviderId: '',
   birthdayReminder: {
     enabled: true,
     daysBefore: 1,
@@ -41,6 +42,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lockScreen: false,
   hideSensitiveInfo: false,
   aiStyle: 'friendly',
+  themeScheme: 'default',
   defaultQuestions: [
     '你最近在忙什么？',
     '你现在最想聊什么？',

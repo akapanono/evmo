@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>友记管理系统</title>
+    <link rel="stylesheet" href="/admin/styles.css" />
+  </head>
+  <body>
+    <div id="app" class="shell">
+      <aside class="sidebar">
+        <div>
+          <p class="eyebrow">YouJi Admin</p>
+          <h1>友记管理系统</h1>
+        </div>
+        <nav class="menu">
+          <button class="menu-item is-active" data-panel="overview">概览</button>
+          <button class="menu-item" data-panel="users">用户</button>
+          <button class="menu-item" data-panel="products">商品</button>
+          <button class="menu-item" data-panel="system">API 配置</button>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <section id="loginPanel" class="panel login-panel">
+          <form id="loginForm" class="card auth-card">
+            <p class="eyebrow">管理员登录</p>
+            <h2>进入友记管理系统</h2>
+            <label class="field">
+              <span>账号</span>
+              <input id="usernameInput" value="admin" />
+            </label>
+            <label class="field">
+              <span>密码</span>
+              <input id="passwordInput" type="password" />
+            </label>
+            <button id="loginBtn" class="primary-btn" type="submit">登录</button>
+            <p id="loginMessage" class="muted"></p>
+          </form>
+        </section>
+
+        <section id="dashboardPanel" class="dashboard hidden">
+          <header class="topbar">
+            <div>
+              <p class="eyebrow">管理后台</p>
+              <h2>数据总览</h2>
+            </div>
+            <button id="logoutBtn" class="ghost-btn">退出登录</button>
+          </header>
+
+          <section data-view="overview" class="panel-view">
+            <div class="stats">
+              <article class="card stat-card">
+                <span>用户数</span>
+                <strong id="userCount">0</strong>
+              </article>
+              <article class="card stat-card">
+                <span>商品数</span>
+                <strong id="productCount">0</strong>
+              </article>
+              <article class="card stat-card">
+                <span>AI 配置</span>
+                <strong id="aiStatus">未配置</strong>
+              </article>
+            </div>
+          </section>
+
+          <section data-view="users" class="panel-view hidden">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">用户管理</p>
+                <h3>用户列表</h3>
+              </div>
+            </div>
+
+            <div class="card form-card search-card">
+              <label class="field">
+                <span>查询用户</span>
+                <input id="userSearchInput" type="text" placeholder="按昵称、手机号或用户 ID 搜索" />
+              </label>
+            </div>
+
+            <div id="userList" class="list"></div>
+          </section>
+
+          <section id="userDetailPanel" class="panel-view hidden">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">用户详情</p>
+                <h3 id="userDetailTitle">查看用户</h3>
+              </div>
+              <button id="backToUsersBtn" class="ghost-btn">返回用户列表</button>
+            </div>
+
+            <div class="detail-layout detail-layout-single">
+              <article class="card detail-card">
+                <h4>账号信息</h4>
+                <div id="userMeta" class="meta-list"></div>
+              </article>
+            </div>
+
+            <div class="detail-layout">
+              <article class="card detail-card">
+                <div class="section-head compact">
+                  <div>
+                    <p class="eyebrow">朋友</p>
+                    <h4>关联朋友</h4>
+                  </div>
+                </div>
+                <div id="userFriends" class="list compact-list"></div>
+              </article>
+
+              <article class="card detail-card">
+                <div class="section-head compact">
+                  <div>
+                    <p class="eyebrow">纪念日</p>
+                    <h4>关联纪念日</h4>
+                  </div>
+                </div>
+                <div id="userMemorialDays" class="list compact-list"></div>
+              </article>
+            </div>
+          </section>
+
+          <section data-view="products" class="panel-view hidden">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">商品管理</p>
+                <h3>商品列表</h3>
+              </div>
+              <button id="newProductBtn" class="primary-btn small">新增商品</button>
+            </div>
+            <div id="productList" class="list"></div>
+          </section>
+
+          <section id="productEditorPanel" class="panel-view hidden">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">商品编辑</p>
+                <h3 id="productEditorTitle">新增商品</h3>
+              </div>
+              <button id="backToProductsBtn" class="ghost-btn">返回商品列表</button>
+            </div>
+
+            <div class="card form-card">
+              <div class="grid two">
+                <label class="field">
+                  <span>商品名</span>
+                  <input id="productTitle" />
+                </label>
+                <label class="field">
+                  <span>商品分类</span>
+                  <select id="productCategory"></select>
+                </label>
+                <label class="field">
+                  <span>预算区间</span>
+                  <select id="productPriceBucket"></select>
+                </label>
+                <label class="field">
+                  <span>状态</span>
+                  <select id="productStatus"></select>
+                </label>
+              </div>
+
+              <div class="field">
+                <span>适配维度</span>
+                <div id="productDimensions" class="option-grid"></div>
+              </div>
+
+              <div class="field">
+                <span>适用关系</span>
+                <div id="productRelationships" class="option-grid"></div>
+              </div>
+
+              <div class="field">
+                <span>标签</span>
+                <div id="productTags" class="option-grid"></div>
+              </div>
+
+              <label class="field">
+                <span>购买链接</span>
+                <input id="productLink" />
+              </label>
+              <label class="field">
+                <span>简介</span>
+                <textarea id="productSummary" rows="3"></textarea>
+              </label>
+              <div class="actions">
+                <button id="saveProductBtn" class="primary-btn">保存商品</button>
+                <span id="productMessage" class="muted"></span>
+              </div>
+            </div>
+          </section>
+
+          <section data-view="system" class="panel-view hidden">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">API 配置</p>
+                <h3>统一配置后端 AI 服务</h3>
+              </div>
+            </div>
+
+            <div class="card form-card">
+              <label class="field">
+                <span>Base URL</span>
+                <input id="aiBaseUrl" />
+              </label>
+              <label class="field">
+                <span>API Key</span>
+                <input id="aiApiKey" type="password" />
+              </label>
+              <label class="field">
+                <span>模型名</span>
+                <input id="aiModel" />
+              </label>
+              <div class="actions">
+                <button id="saveSystemBtn" class="primary-btn">保存配置</button>
+                <button id="testAiBtn" class="ghost-btn" type="button">测试连接</button>
+                <span id="systemMessage" class="muted"></span>
+              </div>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="/admin/app.js"></script>
+  </body>
+</html>

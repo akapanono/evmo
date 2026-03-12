@@ -120,9 +120,9 @@ function openOccasion(item: HomeOccasionItem): void {
   padding: 20px 16px 36px;
   overflow-y: auto;
   background:
-    radial-gradient(circle at top left, rgba(232, 188, 132, 0.34), transparent 32%),
-    radial-gradient(circle at 92% 10%, rgba(126, 155, 140, 0.22), transparent 24%),
-    linear-gradient(180deg, #f8f1e9 0%, #f3ece4 46%, #efe7de 100%);
+    radial-gradient(circle at top left, color-mix(in srgb, var(--gold) 24%, transparent), transparent 32%),
+    radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--teal) 16%, transparent), transparent 24%),
+    linear-gradient(180deg, color-mix(in srgb, var(--body-grad-start) 92%, var(--paper)) 0%, color-mix(in srgb, var(--body-grad-end) 96%, var(--paper)) 46%, var(--paper) 100%);
 }
 
 .home-topbar {
@@ -130,10 +130,10 @@ function openOccasion(item: HomeOccasionItem): void {
   padding: 20px 18px;
   border-radius: 28px;
   background:
-    linear-gradient(135deg, rgba(255, 251, 246, 0.96), rgba(248, 236, 220, 0.88)),
-    rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(126, 95, 68, 0.08);
-  box-shadow: 0 18px 42px rgba(88, 60, 34, 0.08);
+    linear-gradient(135deg, var(--card-soft), color-mix(in srgb, var(--card-accent-gold) 72%, var(--card-soft))),
+    color-mix(in srgb, var(--white) 70%, transparent);
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 42px var(--nav-shadow);
 }
 
 .eyebrow,
@@ -143,7 +143,7 @@ function openOccasion(item: HomeOccasionItem): void {
 }
 
 .eyebrow {
-  color: #8b6a52;
+  color: var(--muted);
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -153,7 +153,7 @@ function openOccasion(item: HomeOccasionItem): void {
 .section-header h2,
 .occasion-card h3 {
   margin: 6px 0 0;
-  color: #1e1611;
+  color: var(--ink);
 }
 
 .home-topbar h1 {
@@ -177,16 +177,16 @@ function openOccasion(item: HomeOccasionItem): void {
 .section-header h2 {
   margin: 0;
   font-size: 24px;
-  color: #241a14;
+  color: var(--ink);
 }
 
 .ghost-action {
   min-width: 72px;
   height: 38px;
-  border: 1px solid rgba(36, 32, 28, 0.08);
+  border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(255, 249, 242, 0.9);
-  color: #24201c;
+  background: color-mix(in srgb, var(--surface-panel) 92%, transparent);
+  color: var(--ink);
   font-size: 14px;
 }
 
@@ -198,9 +198,9 @@ function openOccasion(item: HomeOccasionItem): void {
 .occasion-card,
 .empty-card {
   border-radius: 28px;
-  background: rgba(255, 251, 247, 0.94);
-  border: 1px solid rgba(117, 88, 61, 0.06);
-  box-shadow: 0 18px 44px rgba(84, 56, 28, 0.08);
+  background: color-mix(in srgb, var(--card-soft) 96%, transparent);
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 44px var(--nav-shadow);
 }
 
 .occasion-card {
@@ -220,7 +220,7 @@ function openOccasion(item: HomeOccasionItem): void {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  color: #6e5b4a;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -241,18 +241,18 @@ function openOccasion(item: HomeOccasionItem): void {
 }
 
 .occasion-tag.birthday {
-  background: rgba(221, 112, 81, 0.12);
-  color: #bf5f43;
+  background: color-mix(in srgb, var(--coral) 22%, var(--paper));
+  color: color-mix(in srgb, var(--coral) 88%, var(--ink));
 }
 
 .occasion-tag.memorial {
-  background: rgba(75, 125, 110, 0.14);
-  color: #316f61;
+  background: color-mix(in srgb, var(--teal) 22%, var(--paper));
+  color: color-mix(in srgb, var(--teal) 88%, var(--ink));
 }
 
 .date-pill {
   padding: 5px 10px;
-  background: rgba(64, 43, 21, 0.05);
+  background: var(--surface-2);
 }
 
 .occasion-card h3 {
@@ -261,7 +261,7 @@ function openOccasion(item: HomeOccasionItem): void {
 }
 
 .summary {
-  color: #776152;
+  color: var(--muted);
   line-height: 1.6;
 }
 
@@ -275,21 +275,25 @@ function openOccasion(item: HomeOccasionItem): void {
   min-height: 36px;
   padding: 0 16px;
   border: 0;
-  background: linear-gradient(180deg, rgba(255, 238, 216, 0.96), rgba(252, 230, 202, 0.92));
-  color: #2a2019;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--teal) 18%, var(--paper)), color-mix(in srgb, var(--gold) 24%, var(--paper)));
+  color: color-mix(in srgb, var(--ink) 90%, var(--teal));
   font-size: 14px;
-  box-shadow: inset 0 0 0 1px rgba(186, 146, 109, 0.12);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--teal) 18%, transparent),
+    0 8px 18px color-mix(in srgb, var(--teal) 10%, transparent);
 }
 
 .gift-preview {
   padding: 15px 16px;
   border-radius: 22px;
-  background: linear-gradient(180deg, rgba(255, 245, 230, 0.98), rgba(251, 240, 226, 0.92));
-  border: 1px solid rgba(191, 146, 94, 0.08);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--paper) 72%, var(--card-accent-gold)), color-mix(in srgb, var(--paper) 54%, var(--card-accent-teal)));
+  border: 1px solid color-mix(in srgb, var(--gold) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paper) 62%, transparent);
 }
 
 .gift-label {
-  color: #91602c;
+  color: color-mix(in srgb, var(--gold) 82%, var(--ink));
   font-size: 12px;
   font-weight: 700;
 }
@@ -297,13 +301,13 @@ function openOccasion(item: HomeOccasionItem): void {
 .gift-preview ul {
   margin: 8px 0 0;
   padding-left: 18px;
-  color: #2a2018;
+  color: color-mix(in srgb, var(--ink) 92%, var(--teal));
   line-height: 1.7;
 }
 
 .empty-card {
   padding: 20px;
-  color: #8a7460;
+  color: var(--muted);
 }
 
 @media (min-width: 900px) {

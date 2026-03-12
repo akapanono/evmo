@@ -18,12 +18,6 @@ interface ProxyResponse<T> {
   error?: string;
 }
 
-interface RuntimeProviderConfig {
-  apiKey?: string;
-  baseUrl?: string;
-  model?: string;
-}
-
 interface AskAIRequestContext {
   guidance: ProfileGuidance;
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
@@ -328,19 +322,11 @@ function normalizeBaseUrl(baseUrl: string | undefined): string | undefined {
 }
 
 function getProxyBaseUrl(settings: AppSettings): string {
-  return normalizeBaseUrl(settings.proxyServerUrl) || 'http://localhost:8787';
+  return normalizeBaseUrl(settings.proxyServerUrl) || 'http://localhost:9090';
 }
 
 function getActiveModel(settings: AppSettings): string {
   return settings.openaiModel?.trim() || 'ep-20260309112425-mwdsp';
-}
-
-function getRuntimeProviderConfig(settings: AppSettings): RuntimeProviderConfig {
-  return {
-    apiKey: settings.openaiApiKey,
-    baseUrl: normalizeBaseUrl(settings.openaiBaseUrl),
-    model: getActiveModel(settings),
-  };
 }
 
 function createClient(settings: AppSettings): OpenAI {
@@ -359,11 +345,7 @@ async function postToProxy<T>(path: string, body: Record<string, unknown>, setti
   const response = await fetch(`${getProxyBaseUrl(settings)}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      providerId: settings.proxyProviderId?.trim() || undefined,
-      runtimeProvider: getRuntimeProviderConfig(settings),
-      ...body,
-    }),
+    body: JSON.stringify(body),
   });
 
   const payload = await response.json() as ProxyResponse<T>;
@@ -384,8 +366,6 @@ async function postToProxyStream(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      providerId: settings.proxyProviderId?.trim() || undefined,
-      runtimeProvider: getRuntimeProviderConfig(settings),
       ...body,
       stream: true,
     }),
@@ -425,14 +405,15 @@ async function postToProxyStream(
         continue;
       }
 
-      const payload = JSON.parse(payloadText) as { delta?: string; error?: string };
+      const payload = JSON.parse(payloadText) as { delta?: string; content?: string; error?: string };
       if (payload.error) {
         throw new Error(payload.error);
       }
 
-      if (payload.delta) {
-        text += payload.delta;
-        onDelta(payload.delta);
+      const chunk = payload.delta ?? payload.content ?? '';
+      if (chunk) {
+        text += chunk;
+        onDelta(chunk);
       }
     }
   }
@@ -738,13 +719,11 @@ export const aiService = {
   getConnectionSummary(): { configured: boolean; mode: 'direct' | 'proxy'; baseUrl?: string; model: string; providerId?: string } {
     const settings = storageService.getSettings();
     return {
-      configured: settings.aiAccessMode === 'proxy'
-        ? Boolean(settings.proxyServerUrl && settings.openaiBaseUrl && settings.openaiApiKey && getActiveModel(settings))
-        : Boolean(settings.openaiApiKey),
-      mode: settings.aiAccessMode,
-      baseUrl: settings.aiAccessMode === 'proxy' ? getProxyBaseUrl(settings) : normalizeBaseUrl(settings.openaiBaseUrl),
+      configured: Boolean(settings.proxyServerUrl && getActiveModel(settings)),
+      mode: 'proxy',
+      baseUrl: getProxyBaseUrl(settings),
       model: getActiveModel(settings),
-      providerId: settings.proxyProviderId,
+      providerId: undefined,
     };
   },
 
@@ -776,7 +755,7 @@ export const aiService = {
   async testProxyConnection(): Promise<{ success: boolean; message: string }> {
     const settings = storageService.getSettings();
     try {
-      const result = await postToProxy<{ message: string }>('/api/ai/test', { model: getActiveModel(settings) }, settings);
+      const result = await postToProxy<{ message: string }>('/api/ai/test', {}, settings);
       return { success: true, message: result.message };
     } catch (err) {
       return { success: false, message: err instanceof Error ? err.message : '代理测试失败。' };
@@ -801,7 +780,6 @@ export const aiService = {
     if (settings.aiAccessMode === 'proxy') {
       const result = await postToProxy<{ content: string }>('/api/ai/chat', {
         messages,
-        model: getActiveModel(settings),
         temperature: guidance.lowInfoMode ? 0.85 : 0.72,
         max_tokens: 420,
       }, settings);
@@ -850,7 +828,6 @@ export const aiService = {
     if (settings.aiAccessMode === 'proxy') {
       const content = await postToProxyStream('/api/ai/chat', {
         messages,
-        model: getActiveModel(settings),
         temperature: guidance.lowInfoMode ? 0.85 : 0.72,
         max_tokens: 420,
       }, settings, onDelta);
@@ -909,7 +886,6 @@ export const aiService = {
               { role: 'system', content: '你擅长从人物资料中提炼抽象画像。输出必须是合法 JSON。' },
               { role: 'user', content: buildPersonaPrompt(friend) },
             ],
-            model: getActiveModel(settings),
             temperature: 0.35,
             max_tokens: 480,
           }, settings);
@@ -980,7 +956,6 @@ export const aiService = {
           { role: 'system', content: '你是一个信息抽取器。输出必须是合法 JSON。' },
           { role: 'user', content: buildExtractionPrompt(friend, normalizedText) },
           ],
-          model: getActiveModel(settings),
           temperature: 0.2,
           max_tokens: 260,
         }, settings);

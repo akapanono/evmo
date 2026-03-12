@@ -1,0 +1,32 @@
+[
+  {
+    "id": "sample-coffee-box",
+    "title": "咖啡礼盒",
+    "category": "food",
+    "status": "active",
+    "priceBucket": "100to300",
+    "priceLabel": "100-300元",
+    "tags": ["饮食", "松弛感", "实用度"],
+    "matchDimensions": ["relaxation", "practicality", "sweetPreference"],
+    "targetRelationships": ["朋友", "同事"],
+    "link": "https://example.com/products/sample-coffee-box",
+    "summary": "适合偏轻松、日常可用的送礼场景。",
+    "createdAt": "2026-03-12T00:00:00.000Z",
+    "updatedAt": "2026-03-12T00:00:00.000Z"
+  },
+  {
+    "id": "sample-game-card",
+    "title": "游戏点卡包",
+    "category": "entertainment",
+    "status": "active",
+    "priceBucket": "50to100",
+    "priceLabel": "50-100元",
+    "tags": ["娱乐", "刺激度"],
+    "matchDimensions": ["stimulation", "maleLean"],
+    "targetRelationships": ["朋友"],
+    "link": "https://example.com/products/sample-game-card",
+    "summary": "适合偏竞技、偏娱乐型喜好的用户。",
+    "createdAt": "2026-03-12T00:00:00.000Z",
+    "updatedAt": "2026-03-12T00:00:00.000Z"
+  }
+]
