@@ -41,7 +41,7 @@
 
         <div class="gift-block">
           <p class="gift-title">礼物推荐</p>
-          <p class="gift-copy">{{ item.suggestion.gifts.join(' / ') }}</p>
+          <p class="gift-copy">{{ getGiftPreviewText(item.id, item.suggestion.gifts) }}</p>
         </div>
       </article>
 
@@ -51,10 +51,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onActivated, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { recommendationService } from '@/services/recommendationService';
 import { useFriendsStore } from '@/stores/friends';
 import { useMemorialDaysStore } from '@/stores/memorialDays';
+import type { MemorialDay } from '@/types/memorial';
+import type { OccasionRecommendation } from '@/types/recommendation';
 import { getFriendSourceQuery } from '@/utils/friendNavigation';
 import { buildHomeOccasionSections, getReminderRangeMeta, type HomeOccasionItem, type ReminderRangeKey } from '@/utils/homeOccasions';
 
@@ -62,6 +65,9 @@ const router = useRouter();
 const route = useRoute();
 const friendsStore = useFriendsStore();
 const memorialDaysStore = useMemorialDaysStore();
+const remoteRecommendations = ref<Record<string, OccasionRecommendation>>({});
+const loadedRecommendationIds = ref<Record<string, boolean>>({});
+let hydrationRunId = 0;
 
 const rangeKey = computed<ReminderRangeKey>(() => {
   const value = route.params.range;
@@ -71,15 +77,127 @@ const rangeKey = computed<ReminderRangeKey>(() => {
 const meta = computed(() => getReminderRangeMeta(rangeKey.value));
 const items = computed(() =>
   buildHomeOccasionSections(friendsStore.friends, memorialDaysStore.memorialDays)
-    .find((section) => section.key === rangeKey.value)?.items ?? [],
+    .find((section) => section.key === rangeKey.value)?.items.map((item) => ({
+      ...item,
+      suggestion: {
+        gifts: remoteRecommendations.value[item.id]?.gifts ?? item.suggestion.gifts ?? [],
+      },
+    })) ?? [],
 );
 
 onMounted(async () => {
+  await initializeList();
+});
+
+onActivated(async () => {
+  await initializeList();
+});
+
+watch(rangeKey, async () => {
+  remoteRecommendations.value = {};
+  await hydrateRemoteRecommendations();
+});
+
+watch(
+  () => buildHomeOccasionSections(friendsStore.friends, memorialDaysStore.memorialDays)
+    .find((section) => section.key === rangeKey.value)?.items.map((item) => item.id).join('|') ?? '',
+  async () => {
+    await hydrateRemoteRecommendations();
+  },
+);
+
+async function initializeList(): Promise<void> {
   await Promise.all([
     friendsStore.loadFriends(),
     memorialDaysStore.loadMemorialDays(),
   ]);
-});
+  await hydrateRemoteRecommendations();
+}
+
+async function hydrateRemoteRecommendations(): Promise<void> {
+  const runId = ++hydrationRunId;
+  const sourceItems = buildHomeOccasionSections(friendsStore.friends, memorialDaysStore.memorialDays)
+    .find((section) => section.key === rangeKey.value)?.items ?? [];
+  for (const item of sourceItems) {
+    if (runId !== hydrationRunId) {
+      return;
+    }
+    await loadRecommendationForItem(item);
+  }
+}
+
+async function loadRecommendationForItem(item: HomeOccasionItem): Promise<void> {
+  loadedRecommendationIds.value = {
+    ...loadedRecommendationIds.value,
+    [item.id]: false,
+  };
+  try {
+    if (item.type === 'birthday') {
+      const friend = item.friends[0];
+      if (!friend) return;
+      const recommendation = await requestRecommendationWithRetry(() => recommendationService.buildBirthdayRecommendation(friend));
+      remoteRecommendations.value = {
+        ...remoteRecommendations.value,
+        [item.id]: recommendation,
+      };
+      friend.birthdayRecommendation = recommendation;
+      loadedRecommendationIds.value = {
+        ...loadedRecommendationIds.value,
+        [item.id]: true,
+      };
+      return;
+    }
+
+    const memorial = memorialDaysStore.memorialDays.find((entry) => entry.id === item.targetId);
+    if (!memorial) return;
+    const recommendation = await requestRecommendationWithRetry(() =>
+      recommendationService.buildMemorialRecommendation(memorial as MemorialDay, item.friends),
+    );
+    remoteRecommendations.value = {
+      ...remoteRecommendations.value,
+      [item.id]: recommendation,
+    };
+    memorial.recommendation = recommendation;
+  } catch {
+    remoteRecommendations.value = {
+      ...remoteRecommendations.value,
+      [item.id]: {
+        gifts: [],
+        scoreCards: [],
+        buckets: [],
+        updatedAt: '',
+        source: 'system',
+      },
+    };
+  } finally {
+    loadedRecommendationIds.value = {
+      ...loadedRecommendationIds.value,
+      [item.id]: true,
+    };
+  }
+}
+
+function isRecommendationLoaded(itemId: string): boolean {
+  return loadedRecommendationIds.value[itemId] === true;
+}
+
+function getGiftPreviewText(itemId: string, gifts: string[]): string {
+  if (gifts.length > 0) {
+    return gifts.slice(0, 3).join(' / ');
+  }
+
+  return isRecommendationLoaded(itemId) ? '暂无推荐的礼物' : '礼物推荐加载中';
+}
+
+async function requestRecommendationWithRetry(
+  request: () => Promise<OccasionRecommendation>,
+): Promise<OccasionRecommendation> {
+  try {
+    return await request();
+  } catch {
+    return request();
+  }
+}
 
 function goBack(): void {
   void router.push('/home');
@@ -89,7 +207,10 @@ function openFriend(friendId: string): void {
   void router.push({
     name: 'friend-detail',
     params: { id: friendId },
-    query: getFriendSourceQuery('home'),
+    query: {
+      ...getFriendSourceQuery('home'),
+      backTo: route.fullPath,
+    },
   });
 }
 
@@ -97,6 +218,7 @@ function openOccasion(item: HomeOccasionItem): void {
   void router.push({
     name: 'home-occasion-detail',
     params: { type: item.type, id: item.targetId },
+    query: { returnTo: route.fullPath },
   });
 }
 </script>

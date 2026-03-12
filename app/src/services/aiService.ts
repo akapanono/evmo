@@ -293,12 +293,12 @@ function buildExtractionContext(friend: Friend): string {
   return parts.join('\n');
 }
 
-function canUseDirectModel(settings: AppSettings): boolean {
-  return Boolean(settings.openaiApiKey && getActiveModel(settings));
+function canUseDirectModel(_settings: AppSettings): boolean {
+  return false;
 }
 
 function canUseProxyModel(settings: AppSettings): boolean {
-  return Boolean(settings.proxyServerUrl && getActiveModel(settings));
+  return Boolean(settings.proxyServerUrl);
 }
 
 function getSystemPrompt(style: 'friendly' | 'professional' | 'concise'): string {
@@ -329,16 +329,10 @@ function getActiveModel(settings: AppSettings): string {
   return settings.openaiModel?.trim() || 'ep-20260309112425-mwdsp';
 }
 
-function createClient(settings: AppSettings): OpenAI {
-  if (!settings.openaiApiKey) {
+function createClient(_settings: AppSettings): never {
     throw new Error('请先在设置中填写 API Key。');
-  }
 
-  return new OpenAI({
-    apiKey: settings.openaiApiKey,
-    baseURL: normalizeBaseUrl(settings.openaiBaseUrl),
-    dangerouslyAllowBrowser: true,
-  });
+  throw new Error('Direct AI mode has been removed.');
 }
 
 async function postToProxy<T>(path: string, body: Record<string, unknown>, settings: AppSettings): Promise<T> {

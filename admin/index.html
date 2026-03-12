@@ -24,8 +24,8 @@
       <main class="main">
         <section id="loginPanel" class="panel login-panel">
           <form id="loginForm" class="card auth-card">
-            <p class="eyebrow">管理员登录</p>
-            <h2>进入友记管理系统</h2>
+            <p class="eyebrow">后台登录</p>
+            <h2>登录友记管理系统</h2>
             <label class="field">
               <span>账号</span>
               <input id="usernameInput" value="admin" />
@@ -42,7 +42,7 @@
         <section id="dashboardPanel" class="dashboard hidden">
           <header class="topbar">
             <div>
-              <p class="eyebrow">管理后台</p>
+              <p class="eyebrow">后台概览</p>
               <h2>数据总览</h2>
             </div>
             <button id="logoutBtn" class="ghost-btn">退出登录</button>
@@ -59,7 +59,7 @@
                 <strong id="productCount">0</strong>
               </article>
               <article class="card stat-card">
-                <span>AI 配置</span>
+                <span>AI 服务</span>
                 <strong id="aiStatus">未配置</strong>
               </article>
             </div>
@@ -75,7 +75,7 @@
 
             <div class="card form-card search-card">
               <label class="field">
-                <span>查询用户</span>
+                <span>搜索用户</span>
                 <input id="userSearchInput" type="text" placeholder="按昵称、手机号或用户 ID 搜索" />
               </label>
             </div>
@@ -130,6 +130,14 @@
               </div>
               <button id="newProductBtn" class="primary-btn small">新增商品</button>
             </div>
+
+            <div class="card form-card search-card">
+              <label class="field">
+                <span>搜索商品</span>
+                <input id="productSearchInput" type="text" placeholder="按商品名、分类、标签或简介搜索" />
+              </label>
+            </div>
+
             <div id="productList" class="list"></div>
           </section>
 
@@ -145,7 +153,7 @@
             <div class="card form-card">
               <div class="grid two">
                 <label class="field">
-                  <span>商品名</span>
+                  <span>商品名称</span>
                   <input id="productTitle" />
                 </label>
                 <label class="field">
@@ -163,19 +171,34 @@
               </div>
 
               <div class="field">
-                <span>适配维度</span>
-                <div id="productDimensions" class="option-grid"></div>
+                <span>商品属性</span>
+                <p class="muted">只选商品本身的属性，系统会自动推导标签、匹配维度和适用关系。</p>
+                <div id="productAttributes" class="option-grid"></div>
               </div>
 
-              <div class="field">
-                <span>适用关系</span>
-                <div id="productRelationships" class="option-grid"></div>
-              </div>
+              <article class="card detail-card preview-card">
+                <div class="section-head compact">
+                  <div>
+                    <p class="eyebrow">自动分析</p>
+                    <h4>系统将保存这些结果</h4>
+                  </div>
+                </div>
 
-              <div class="field">
-                <span>标签</span>
-                <div id="productTags" class="option-grid"></div>
-              </div>
+                <div class="field">
+                  <span>标签</span>
+                  <div id="productDerivedTags" class="pill-row"></div>
+                </div>
+
+                <div class="field">
+                  <span>匹配维度</span>
+                  <div id="productDerivedDimensions" class="pill-row"></div>
+                </div>
+
+                <div class="field">
+                  <span>适用关系</span>
+                  <div id="productDerivedRelationships" class="pill-row"></div>
+                </div>
+              </article>
 
               <label class="field">
                 <span>购买链接</span>

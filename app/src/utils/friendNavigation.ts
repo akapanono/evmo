@@ -1,6 +1,7 @@
 import type { LocationQueryValue, RouteLocationNormalizedLoaded, RouteLocationRaw } from 'vue-router';
 
 export type FriendSourcePage = 'home' | 'calendar' | 'friends';
+export type FriendBackTarget = string | RouteLocationRaw;
 
 export function resolveFriendSourcePage(
   value: LocationQueryValue | LocationQueryValue[] | undefined,
@@ -20,6 +21,15 @@ export function getFriendSourceQuery(sourcePage: FriendSourcePage): { fromPage: 
   return { fromPage: sourcePage };
 }
 
+export function getFriendBackToFromRoute(route: RouteLocationNormalizedLoaded): string | null {
+  const value = route.query.backTo;
+  if (typeof value === 'string' && value.trim()) {
+    return value;
+  }
+
+  return null;
+}
+
 export function getFriendBackPath(sourcePage: FriendSourcePage): '/home' | '/calendar' | '/friends' {
   if (sourcePage === 'home') {
     return '/home';
@@ -28,10 +38,21 @@ export function getFriendBackPath(sourcePage: FriendSourcePage): '/home' | '/cal
   return sourcePage === 'calendar' ? '/calendar' : '/friends';
 }
 
-export function getFriendDetailRoute(friendId: string, sourcePage: FriendSourcePage): RouteLocationRaw {
+export function getFriendBackTarget(route: RouteLocationNormalizedLoaded): FriendBackTarget {
+  return getFriendBackToFromRoute(route) ?? getFriendBackPath(getFriendSourcePageFromRoute(route));
+}
+
+export function getFriendDetailRoute(
+  friendId: string,
+  sourcePage: FriendSourcePage,
+  backTo?: string,
+): RouteLocationRaw {
   return {
     name: 'friend-detail',
     params: { id: friendId },
-    query: getFriendSourceQuery(sourcePage),
+    query: {
+      ...getFriendSourceQuery(sourcePage),
+      ...(backTo ? { backTo } : {}),
+    },
   };
 }

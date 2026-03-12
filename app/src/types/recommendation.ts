@@ -22,6 +22,7 @@ export interface GiftSuggestionBucket {
 export interface OccasionRecommendation {
   gifts: string[];
   scoreCards: RecommendationScore[];
+  buckets?: GiftSuggestionBucket[];
   updatedAt: string;
   source: 'system';
 }

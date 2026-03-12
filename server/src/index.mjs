@@ -35,6 +35,8 @@ import {
   saveSystemConfig,
 } from './store.mjs';
 import { forwardChat, forwardChatStream, testChatConnection } from './ai-proxy.mjs';
+import { deriveProductMetadata } from './product-metadata.mjs';
+import { buildServerOccasionRecommendation } from './recommendation.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const adminDir = join(__dirname, '..', '..', 'admin');
@@ -352,6 +354,7 @@ const server = createServer(async (req, res) => {
       const body = await readBody(req);
       const products = await getProducts();
       const now = new Date().toISOString();
+      const derived = deriveProductMetadata(body);
       const nextProduct = {
         id: body.id?.trim() || crypto.randomUUID(),
         title: body.title?.trim() || '',
@@ -359,9 +362,10 @@ const server = createServer(async (req, res) => {
         status: body.status?.trim() || 'draft',
         priceBucket: body.priceBucket?.trim() || '100to300',
         priceLabel: body.priceLabel?.trim() || '',
-        tags: Array.isArray(body.tags) ? body.tags.filter(Boolean) : [],
-        matchDimensions: Array.isArray(body.matchDimensions) ? body.matchDimensions.filter(Boolean) : [],
-        targetRelationships: Array.isArray(body.targetRelationships) ? body.targetRelationships.filter(Boolean) : [],
+        attributes: derived.attributes,
+        tags: derived.tags,
+        matchDimensions: derived.matchDimensions,
+        targetRelationships: derived.targetRelationships,
         link: body.link?.trim() || '',
         summary: body.summary?.trim() || '',
         createdAt: now,
@@ -384,10 +388,18 @@ const server = createServer(async (req, res) => {
       }
 
       const current = products[index];
-      const next = {
+      const merged = {
         ...current,
         ...body,
         id: current.id,
+      };
+      const derived = deriveProductMetadata(merged);
+      const next = {
+        ...merged,
+        attributes: derived.attributes,
+        tags: derived.tags,
+        matchDimensions: derived.matchDimensions,
+        targetRelationships: derived.targetRelationships,
         updatedAt: new Date().toISOString(),
       };
       products[index] = next;
@@ -420,6 +432,21 @@ const server = createServer(async (req, res) => {
       }
 
       json(res, 200, { ok: true, data: await forwardChat({ systemConfig, body }) });
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/recommendations/occasion') {
+      const body = await readBody(req);
+      const products = await getProducts();
+      const recommendation = buildServerOccasionRecommendation({
+        friend: body.friend,
+        linkedFriends: body.linkedFriends,
+        memorial: body.memorial,
+        products,
+        topScoreLimit: body.topScoreLimit,
+        previewGiftLimit: body.previewGiftLimit,
+      });
+      json(res, 200, { ok: true, data: recommendation });
       return;
     }
 

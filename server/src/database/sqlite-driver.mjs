@@ -151,6 +151,7 @@ export function runMigrations() {
       status TEXT NOT NULL DEFAULT 'draft',
       price_bucket TEXT NOT NULL,
       price_label TEXT NOT NULL DEFAULT '',
+      attributes_json TEXT NOT NULL DEFAULT '[]',
       tags_json TEXT NOT NULL DEFAULT '[]',
       match_dimensions_json TEXT NOT NULL DEFAULT '[]',
       target_relationships_json TEXT NOT NULL DEFAULT '[]',
@@ -197,6 +198,7 @@ export function runMigrations() {
   `);
 
   ensureUsersTableShape();
+  ensureProductsTableShape();
 
   migrateLegacyJsonData();
 }
@@ -205,6 +207,10 @@ function ensureUsersTableShape() {
   addColumnIfMissing('users', 'password_hash', 'TEXT');
   addColumnIfMissing('users', 'updated_at', "TEXT NOT NULL DEFAULT ''");
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_unique ON users(phone);');
+}
+
+function ensureProductsTableShape() {
+  addColumnIfMissing('products', 'attributes_json', "TEXT NOT NULL DEFAULT '[]'");
 }
 
 function addColumnIfMissing(tableName, columnName, definition) {
@@ -234,10 +240,10 @@ function migrateProductsFromJson() {
 
   const insert = db.prepare(`
     INSERT INTO products (
-      id, title, category, status, price_bucket, price_label, tags_json,
+      id, title, category, status, price_bucket, price_label, attributes_json, tags_json,
       match_dimensions_json, target_relationships_json, link, summary, created_at, updated_at
     ) VALUES (
-      @id, @title, @category, @status, @price_bucket, @price_label, @tags_json,
+      @id, @title, @category, @status, @price_bucket, @price_label, @attributes_json, @tags_json,
       @match_dimensions_json, @target_relationships_json, @link, @summary, @created_at, @updated_at
     )
   `);
@@ -251,6 +257,7 @@ function migrateProductsFromJson() {
         status: item.status || 'draft',
         price_bucket: item.priceBucket || '100to300',
         price_label: item.priceLabel || '',
+        attributes_json: JSON.stringify(item.attributes || []),
         tags_json: JSON.stringify(item.tags || []),
         match_dimensions_json: JSON.stringify(item.matchDimensions || []),
         target_relationships_json: JSON.stringify(item.targetRelationships || []),

@@ -1,43 +1,47 @@
 <template>
   <section class="app-screen is-active occasion-detail-screen">
     <div v-if="detail" class="detail-shell">
-      <header class="detail-header">
-        <button type="button" class="back-button" @click="goBack">返回</button>
-        <div class="header-copy">
-          <p class="mini-label">{{ detail.type === 'birthday' ? '生日详情' : '纪念日详情' }}</p>
-          <h1>{{ detail.title }}</h1>
-          <p class="sub-copy">{{ detail.dateLabel }} · {{ detail.relativeLabel }}</p>
-        </div>
-      </header>
+      <button type="button" class="back-button standalone-back" @click="goBack">返回</button>
 
-      <section class="overview-card">
-        <div class="overview-top">
-          <div>
-            <p class="mini-label">关联朋友</p>
-            <div v-if="detail.friends.length > 0" class="friend-row">
-              <button
-                v-for="friend in detail.friends"
-                :key="friend.id"
-                type="button"
-                class="friend-chip"
-                @click="openFriend(friend.id)"
-              >
-                {{ friend.name }}
-              </button>
+      <section class="memorial-summary-card">
+        <div class="summary-column">
+          <p class="mini-label">{{ detail.type === 'birthday' ? '生日信息' : '纪念日信息' }}</p>
+          <h2>{{ detail.title }}</h2>
+          <p class="plain-copy">{{ detail.summary }}</p>
+        </div>
+        <div class="summary-column is-meta">
+          <div class="meta-stack meta-stack-wide">
+            <div class="meta-pill">
+              <span>关联朋友</span>
+              <div v-if="detail.friends.length > 0" class="meta-friends">
+                <button
+                  v-for="friend in detail.friends"
+                  :key="friend.id"
+                  type="button"
+                  class="friend-chip"
+                  @click="openFriend(friend.id)"
+                >
+                  {{ friend.name }}
+                </button>
+              </div>
+              <strong v-else>暂无</strong>
             </div>
-            <p v-else class="plain-copy">当前还没有关联朋友。</p>
           </div>
-          <div class="summary-box">
-            <p class="mini-label">推荐摘要</p>
-            <ul>
-              <li v-for="gift in detail.suggestion.gifts" :key="gift">{{ gift }}</li>
-            </ul>
+          <div class="meta-stack">
+            <div class="meta-pill">
+              <span>日期</span>
+              <strong>{{ detail.dateLabel }}</strong>
+            </div>
+            <div class="meta-pill">
+              <span>时间</span>
+              <strong>{{ detail.relativeLabel }}</strong>
+            </div>
           </div>
         </div>
       </section>
 
       <section class="analysis-grid">
-        <article class="radar-card">
+        <article v-if="showRadarChart" class="radar-card">
           <div class="card-heading">
             <p class="mini-label">偏好雷达图</p>
             <h2>当前命中的核心维度</h2>
@@ -89,7 +93,7 @@
                 <strong>{{ score.label }}</strong>
                 <span>{{ score.score }}</span>
               </div>
-              <p>{{ score.matchedSignals.slice(0, 3).join(' / ') || '根据关系、喜好和稳定信息综合判断。' }}</p>
+              <p>{{ getScoreSignalText(score) }}</p>
             </section>
           </div>
         </article>
@@ -100,14 +104,22 @@
           <p class="mini-label">礼物推荐</p>
           <h2>不同预算区间</h2>
         </div>
-        <div class="bucket-grid">
+        <div v-if="giftBuckets.length > 0" class="bucket-grid">
           <article v-for="bucket in giftBuckets" :key="bucket.key" class="bucket-card">
             <header class="bucket-header">
               <strong>{{ bucket.label }}</strong>
+              <button
+                v-if="bucket.items.length > 3"
+                type="button"
+                class="swap-button"
+                @click="rotateBucket(bucket.key)"
+              >
+                换一批
+              </button>
             </header>
             <div class="bucket-items">
               <a
-                v-for="item in bucket.items"
+                v-for="item in getVisibleBucketItems(bucket)"
                 :key="item.id"
                 class="gift-item"
                 :href="item.link"
@@ -123,6 +135,7 @@
             </div>
           </article>
         </div>
+        <div v-else class="empty-gift-state">暂无推荐的礼物</div>
       </section>
     </div>
 
@@ -134,25 +147,29 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { recommendationService } from '@/services/recommendationService';
 import { useFriendsStore } from '@/stores/friends';
 import { useMemorialDaysStore } from '@/stores/memorialDays';
 import type { Friend } from '@/types/friend';
-import type { RecommendationScore } from '@/types/recommendation';
+import type { OccasionRecommendation, RecommendationScore } from '@/types/recommendation';
 import { getFriendSourceQuery } from '@/utils/friendNavigation';
 import { buildHomeOccasionItem, type OccasionType } from '@/utils/homeOccasions';
-import {
-  buildBirthdayRecommendation,
-  buildGiftSuggestionBuckets,
-  buildMemorialRecommendation,
-  normalizeOccasionRecommendation,
-} from '@/utils/occasionRecommendations';
 
 const router = useRouter();
 const route = useRoute();
 const friendsStore = useFriendsStore();
 const memorialDaysStore = useMemorialDaysStore();
+const remoteRecommendation = ref<OccasionRecommendation | null>(null);
+const bucketSeeds = ref<Record<string, number>>({});
+const EMPTY_RECOMMENDATION: OccasionRecommendation = {
+  gifts: [],
+  scoreCards: [],
+  buckets: [],
+  updatedAt: '',
+  source: 'system',
+};
 
 const occasionType = computed<OccasionType | null>(() => {
   const value = route.params.type;
@@ -175,46 +192,16 @@ const detail = computed(() => {
 });
 
 const recommendation = computed(() => {
-  if (!detail.value) {
-    return {
-      gifts: [],
-      scoreCards: [] as RecommendationScore[],
-      updatedAt: '',
-      source: 'system' as const,
-    };
+  if (remoteRecommendation.value) {
+    return remoteRecommendation.value;
   }
 
-  if (detail.value.type === 'birthday') {
-    const friend = detail.value.friends[0];
-    if (!friend) {
-      return {
-        gifts: [],
-        scoreCards: [] as RecommendationScore[],
-        updatedAt: '',
-        source: 'system' as const,
-      };
-    }
-    return normalizeOccasionRecommendation(friend.birthdayRecommendation, buildBirthdayRecommendation(friend));
-  }
-
-  const memorial = memorialDaysStore.memorialDays.find((item) => item.id === occasionId.value);
-  const linkedFriends = memorial?.friendIds
-    .map((friendId) => friendsStore.friends.find((friend) => friend.id === friendId))
-    .filter((friend): friend is Friend => Boolean(friend)) ?? [];
-  if (!memorial) {
-    return {
-      gifts: [],
-      scoreCards: [] as RecommendationScore[],
-      updatedAt: '',
-      source: 'system' as const,
-    };
-  }
-
-  return normalizeOccasionRecommendation(memorial.recommendation, buildMemorialRecommendation(memorial, linkedFriends));
+  return EMPTY_RECOMMENDATION;
 });
 
 const radarScores = computed(() => recommendation.value.scoreCards.slice(0, 5));
-const giftBuckets = computed(() => buildGiftSuggestionBuckets(recommendation.value.scoreCards));
+const showRadarChart = computed(() => radarScores.value.length >= 3);
+const giftBuckets = computed(() => recommendation.value.buckets ?? []);
 
 const radarAxes = computed(() => buildRadarAxes(radarScores.value, 84));
 const radarGridPolygons = computed(() => [0.25, 0.5, 0.75, 1].map((ratio) => buildRadarPolygon(radarScores.value, ratio * 84)));
@@ -236,18 +223,71 @@ onMounted(async () => {
     friendsStore.loadFriends(),
     memorialDaysStore.loadMemorialDays(),
   ]);
+  await hydrateRemoteRecommendation();
 });
 
+watch([occasionType, occasionId], async () => {
+  remoteRecommendation.value = null;
+  bucketSeeds.value = {};
+  await hydrateRemoteRecommendation();
+});
+
+async function hydrateRemoteRecommendation(): Promise<void> {
+  if (!detail.value) return;
+
+  try {
+    if (detail.value.type === 'birthday') {
+      const friend = detail.value.friends[0];
+      if (!friend) return;
+      const recommendation = await recommendationService.buildBirthdayRecommendation(friend);
+      remoteRecommendation.value = recommendation;
+      friend.birthdayRecommendation = recommendation;
+      return;
+    }
+
+    const memorial = memorialDaysStore.memorialDays.find((item) => item.id === occasionId.value);
+    if (!memorial) return;
+    const recommendation = await recommendationService.buildMemorialRecommendation(memorial, detail.value.friends);
+    remoteRecommendation.value = recommendation;
+    memorial.recommendation = recommendation;
+  } catch {
+    remoteRecommendation.value = EMPTY_RECOMMENDATION;
+  }
+}
+
 function goBack(): void {
-  void router.push('/home');
+  void router.push(typeof route.query.returnTo === 'string' && route.query.returnTo ? route.query.returnTo : '/home');
 }
 
 function openFriend(friendId: string): void {
   void router.push({
     name: 'friend-detail',
     params: { id: friendId },
-    query: getFriendSourceQuery('home'),
+    query: {
+      ...getFriendSourceQuery('home'),
+      backTo: route.fullPath,
+    },
   });
+}
+
+function rotateBucket(bucketKey: string): void {
+  bucketSeeds.value = {
+    ...bucketSeeds.value,
+    [bucketKey]: Date.now() + Math.floor(Math.random() * 1000),
+  };
+}
+
+function getVisibleBucketItems(bucket: NonNullable<OccasionRecommendation['buckets']>[number]) {
+  return selectBatch(bucket.items, 3, bucketSeeds.value[bucket.key] ?? 0, bucket.key);
+}
+
+function getScoreSignalText(score: RecommendationScore): string {
+  const cleaned = (score.matchedSignals ?? [])
+    .map((item) => sanitizeMatchedSignal(item))
+    .filter(Boolean)
+    .slice(0, 3);
+
+  return cleaned.join(' / ') || '根据关系、喜好和稳定信息综合判断。';
 }
 
 function buildRadarAxes(scores: RecommendationScore[], radius: number): Array<{ key: string; x: number; y: number }> {
@@ -271,6 +311,46 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
     })
     .join(' ');
 }
+
+function selectBatch<T extends { id?: string } | string>(
+  items: T[],
+  size: number,
+  seed: number,
+  salt: string,
+): T[] {
+  if (!Array.isArray(items) || items.length <= size) {
+    return Array.isArray(items) ? items : [];
+  }
+
+  return [...items]
+    .map((item, index) => {
+      const raw = typeof item === 'string' ? item : (item.id || `${salt}-${index}`);
+      return {
+        item,
+        weight: hashSeed(`${salt}-${seed}-${raw}`),
+      };
+    })
+    .sort((a, b) => a.weight - b.weight)
+    .slice(0, size)
+    .map((entry) => entry.item);
+}
+
+function hashSeed(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash << 5) - hash) + value.charCodeAt(index);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function sanitizeMatchedSignal(value: string): string {
+  return String(value || '')
+    .replace(/\b(food|entertainment|life|social|travel|shopping|ritual|other)\b\s*/gi, '')
+    .replace(/\b[a-z]{2,}\b\s*/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 </script>
 
 <style scoped>
@@ -287,8 +367,8 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
   gap: 16px;
 }
 
-.detail-header,
-.overview-card,
+.birthday-summary-card,
+.memorial-summary-card,
 .radar-card,
 .score-card,
 .bucket-card,
@@ -298,8 +378,8 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
   box-shadow: 0 16px 40px var(--nav-shadow);
 }
 
-.detail-header,
-.overview-card,
+.birthday-summary-card,
+.memorial-summary-card,
 .radar-card,
 .score-card,
 .bucket-card,
@@ -307,9 +387,18 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
   padding: 18px;
 }
 
-.detail-header {
+.standalone-back {
+  margin-bottom: 4px;
+}
+
+.birthday-summary-card,
+.memorial-summary-card {
   display: grid;
   gap: 14px;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--paper) 80%, var(--card-accent-gold)), color-mix(in srgb, var(--paper) 62%, var(--card-accent-teal)));
+  border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
 }
 
 .back-button {
@@ -334,15 +423,10 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
   text-transform: uppercase;
 }
 
-.header-copy h1,
 .card-heading h2,
 .gift-item h3 {
   margin: 6px 0 0;
   color: var(--ink);
-}
-
-.header-copy h1 {
-  font-size: 28px;
 }
 
 .sub-copy,
@@ -353,16 +437,10 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
   line-height: 1.6;
 }
 
-.overview-top {
-  display: grid;
-  gap: 16px;
-}
-
 .friend-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 10px;
 }
 
 .friend-chip {
@@ -379,19 +457,84 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
     0 8px 18px color-mix(in srgb, var(--teal) 10%, transparent);
 }
 
-.summary-box {
-  padding: 14px;
-  border-radius: 20px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--paper) 72%, var(--card-accent-gold)), color-mix(in srgb, var(--paper) 54%, var(--card-accent-teal)));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paper) 62%, transparent);
+.bucket-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.summary-box ul {
-  margin: 8px 0 0;
-  padding-left: 18px;
-  color: color-mix(in srgb, var(--ink) 92%, var(--teal));
-  line-height: 1.7;
+.memorial-summary-card {
+  padding: 16px 20px;
+}
+
+.memorial-summary-card {
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  align-items: stretch;
+}
+
+.summary-column {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.summary-column h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 24px;
+}
+
+.summary-column.is-meta {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 12px;
+  align-content: start;
+}
+
+.meta-friends {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.meta-stack-wide .meta-pill {
+  align-content: start;
+}
+
+.meta-stack-wide .friend-chip {
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 999px;
+}
+
+.meta-pill {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-panel) 92%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--line) 74%, transparent);
+}
+
+.meta-pill span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.meta-pill strong {
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.meta-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.meta-stack-wide {
+  min-width: 0;
 }
 
 .analysis-grid,
@@ -435,6 +578,10 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
   gap: 10px;
 }
 
+.score-list {
+  margin-top: 20px;
+}
+
 .legend-item,
 .score-item {
   padding: 12px;
@@ -472,6 +619,17 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
   font-size: 18px;
 }
 
+.swap-button {
+  min-width: 72px;
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-3) 88%, var(--paper));
+  color: var(--ink);
+  font-size: 12px;
+}
+
 .gift-item {
   display: flex;
   align-items: flex-start;
@@ -493,11 +651,20 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
   color: color-mix(in srgb, var(--gold) 74%, var(--ink));
   text-align: center;
   font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .empty-panel {
   display: grid;
   gap: 14px;
+}
+
+.empty-gift-state {
+  padding: 18px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-panel) 88%, var(--paper));
+  color: var(--muted);
 }
 
 @media (min-width: 960px) {
@@ -508,9 +675,18 @@ function buildRadarPolygon(scores: RecommendationScore[], radius: number): strin
   .bucket-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .header-main {
+    align-items: center;
+  }
+}
 
-  .overview-top {
-    grid-template-columns: 1fr 1fr;
+@media (max-width: 720px) {
+  .memorial-summary-card {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-column.is-meta {
+    grid-template-columns: 1fr;
   }
 }
 </style>

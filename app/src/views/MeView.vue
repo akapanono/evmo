@@ -279,12 +279,7 @@ function loadAISettings(): void {
 function saveAISettings(): void {
   testResult.value = null;
   settingsStore.updateSettings({
-    aiAccessMode: 'proxy',
-    openaiApiKey: undefined,
-    openaiBaseUrl: undefined,
-    openaiModel: settingsStore.settings.openaiModel || DEFAULT_SETTINGS.openaiModel,
     proxyServerUrl: proxyServerUrl.value.trim() || DEFAULT_PROXY_SERVER_URL,
-    proxyProviderId: undefined,
     aiStyle: aiStyle.value,
     themeScheme: themeScheme.value,
   });
@@ -293,12 +288,7 @@ function saveAISettings(): void {
 function resetAISettings(): void {
   testResult.value = null;
   settingsStore.updateSettings({
-    aiAccessMode: 'proxy',
-    openaiApiKey: undefined,
-    openaiBaseUrl: undefined,
-    openaiModel: DEFAULT_SETTINGS.openaiModel,
     proxyServerUrl: DEFAULT_SETTINGS.proxyServerUrl,
-    proxyProviderId: undefined,
     aiStyle: DEFAULT_SETTINGS.aiStyle,
     themeScheme: DEFAULT_SETTINGS.themeScheme,
   });

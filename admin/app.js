@@ -5,7 +5,7 @@ const PRODUCT_CATEGORIES = [
   { value: 'social', label: '社交' },
   { value: 'travel', label: '出行' },
   { value: 'shopping', label: '消费' },
-  { value: 'ritual', label: '仪式感' },
+  { value: 'ritual', label: '仪式' },
   { value: 'other', label: '其他' },
 ];
 
@@ -18,46 +18,165 @@ const PRICE_BUCKETS = [
 ];
 
 const PRODUCT_STATUS = [
-  { value: 'active', label: '上架中' },
+  { value: 'active', label: '上架' },
   { value: 'draft', label: '草稿' },
-  { value: 'archived', label: '已归档' },
+  { value: 'archived', label: '归档' },
 ];
 
-const DIMENSION_OPTIONS = [
-  { value: 'stimulation', label: '刺激度' },
-  { value: 'refinement', label: '精致感' },
-  { value: 'ritualSense', label: '仪式感' },
-  { value: 'companionship', label: '陪伴感' },
-  { value: 'practicality', label: '实用度' },
-  { value: 'aesthetics', label: '审美度' },
-  { value: 'relaxation', label: '松弛感' },
-  { value: 'exploration', label: '探索欲' },
-  { value: 'sweetPreference', label: '甜感偏好' },
-  { value: 'spicyPreference', label: '辣感偏好' },
+const ATTRIBUTE_OPTIONS = [
+  { value: 'sweet', label: '甜食' },
+  { value: 'snack', label: '零食' },
+  { value: 'drink', label: '饮品' },
+  { value: 'spicy', label: '辛辣' },
+  { value: 'giftBox', label: '礼盒' },
+  { value: 'healing', label: '疗愈' },
+  { value: 'fragrance', label: '香氛' },
+  { value: 'beauty', label: '美妆护肤' },
+  { value: 'digital', label: '数码' },
+  { value: 'game', label: '游戏' },
+  { value: 'anime', label: '动漫周边' },
+  { value: 'sports', label: '运动' },
+  { value: 'home', label: '家居' },
+  { value: 'practical', label: '实用' },
+  { value: 'collectible', label: '收藏' },
+  { value: 'travel', label: '出游' },
+  { value: 'social', label: '聚会分享' },
+  { value: 'handmade', label: '手作定制' },
+  { value: 'cute', label: '可爱' },
+  { value: 'premium', label: '精致' },
 ];
 
-const RELATIONSHIP_OPTIONS = [
-  { value: '恋人', label: '恋人' },
-  { value: '家人', label: '家人' },
-  { value: '朋友', label: '朋友' },
-  { value: '同事', label: '同事' },
-  { value: '同学', label: '同学' },
-  { value: '客户', label: '客户' },
-  { value: '长辈', label: '长辈' },
-  { value: '其他', label: '其他' },
-];
+const ATTRIBUTE_LABELS = new Map(ATTRIBUTE_OPTIONS.map((item) => [item.value, item.label]));
+const DIMENSION_LABELS = {
+  stimulation: '刺激度',
+  refinement: '精致感',
+  ritualSense: '仪式感',
+  companionship: '陪伴感',
+  practicality: '实用度',
+  aesthetics: '审美度',
+  relaxation: '松弛感',
+  exploration: '探索欲',
+  sweetPreference: '甜感偏好',
+  spicyPreference: '辣感偏好',
+};
 
-const TAG_OPTIONS = [
-  { value: '治愈', label: '治愈' },
-  { value: '陪伴', label: '陪伴' },
-  { value: '实用', label: '实用' },
-  { value: '仪式感', label: '仪式感' },
-  { value: '游戏', label: '游戏' },
-  { value: '香氛', label: '香氛' },
-  { value: '美食', label: '美食' },
-  { value: '纪念', label: '纪念' },
-  { value: '收藏', label: '收藏' },
-  { value: '数码', label: '数码' },
+const ATTRIBUTE_RULES = {
+  sweet: {
+    tags: ['甜食', '零食'],
+    dimensions: ['sweetPreference', 'companionship'],
+    relationships: ['恋人', '朋友', '家人'],
+  },
+  snack: {
+    tags: ['零食', '分享'],
+    dimensions: ['companionship', 'relaxation'],
+    relationships: ['朋友', '同事', '家人'],
+  },
+  drink: {
+    tags: ['饮品', '日常'],
+    dimensions: ['relaxation', 'companionship'],
+    relationships: ['朋友', '同事', '家人'],
+  },
+  spicy: {
+    tags: ['重口味', '零食'],
+    dimensions: ['spicyPreference', 'stimulation'],
+    relationships: ['朋友', '同事'],
+  },
+  giftBox: {
+    tags: ['礼盒', '送礼'],
+    dimensions: ['ritualSense', 'refinement'],
+    relationships: ['恋人', '家人', '朋友'],
+  },
+  healing: {
+    tags: ['疗愈', '放松'],
+    dimensions: ['relaxation', 'companionship'],
+    relationships: ['恋人', '朋友', '家人'],
+  },
+  fragrance: {
+    tags: ['香氛', '氛围'],
+    dimensions: ['aesthetics', 'relaxation'],
+    relationships: ['恋人', '朋友', '家人'],
+  },
+  beauty: {
+    tags: ['护肤', '精致'],
+    dimensions: ['aesthetics', 'refinement'],
+    relationships: ['恋人', '闺蜜', '家人'],
+  },
+  digital: {
+    tags: ['数码', '潮流'],
+    dimensions: ['practicality', 'exploration'],
+    relationships: ['朋友', '同事', '恋人'],
+  },
+  game: {
+    tags: ['游戏', '娱乐'],
+    dimensions: ['stimulation', 'companionship'],
+    relationships: ['朋友', '恋人'],
+  },
+  anime: {
+    tags: ['周边', '收藏'],
+    dimensions: ['exploration', 'aesthetics'],
+    relationships: ['朋友', '恋人'],
+  },
+  sports: {
+    tags: ['运动', '健康'],
+    dimensions: ['stimulation', 'practicality'],
+    relationships: ['朋友', '同事', '家人'],
+  },
+  home: {
+    tags: ['家居', '日常'],
+    dimensions: ['practicality', 'relaxation'],
+    relationships: ['家人', '朋友', '恋人'],
+  },
+  practical: {
+    tags: ['实用', '日常'],
+    dimensions: ['practicality'],
+    relationships: ['同事', '家人', '朋友'],
+  },
+  collectible: {
+    tags: ['收藏', '纪念'],
+    dimensions: ['ritualSense', 'exploration'],
+    relationships: ['恋人', '朋友'],
+  },
+  travel: {
+    tags: ['出游', '体验'],
+    dimensions: ['exploration', 'companionship'],
+    relationships: ['恋人', '朋友', '家人'],
+  },
+  social: {
+    tags: ['聚会', '分享'],
+    dimensions: ['companionship', 'stimulation'],
+    relationships: ['朋友', '同事'],
+  },
+  handmade: {
+    tags: ['手作', '纪念'],
+    dimensions: ['ritualSense', 'aesthetics'],
+    relationships: ['恋人', '家人', '朋友'],
+  },
+  cute: {
+    tags: ['可爱', '氛围'],
+    dimensions: ['aesthetics', 'companionship'],
+    relationships: ['恋人', '闺蜜', '朋友'],
+  },
+  premium: {
+    tags: ['精致', '高级感'],
+    dimensions: ['refinement', 'ritualSense'],
+    relationships: ['恋人', '客户', '家人'],
+  },
+};
+
+const TEXT_RULES = [
+  { pattern: /巧克力|蛋糕|糖|甜品|曲奇|布丁/i, attributes: ['sweet', 'snack'] },
+  { pattern: /咖啡|奶茶|茶叶|果汁|酒|饮料/i, attributes: ['drink'] },
+  { pattern: /辣条|火锅|烧烤|麻辣/i, attributes: ['spicy', 'snack'] },
+  { pattern: /礼盒|套装|礼包/i, attributes: ['giftBox', 'premium'] },
+  { pattern: /香薰|香水|蜡烛/i, attributes: ['fragrance', 'healing'] },
+  { pattern: /口红|面膜|护肤|彩妆/i, attributes: ['beauty', 'premium'] },
+  { pattern: /耳机|键盘|音箱|相机|手表|平板/i, attributes: ['digital', 'practical'] },
+  { pattern: /游戏|点卡|手柄/i, attributes: ['game'] },
+  { pattern: /手办|盲盒|周边|徽章/i, attributes: ['anime', 'collectible'] },
+  { pattern: /瑜伽|健身|球拍|跑步/i, attributes: ['sports', 'practical'] },
+  { pattern: /抱枕|水杯|床品|灯具|餐具/i, attributes: ['home', 'practical'] },
+  { pattern: /旅行|露营|酒店|机票/i, attributes: ['travel'] },
+  { pattern: /手作|定制|照片|相册/i, attributes: ['handmade', 'collectible'] },
 ];
 
 const state = {
@@ -66,6 +185,7 @@ const state = {
   filteredUsers: [],
   userDetail: null,
   products: [],
+  filteredProducts: [],
   systemConfig: null,
   editingProductId: '',
   activePanel: 'overview',
@@ -90,6 +210,7 @@ const els = {
   userFriends: document.querySelector('#userFriends'),
   userMemorialDays: document.querySelector('#userMemorialDays'),
   backToUsersBtn: document.querySelector('#backToUsersBtn'),
+  productSearchInput: document.querySelector('#productSearchInput'),
   productList: document.querySelector('#productList'),
   productEditorTitle: document.querySelector('#productEditorTitle'),
   productEditorPanel: document.querySelector('#productEditorPanel'),
@@ -101,9 +222,10 @@ const els = {
   productCategory: document.querySelector('#productCategory'),
   productPriceBucket: document.querySelector('#productPriceBucket'),
   productStatus: document.querySelector('#productStatus'),
-  productDimensions: document.querySelector('#productDimensions'),
-  productRelationships: document.querySelector('#productRelationships'),
-  productTags: document.querySelector('#productTags'),
+  productAttributes: document.querySelector('#productAttributes'),
+  productDerivedTags: document.querySelector('#productDerivedTags'),
+  productDerivedDimensions: document.querySelector('#productDerivedDimensions'),
+  productDerivedRelationships: document.querySelector('#productDerivedRelationships'),
   productLink: document.querySelector('#productLink'),
   productSummary: document.querySelector('#productSummary'),
   aiBaseUrl: document.querySelector('#aiBaseUrl'),
@@ -120,18 +242,30 @@ function init() {
   fillSelect(els.productCategory, PRODUCT_CATEGORIES);
   fillSelect(els.productPriceBucket, PRICE_BUCKETS);
   fillSelect(els.productStatus, PRODUCT_STATUS);
-  renderOptionGroup(els.productDimensions, 'productDimension', DIMENSION_OPTIONS);
-  renderOptionGroup(els.productRelationships, 'productRelationship', RELATIONSHIP_OPTIONS);
-  renderOptionGroup(els.productTags, 'productTag', TAG_OPTIONS);
+  renderOptionGroup(els.productAttributes, 'productAttribute', ATTRIBUTE_OPTIONS);
   bindMenu();
   bindAuth();
   bindUsers();
   bindProducts();
   bindSystem();
+  renderDerivedProductPreview();
 }
 
 function fillSelect(select, options) {
   select.innerHTML = options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('');
+}
+
+function renderOptionGroup(container, name, options) {
+  container.innerHTML = '';
+  for (const option of options) {
+    const label = document.createElement('label');
+    label.className = 'option-pill';
+    label.innerHTML = `
+      <input type="checkbox" name="${name}" value="${escapeHtml(option.value)}" />
+      <span>${escapeHtml(option.label)}</span>
+    `;
+    container.appendChild(label);
+  }
 }
 
 function bindMenu() {
@@ -164,24 +298,16 @@ function bindProducts() {
   els.newProductBtn.addEventListener('click', () => openProductEditor());
   els.backToProductsBtn.addEventListener('click', closeProductEditor);
   els.saveProductBtn.addEventListener('click', saveProduct);
+  els.productSearchInput.addEventListener('input', filterProducts);
+  els.productTitle.addEventListener('input', renderDerivedProductPreview);
+  els.productSummary.addEventListener('input', renderDerivedProductPreview);
+  els.productCategory.addEventListener('change', renderDerivedProductPreview);
+  els.productAttributes.addEventListener('change', renderDerivedProductPreview);
 }
 
 function bindSystem() {
   els.saveSystemBtn.addEventListener('click', saveSystemConfig);
   els.testAiBtn.addEventListener('click', testAiConnection);
-}
-
-function renderOptionGroup(container, name, options) {
-  container.innerHTML = '';
-  for (const option of options) {
-    const label = document.createElement('label');
-    label.className = 'option-pill';
-    label.innerHTML = `
-      <input type="checkbox" name="${name}" value="${escapeHtml(option.value)}" />
-      <span>${escapeHtml(option.label)}</span>
-    `;
-    container.appendChild(label);
-  }
 }
 
 function activatePanel(panel) {
@@ -192,15 +318,10 @@ function activatePanel(panel) {
   document.querySelectorAll('.panel-view').forEach((view) => {
     view.classList.toggle('hidden', view.dataset.view !== panel);
   });
-  if (panel !== 'users') {
-    els.userDetailPanel.classList.add('hidden');
-  }
-  if (panel !== 'products') {
-    els.productEditorPanel.classList.add('hidden');
-  }
-  if (panel === 'users' && state.token) {
-    void loadUsers();
-  }
+  if (panel !== 'users') els.userDetailPanel.classList.add('hidden');
+  if (panel !== 'products') els.productEditorPanel.classList.add('hidden');
+  if (panel === 'users' && state.token) void loadUsers();
+  if (panel === 'products' && state.token) void loadProducts();
 }
 
 async function login() {
@@ -215,10 +336,7 @@ async function login() {
       }),
     });
     const payload = await response.json();
-    if (!response.ok || !payload.ok) {
-      throw new Error(payload.error || '登录失败');
-    }
-
+    if (!response.ok || !payload.ok) throw new Error(payload.error || '登录失败');
     state.token = payload.data.token;
     els.loginMessage.textContent = '';
     renderAuth();
@@ -250,9 +368,7 @@ async function api(path, options = {}) {
     },
   });
   const payload = await response.json();
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.error || '请求失败');
-  }
+  if (!response.ok || !payload.ok) throw new Error(payload.error || '请求失败');
   return payload.data;
 }
 
@@ -263,15 +379,12 @@ async function loadUsers() {
 
 function filterUsers() {
   const keyword = els.userSearchInput.value.trim().toLowerCase();
-  if (!keyword) {
-    state.filteredUsers = [...state.users];
-  } else {
-    state.filteredUsers = state.users.filter((user) =>
+  state.filteredUsers = !keyword
+    ? [...state.users]
+    : state.users.filter((user) =>
       String(user.name || '').toLowerCase().includes(keyword)
       || String(user.phone || '').toLowerCase().includes(keyword)
-      || String(user.id || '').toLowerCase().includes(keyword)
-    );
-  }
+      || String(user.id || '').toLowerCase().includes(keyword));
   renderUsers();
 }
 
@@ -283,7 +396,7 @@ async function loadUserDetail(userId) {
 function renderUsers() {
   els.userList.innerHTML = '';
   if (!state.filteredUsers.length) {
-    els.userList.innerHTML = '<div class="empty-state">没有匹配到用户</div>';
+    els.userList.innerHTML = '<div class="empty-state">没有找到符合条件的用户。</div>';
     return;
   }
 
@@ -318,9 +431,7 @@ function renderUsers() {
 
 function renderUserDetail() {
   const detail = state.userDetail;
-  if (!detail) {
-    return;
-  }
+  if (!detail) return;
 
   els.userDetailTitle.textContent = detail.user.name || '未命名用户';
   els.userMeta.innerHTML = '';
@@ -350,7 +461,7 @@ function renderUserDetail() {
           <div class="muted">${escapeHtml(friend.relationship || '未填写关系')}</div>
         </article>
       `).join('')
-    : '<div class="empty-state">暂无朋友数据</div>';
+    : '<div class="empty-state">还没有朋友数据。</div>';
 
   els.userMemorialDays.innerHTML = detail.memorialDays.length
     ? detail.memorialDays.map((item) => `
@@ -359,11 +470,28 @@ function renderUserDetail() {
           <div class="muted">${escapeHtml(item.monthDay || '-')}</div>
         </article>
       `).join('')
-    : '<div class="empty-state">暂无纪念日数据</div>';
+    : '<div class="empty-state">还没有纪念日数据。</div>';
 }
 
 async function loadProducts() {
   state.products = await api('/api/products');
+  filterProducts();
+}
+
+function filterProducts() {
+  const keyword = els.productSearchInput.value.trim().toLowerCase();
+  state.filteredProducts = !keyword
+    ? [...state.products]
+    : state.products.filter((product) => {
+      const haystack = [
+        product.title,
+        product.summary,
+        product.category,
+        ...(product.tags || []),
+        ...(product.attributes || []),
+      ].join(' ').toLowerCase();
+      return haystack.includes(keyword);
+    });
   renderProducts();
 }
 
@@ -377,14 +505,19 @@ async function loadSystemConfig() {
 
 function renderProducts() {
   els.productList.innerHTML = '';
-  for (const product of state.products) {
+  if (!state.filteredProducts.length) {
+    els.productList.innerHTML = '<div class="empty-state">没有找到符合条件的商品。</div>';
+    return;
+  }
+
+  for (const product of state.filteredProducts) {
     const item = document.createElement('article');
     item.className = 'card product-item';
     item.innerHTML = `
       <div class="product-item-head">
         <div>
           <strong>${escapeHtml(product.title)}</strong>
-          <div class="muted">${escapeHtml(product.summary || '暂无简介')}</div>
+          <div class="muted">${escapeHtml(product.summary || '未填写简介')}</div>
         </div>
         <button class="ghost-btn" data-edit="${escapeHtml(product.id)}">编辑</button>
       </div>
@@ -392,6 +525,9 @@ function renderProducts() {
         <span class="pill">${escapeHtml(getLabel(PRODUCT_CATEGORIES, product.category))}</span>
         <span class="pill">${escapeHtml(product.priceLabel || getLabel(PRICE_BUCKETS, product.priceBucket))}</span>
         <span class="pill">${escapeHtml(getLabel(PRODUCT_STATUS, product.status))}</span>
+      </div>
+      <div class="pill-row">
+        ${(product.tags || []).slice(0, 4).map((tag) => `<span class="pill">${escapeHtml(tag)}</span>`).join('')}
       </div>
     `;
     item.querySelector('[data-edit]').addEventListener('click', () => openProductEditor(product));
@@ -402,16 +538,14 @@ function renderProducts() {
 function openProductEditor(product = null) {
   state.editingProductId = product?.id || '';
   els.productEditorTitle.textContent = product ? '编辑商品' : '新增商品';
-  if (product) {
-    fillProductForm(product);
-  } else {
-    clearProductForm();
-  }
+  if (product) fillProductForm(product);
+  else clearProductForm();
   document.querySelectorAll('.panel-view').forEach((view) => view.classList.add('hidden'));
   els.productEditorPanel.classList.remove('hidden');
   document.querySelectorAll('.menu-item').forEach((item) => {
     item.classList.toggle('is-active', item.dataset.panel === 'products');
   });
+  renderDerivedProductPreview();
 }
 
 function closeProductEditor() {
@@ -426,9 +560,7 @@ function fillProductForm(product) {
   els.productCategory.value = product.category || 'other';
   els.productPriceBucket.value = product.priceBucket || '100to300';
   els.productStatus.value = product.status || 'active';
-  setCheckedValues(els.productDimensions, product.matchDimensions || []);
-  setCheckedValues(els.productRelationships, product.targetRelationships || []);
-  setCheckedValues(els.productTags, product.tags || []);
+  setCheckedValues(els.productAttributes, product.attributes || []);
   els.productLink.value = product.link || '';
   els.productSummary.value = product.summary || '';
 }
@@ -438,9 +570,7 @@ function clearProductForm() {
   els.productCategory.value = 'other';
   els.productPriceBucket.value = '100to300';
   els.productStatus.value = 'active';
-  setCheckedValues(els.productDimensions, []);
-  setCheckedValues(els.productRelationships, []);
-  setCheckedValues(els.productTags, []);
+  setCheckedValues(els.productAttributes, []);
   els.productLink.value = '';
   els.productSummary.value = '';
 }
@@ -456,16 +586,66 @@ function getCheckedValues(container) {
   return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map((input) => input.value);
 }
 
+function deriveProductMetadata(input = {}) {
+  const text = `${input.title || ''} ${input.summary || ''}`.trim();
+  const category = String(input.category || '').trim();
+  const selectedAttributes = Array.isArray(input.attributes) ? input.attributes.map(String) : [];
+  const inferredAttributes = [...selectedAttributes];
+
+  for (const rule of TEXT_RULES) {
+    if (rule.pattern.test(text)) inferredAttributes.push(...rule.attributes);
+  }
+
+  if (category === 'food') inferredAttributes.push('snack');
+  if (category === 'entertainment') inferredAttributes.push('game');
+  if (category === 'life') inferredAttributes.push('home');
+  if (category === 'travel') inferredAttributes.push('travel');
+  if (category === 'ritual') inferredAttributes.push('giftBox');
+
+  const attributes = unique(inferredAttributes);
+  const tags = unique(attributes.flatMap((attribute) => ATTRIBUTE_RULES[attribute]?.tags || []).concat(
+    attributes.map((attribute) => ATTRIBUTE_LABELS.get(attribute) || attribute),
+  ));
+  const matchDimensions = unique(attributes.flatMap((attribute) => ATTRIBUTE_RULES[attribute]?.dimensions || []));
+  const targetRelationships = unique(attributes.flatMap((attribute) => ATTRIBUTE_RULES[attribute]?.relationships || []));
+
+  return { attributes, tags, matchDimensions, targetRelationships };
+}
+
+function renderDerivedProductPreview() {
+  const derived = deriveProductMetadata({
+    title: els.productTitle.value.trim(),
+    summary: els.productSummary.value.trim(),
+    category: els.productCategory.value,
+    attributes: getCheckedValues(els.productAttributes),
+  });
+
+  renderPills(els.productDerivedTags, derived.tags);
+  renderPills(els.productDerivedDimensions, derived.matchDimensions.map((key) => DIMENSION_LABELS[key] || key));
+  renderPills(els.productDerivedRelationships, derived.targetRelationships);
+}
+
+function renderPills(container, values) {
+  container.innerHTML = values.length
+    ? values.map((value) => `<span class="pill">${escapeHtml(value)}</span>`).join('')
+    : '<span class="muted">暂无</span>';
+}
+
 async function saveProduct() {
   els.productMessage.textContent = '保存中...';
+  const derived = deriveProductMetadata({
+    title: els.productTitle.value.trim(),
+    summary: els.productSummary.value.trim(),
+    category: els.productCategory.value,
+    attributes: getCheckedValues(els.productAttributes),
+  });
+
   const body = {
     title: els.productTitle.value.trim(),
     category: els.productCategory.value,
     priceBucket: els.productPriceBucket.value,
     status: els.productStatus.value,
-    matchDimensions: getCheckedValues(els.productDimensions),
-    targetRelationships: getCheckedValues(els.productRelationships),
-    tags: getCheckedValues(els.productTags),
+    attributes: derived.attributes,
     link: els.productLink.value.trim(),
     summary: els.productSummary.value.trim(),
     priceLabel: getLabel(PRICE_BUCKETS, els.productPriceBucket.value),
@@ -483,10 +663,9 @@ async function saveProduct() {
         body: JSON.stringify(body),
       });
     }
-
     await loadProducts();
     renderStats();
-    els.productMessage.textContent = '商品已保存';
+    els.productMessage.textContent = '商品已保存。';
     closeProductEditor();
   } catch (error) {
     els.productMessage.textContent = error.message;
@@ -508,7 +687,7 @@ async function saveSystemConfig() {
       }),
     });
     renderStats();
-    els.systemMessage.textContent = '配置已保存';
+    els.systemMessage.textContent = '配置已保存。';
   } catch (error) {
     els.systemMessage.textContent = error.message;
   }
@@ -518,7 +697,7 @@ async function testAiConnection() {
   els.systemMessage.textContent = '测试中...';
   try {
     await api('/api/ai/test', { method: 'POST', body: JSON.stringify({}) });
-    els.systemMessage.textContent = '连接成功';
+    els.systemMessage.textContent = '连接成功。';
   } catch (error) {
     els.systemMessage.textContent = `连接失败：${error.message}`;
   }
@@ -536,14 +715,14 @@ function getLabel(options, value) {
 }
 
 function formatDateTime(value) {
-  if (!value) {
-    return '-';
-  }
+  if (!value) return '-';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
+  if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString('zh-CN', { hour12: false });
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
 }
 
 function escapeHtml(value) {

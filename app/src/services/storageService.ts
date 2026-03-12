@@ -7,12 +7,7 @@ import { STORAGE_KEY_AUTH_TOKEN, STORAGE_KEY_AUTH_USER, STORAGE_KEY_SETTINGS } f
 function normalizeSettings(settings: AppSettings): AppSettings {
   return {
     ...settings,
-    aiAccessMode: 'proxy',
-    openaiApiKey: undefined,
-    openaiBaseUrl: undefined,
-    proxyProviderId: undefined,
     proxyServerUrl: settings.proxyServerUrl || DEFAULT_SETTINGS.proxyServerUrl,
-    openaiModel: settings.openaiModel || DEFAULT_SETTINGS.openaiModel,
     themeScheme: settings.themeScheme || DEFAULT_SETTINGS.themeScheme,
   };
 }

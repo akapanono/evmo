@@ -40,7 +40,7 @@ import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router';
 import BottomNav from '@/components/layout/BottomNav.vue';
 import FloatingButton from '@/components/layout/FloatingButton.vue';
 import { useFriendsStore } from '@/stores/friends';
-import { getFriendBackPath, getFriendDetailRoute, getFriendSourcePageFromRoute } from '@/utils/friendNavigation';
+import { getFriendBackPath, getFriendBackTarget, getFriendDetailRoute, getFriendSourcePageFromRoute } from '@/utils/friendNavigation';
 
 const route = useRoute();
 const router = useRouter();
@@ -116,7 +116,7 @@ function getNativeBackTarget(): RouteLocationRaw | null {
   const sourcePage = getFriendSourcePageFromRoute(route);
 
   if (route.name === 'friend-detail' || route.name === 'edit-friend') {
-    return getFriendBackPath(sourcePage);
+    return getFriendBackTarget(route);
   }
 
   if (
@@ -126,8 +126,8 @@ function getNativeBackTarget(): RouteLocationRaw | null {
     || route.name === 'friend-record-list'
   ) {
     return currentFriendId.value
-      ? getFriendDetailRoute(currentFriendId.value, sourcePage)
-      : getFriendBackPath(sourcePage);
+      ? getFriendDetailRoute(currentFriendId.value, sourcePage, route.query.backTo as string | undefined)
+      : getFriendBackTarget(route);
   }
 
   if (route.name === 'add-friend') {
@@ -139,7 +139,9 @@ function getNativeBackTarget(): RouteLocationRaw | null {
   }
 
   if (route.name === 'home-occasion-detail') {
-    return '/home';
+    return typeof route.query.returnTo === 'string' && route.query.returnTo
+      ? route.query.returnTo
+      : '/home';
   }
 
   if (route.name === 'memorial-create' || route.name === 'memorial-edit') {

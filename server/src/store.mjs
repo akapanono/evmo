@@ -4,6 +4,8 @@ import { createMemorialRepository } from './repositories/memorial-repository.mjs
 import { createProductRepository } from './repositories/product-repository.mjs';
 import { createSystemConfigRepository } from './repositories/system-config-repository.mjs';
 import { createUserRepository } from './repositories/user-repository.mjs';
+import { SAMPLE_PRODUCTS } from './sample-products.mjs';
+import { deriveProductMetadata } from './product-metadata.mjs';
 
 database.runMigrations();
 
@@ -27,8 +29,47 @@ const friendRepository = createFriendRepository(database);
 const memorialRepository = createMemorialRepository(database);
 const systemConfigRepository = createSystemConfigRepository(database, systemFallback);
 const userRepository = createUserRepository(database);
+let defaultProductsEnsured = false;
+
+function buildSeedProducts() {
+  const now = new Date().toISOString();
+  return SAMPLE_PRODUCTS.map((item) => {
+    const derived = deriveProductMetadata(item);
+    return {
+      ...item,
+      attributes: derived.attributes,
+      tags: derived.tags,
+      matchDimensions: derived.matchDimensions,
+      targetRelationships: derived.targetRelationships,
+      createdAt: now,
+      updatedAt: now,
+    };
+  });
+}
+
+async function ensureDefaultProducts() {
+  if (defaultProductsEnsured) {
+    return;
+  }
+  defaultProductsEnsured = true;
+  const current = productRepository.list();
+  const seedProducts = buildSeedProducts();
+  if (current.length === 0) {
+    productRepository.saveAll(seedProducts);
+    return;
+  }
+
+  const existingIds = new Set(current.map((item) => item.id));
+  const missingSeedProducts = seedProducts.filter((item) => !existingIds.has(item.id));
+  if (missingSeedProducts.length > 0) {
+    productRepository.upsertMany(missingSeedProducts);
+  }
+}
+
+void ensureDefaultProducts();
 
 export async function getProducts() {
+  await ensureDefaultProducts();
   return productRepository.list();
 }
 
@@ -53,6 +94,7 @@ export async function deleteFriend(id) {
 }
 
 export async function saveProducts(products) {
+  defaultProductsEnsured = true;
   return productRepository.saveAll(products);
 }
 

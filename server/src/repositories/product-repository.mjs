@@ -14,6 +14,7 @@ function mapRow(row) {
     status: row.status,
     priceBucket: row.price_bucket,
     priceLabel: row.price_label,
+    attributes: safeParseJson(row.attributes_json, []),
     tags: safeParseJson(row.tags_json, []),
     matchDimensions: safeParseJson(row.match_dimensions_json, []),
     targetRelationships: safeParseJson(row.target_relationships_json, []),
@@ -37,6 +38,7 @@ export function createProductRepository(database) {
           status,
           price_bucket,
           price_label,
+          attributes_json,
           tags_json,
           match_dimensions_json,
           target_relationships_json,
@@ -54,10 +56,10 @@ export function createProductRepository(database) {
     saveAll(products) {
       const insert = db.prepare(`
         INSERT INTO products (
-          id, title, category, status, price_bucket, price_label, tags_json,
+          id, title, category, status, price_bucket, price_label, attributes_json, tags_json,
           match_dimensions_json, target_relationships_json, link, summary, created_at, updated_at
         ) VALUES (
-          @id, @title, @category, @status, @price_bucket, @price_label, @tags_json,
+          @id, @title, @category, @status, @price_bucket, @price_label, @attributes_json, @tags_json,
           @match_dimensions_json, @target_relationships_json, @link, @summary, @created_at, @updated_at
         )
         ON CONFLICT(id) DO UPDATE SET
@@ -66,6 +68,7 @@ export function createProductRepository(database) {
           status = excluded.status,
           price_bucket = excluded.price_bucket,
           price_label = excluded.price_label,
+          attributes_json = excluded.attributes_json,
           tags_json = excluded.tags_json,
           match_dimensions_json = excluded.match_dimensions_json,
           target_relationships_json = excluded.target_relationships_json,
@@ -85,6 +88,7 @@ export function createProductRepository(database) {
             status: item.status || 'draft',
             price_bucket: item.priceBucket || '100to300',
             price_label: item.priceLabel || '',
+            attributes_json: JSON.stringify(item.attributes || []),
             tags_json: JSON.stringify(item.tags || []),
             match_dimensions_json: JSON.stringify(item.matchDimensions || []),
             target_relationships_json: JSON.stringify(item.targetRelationships || []),
@@ -100,6 +104,54 @@ export function createProductRepository(database) {
           if (!incomingIds.has(existingId)) {
             db.prepare('DELETE FROM products WHERE id = ?').run(existingId);
           }
+        }
+      });
+
+      return products;
+    },
+
+    upsertMany(products) {
+      const insert = db.prepare(`
+        INSERT INTO products (
+          id, title, category, status, price_bucket, price_label, attributes_json, tags_json,
+          match_dimensions_json, target_relationships_json, link, summary, created_at, updated_at
+        ) VALUES (
+          @id, @title, @category, @status, @price_bucket, @price_label, @attributes_json, @tags_json,
+          @match_dimensions_json, @target_relationships_json, @link, @summary, @created_at, @updated_at
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          title = excluded.title,
+          category = excluded.category,
+          status = excluded.status,
+          price_bucket = excluded.price_bucket,
+          price_label = excluded.price_label,
+          attributes_json = excluded.attributes_json,
+          tags_json = excluded.tags_json,
+          match_dimensions_json = excluded.match_dimensions_json,
+          target_relationships_json = excluded.target_relationships_json,
+          link = excluded.link,
+          summary = excluded.summary,
+          updated_at = excluded.updated_at
+      `);
+
+      database.runInTransaction(() => {
+        for (const item of products) {
+          insert.run({
+            id: item.id,
+            title: item.title || '',
+            category: item.category || 'other',
+            status: item.status || 'draft',
+            price_bucket: item.priceBucket || '100to300',
+            price_label: item.priceLabel || '',
+            attributes_json: JSON.stringify(item.attributes || []),
+            tags_json: JSON.stringify(item.tags || []),
+            match_dimensions_json: JSON.stringify(item.matchDimensions || []),
+            target_relationships_json: JSON.stringify(item.targetRelationships || []),
+            link: item.link || '',
+            summary: item.summary || '',
+            created_at: item.createdAt || new Date().toISOString(),
+            updated_at: item.updatedAt || new Date().toISOString(),
+          });
         }
       });
 
