@@ -191,21 +191,33 @@ async function withConnection(callback) {
   }
 }
 
-async function queryWithNamedParams(connection, sql, params = []) {
-  if (params && !Array.isArray(params) && typeof params === 'object') {
-    return connection.query({ sql, namedPlaceholders: true }, params);
+function normalizeSqlParams(sql, params = []) {
+  if (!params || Array.isArray(params) || typeof params !== 'object') {
+    return { sql, values: params };
   }
 
-  return connection.query(sql, params);
+  const values = [];
+  const normalizedSql = sql.replace(/@([a-zA-Z0-9_]+)/g, (_, key) => {
+    values.push(params[key] ?? null);
+    return '?';
+  });
+
+  return {
+    sql: normalizedSql,
+    values,
+  };
+}
+
+async function queryWithNamedParams(connection, sql, params = []) {
+  const normalized = normalizeSqlParams(sql, params);
+  return connection.query(normalized.sql, normalized.values);
 }
 
 async function executeWithNamedParams(connection, sql, params = []) {
-  if (params && !Array.isArray(params) && typeof params === 'object') {
-    return connection.execute({ sql, namedPlaceholders: true }, params);
-  }
-
-  return connection.execute(sql, params);
+  const normalized = normalizeSqlParams(sql, params);
+  return connection.execute(normalized.sql, normalized.values);
 }
+
 
 export function getDb() {
   return pool;
@@ -254,6 +266,7 @@ export async function runInTransaction(callback) {
     }
   });
 }
+
 
 export async function runMigrations() {
   for (const statement of MYSQL_MIGRATIONS) {

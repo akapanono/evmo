@@ -37,8 +37,7 @@ const TABLES = [
     name: 'products',
     columns: [
       'id', 'title', 'category', 'status', 'price_bucket', 'price_label', 'attributes_json', 'tags_json',
-      'match_dimensions_json', 'target_relationships_json', 'gift_scenes_json', 'recipient_styles_json',
-      'risk_level', 'link', 'summary', 'created_at', 'updated_at',
+      'match_dimensions_json', 'target_relationships_json', 'link', 'summary', 'created_at', 'updated_at',
     ],
   },
   { name: 'system_config', columns: ['config_key', 'value_json', 'updated_at'] },
