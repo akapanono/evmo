@@ -1,16 +1,18 @@
-export type AuthProvider = 'wechat' | 'qq';
-
-export interface AuthBindings {
-  wechat: boolean;
-  qq: boolean;
+export interface SecurityQuestionInput {
+  question: string;
+  answer: string;
 }
 
 export interface AuthUser {
   id: string;
   name: string;
-  phone: string;
+  username: string;
   hasPassword: boolean;
-  bindings: AuthBindings;
+  phone?: string;
+  bindings?: {
+    wechat: boolean;
+    qq: boolean;
+  };
 }
 
 export interface AuthSession {

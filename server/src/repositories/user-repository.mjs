@@ -14,11 +14,18 @@ export function createUserRepository(database) {
     return row
       ? {
           id: row.id,
+          username: row.username || '',
           name: row.name || '',
           phone: row.phone || '',
           email: row.email || '',
           status: row.status || 'active',
           passwordHash: row.password_hash || '',
+          securityQuestion1: row.security_question_1 || '',
+          securityAnswerHash1: row.security_answer_hash_1 || '',
+          securityQuestion2: row.security_question_2 || '',
+          securityAnswerHash2: row.security_answer_hash_2 || '',
+          securityQuestion3: row.security_question_3 || '',
+          securityAnswerHash3: row.security_answer_hash_3 || '',
           wechatOpenId: row.wechat_open_id || '',
           qqOpenId: row.qq_open_id || '',
           createdAt: row.created_at,
@@ -40,6 +47,10 @@ export function createUserRepository(database) {
       return mapUser(await database.queryOne('SELECT * FROM users WHERE id = ?', [id]));
     },
 
+    async getByUsername(username) {
+      return mapUser(await database.queryOne('SELECT * FROM users WHERE username = ?', [username]));
+    },
+
     async getByPhone(phone) {
       return mapUser(await database.queryOne('SELECT * FROM users WHERE phone = ?', [phone]));
     },
@@ -56,16 +67,31 @@ export function createUserRepository(database) {
     async save(user) {
       await database.execute(`
         INSERT INTO users (
-          id, name, phone, email, status, password_hash, wechat_open_id, qq_open_id, created_at, updated_at
+          id, username, name, phone, email, status, password_hash,
+          security_question_1, security_answer_hash_1,
+          security_question_2, security_answer_hash_2,
+          security_question_3, security_answer_hash_3,
+          wechat_open_id, qq_open_id, created_at, updated_at
         ) VALUES (
-          @id, @name, @phone, @email, @status, @password_hash, @wechat_open_id, @qq_open_id, @created_at, @updated_at
+          @id, @username, @name, @phone, @email, @status, @password_hash,
+          @security_question_1, @security_answer_hash_1,
+          @security_question_2, @security_answer_hash_2,
+          @security_question_3, @security_answer_hash_3,
+          @wechat_open_id, @qq_open_id, @created_at, @updated_at
         )
         ${buildUpsertClause(database, ['id'], [
+          'username',
           'name',
           'phone',
           'email',
           'status',
           'password_hash',
+          'security_question_1',
+          'security_answer_hash_1',
+          'security_question_2',
+          'security_answer_hash_2',
+          'security_question_3',
+          'security_answer_hash_3',
           'wechat_open_id',
           'qq_open_id',
           'created_at',
@@ -73,11 +99,18 @@ export function createUserRepository(database) {
         ])}
       `, {
         id: user.id,
+        username: user.username || '',
         name: user.name || '',
         phone: user.phone || '',
         email: user.email || '',
         status: user.status || 'active',
         password_hash: user.passwordHash || '',
+        security_question_1: user.securityQuestion1 || '',
+        security_answer_hash_1: user.securityAnswerHash1 || '',
+        security_question_2: user.securityQuestion2 || '',
+        security_answer_hash_2: user.securityAnswerHash2 || '',
+        security_question_3: user.securityQuestion3 || '',
+        security_answer_hash_3: user.securityAnswerHash3 || '',
         wechat_open_id: user.wechatOpenId || '',
         qq_open_id: user.qqOpenId || '',
         created_at: user.createdAt || new Date().toISOString(),

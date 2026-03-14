@@ -7,9 +7,11 @@ import {
   checkAdminPassword,
   createAdminToken,
   createUserToken,
+  hashSecurityAnswer,
   hashPassword,
   verifyAdminToken,
   verifyPassword,
+  verifySecurityAnswer,
   verifyUserToken,
 } from './auth.mjs';
 import { forwardChat, forwardChatStream, testChatConnection } from './ai-proxy.mjs';
@@ -31,6 +33,7 @@ import {
   getUserById,
   getUserByPhone,
   getUserByProvider,
+  getUserByUsername,
   getUsers,
   replaceUserBackup,
   saveFriend,
@@ -91,6 +94,63 @@ function consumePhoneCode(userId, phone, purpose, code) {
   return { ok: true };
 }
 
+const USERNAME_PATTERN = /^[A-Za-z0-9]{8,30}$/;
+const PASSWORD_PATTERN = /^[A-Za-z0-9]{6,15}$/;
+const SECURITY_QUESTION_COUNT = 3;
+
+function normalizeUsername(value) {
+  return String(value || '').trim();
+}
+
+function isValidUsername(value) {
+  return USERNAME_PATTERN.test(value);
+}
+
+function isValidPassword(value) {
+  return PASSWORD_PATTERN.test(value);
+}
+
+function normalizeSecurityQuestions(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.slice(0, SECURITY_QUESTION_COUNT).map((item) => ({
+    question: String(item?.question || '').trim(),
+    answer: String(item?.answer || '').trim(),
+  }));
+}
+
+function validateSecurityQuestions(questions) {
+  if (questions.length !== SECURITY_QUESTION_COUNT) {
+    return '请完整填写 3 个密保问题和答案。';
+  }
+
+  const questionSet = new Set();
+  for (const item of questions) {
+    if (!item.question || !item.answer) {
+      return '请完整填写 3 个密保问题和答案。';
+    }
+
+    if (item.question.length < 2 || item.question.length > 60) {
+      return '密保问题长度需在 2 到 60 个字符之间。';
+    }
+
+    if (item.answer.length < 1 || item.answer.length > 60) {
+      return '密保答案长度需在 1 到 60 个字符之间。';
+    }
+
+    const normalizedQuestion = item.question.toLowerCase();
+    if (questionSet.has(normalizedQuestion)) {
+      return '3 个密保问题不能重复。';
+    }
+
+    questionSet.add(normalizedQuestion);
+  }
+
+  return '';
+}
+
 function getUserIdFromRequest(req) {
   return verifyUserToken(getBearerToken(req));
 }
@@ -109,12 +169,8 @@ function buildAuthUser(user) {
   return {
     id: user.id,
     name: user.name,
-    phone: user.phone,
+    username: user.username,
     hasPassword: Boolean(user.passwordHash),
-    bindings: {
-      wechat: Boolean(user.wechatOpenId),
-      qq: Boolean(user.qqOpenId),
-    },
   };
 }
 
@@ -142,10 +198,8 @@ function getRateLimitRule(url) {
   if (
     url.pathname === '/api/auth/login'
     || url.pathname === '/api/auth/register'
-    || url.pathname === '/api/auth/register-code/send'
-    || url.pathname === '/api/auth/register-by-code'
-    || url.pathname === '/api/auth/provider-login'
-    || url.pathname === '/api/auth/phone-code/send'
+    || url.pathname === '/api/auth/password-reset/questions'
+    || url.pathname === '/api/auth/password-reset'
     || url.pathname === '/api/admin/login'
   ) {
     return { windowMs: config.security.rateLimitWindowMs, maxRequests: Math.max(5, Math.floor(config.security.rateLimitMaxRequests / 4)) };
@@ -221,6 +275,163 @@ async function handleAuthRoutes(req, res, url) {
         username: config.admin.username,
       },
     });
+    return true;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/auth/register') {
+    const body = await readBody(req);
+    const username = normalizeUsername(body.username);
+    const password = String(body.password || '').trim();
+    const confirmPassword = String(body.confirmPassword || '').trim();
+    const securityQuestions = normalizeSecurityQuestions(body.securityQuestions);
+    const questionsError = validateSecurityQuestions(securityQuestions);
+
+    if (!isValidUsername(username)) {
+      json(res, 400, { ok: false, error: '账号需为 8-30 位字母或数字。' });
+      return true;
+    }
+
+    if (!isValidPassword(password)) {
+      json(res, 400, { ok: false, error: '密码需为 6-15 位字母或数字。' });
+      return true;
+    }
+
+    if (password !== confirmPassword) {
+      json(res, 400, { ok: false, error: '两次输入的密码不一致。' });
+      return true;
+    }
+
+    if (questionsError) {
+      json(res, 400, { ok: false, error: questionsError });
+      return true;
+    }
+
+    const existing = await getUserByUsername(username);
+    if (existing) {
+      auditLog(req, 'register_failed', { status: 'failed', username, reason: 'username_exists' });
+      json(res, 409, { ok: false, error: '该账号已存在。' });
+      return true;
+    }
+
+    const now = new Date().toISOString();
+    const user = await saveUser({
+      id: crypto.randomUUID(),
+      username,
+      name: username,
+      phone: '',
+      email: '',
+      status: 'active',
+      passwordHash: hashPassword(password),
+      securityQuestion1: securityQuestions[0].question,
+      securityAnswerHash1: hashSecurityAnswer(securityQuestions[0].answer),
+      securityQuestion2: securityQuestions[1].question,
+      securityAnswerHash2: hashSecurityAnswer(securityQuestions[1].answer),
+      securityQuestion3: securityQuestions[2].question,
+      securityAnswerHash3: hashSecurityAnswer(securityQuestions[2].answer),
+      wechatOpenId: '',
+      qqOpenId: '',
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    auditLog(req, 'register_succeeded', { status: 'ok', username, userId: user.id });
+    json(res, 201, { ok: true, data: buildAuthSession(user) });
+    return true;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/auth/login') {
+    const body = await readBody(req);
+    const username = normalizeUsername(body.username);
+    const password = String(body.password || '').trim();
+    const user = await getUserByUsername(username);
+
+    if (!user || !verifyPassword(password, user.passwordHash)) {
+      auditLog(req, 'login_failed', { status: 'failed', username });
+      json(res, 401, { ok: false, error: '账号或密码错误。' });
+      return true;
+    }
+
+    auditLog(req, 'login_succeeded', { status: 'ok', username, userId: user.id });
+    json(res, 200, { ok: true, data: buildAuthSession(user) });
+    return true;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/auth/password-reset/questions') {
+    const body = await readBody(req);
+    const username = normalizeUsername(body.username);
+
+    if (!isValidUsername(username)) {
+      json(res, 400, { ok: false, error: '账号需为 8-30 位字母或数字。' });
+      return true;
+    }
+
+    const user = await getUserByUsername(username);
+    if (!user) {
+      json(res, 404, { ok: false, error: '账号不存在。' });
+      return true;
+    }
+
+    json(res, 200, {
+      ok: true,
+      data: {
+        questions: [user.securityQuestion1, user.securityQuestion2, user.securityQuestion3],
+      },
+    });
+    return true;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/auth/password-reset') {
+    const body = await readBody(req);
+    const username = normalizeUsername(body.username);
+    const newPassword = String(body.newPassword || '').trim();
+    const confirmNewPassword = String(body.confirmNewPassword || '').trim();
+    const securityAnswers = Array.isArray(body.securityAnswers) ? body.securityAnswers : [];
+    const user = await getUserByUsername(username);
+
+    if (!isValidUsername(username)) {
+      json(res, 400, { ok: false, error: '账号需为 8-30 位字母或数字。' });
+      return true;
+    }
+
+    if (!user) {
+      auditLog(req, 'password_reset_failed', { status: 'failed', username, reason: 'user_not_found' });
+      json(res, 404, { ok: false, error: '账号不存在。' });
+      return true;
+    }
+
+    if (!isValidPassword(newPassword)) {
+      json(res, 400, { ok: false, error: '新密码需为 6-15 位字母或数字。' });
+      return true;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      json(res, 400, { ok: false, error: '两次输入的新密码不一致。' });
+      return true;
+    }
+
+    if (securityAnswers.length !== SECURITY_QUESTION_COUNT) {
+      json(res, 400, { ok: false, error: '请填写 3 个密保答案。' });
+      return true;
+    }
+
+    const answerOk = verifySecurityAnswer(securityAnswers[0], user.securityAnswerHash1)
+      && verifySecurityAnswer(securityAnswers[1], user.securityAnswerHash2)
+      && verifySecurityAnswer(securityAnswers[2], user.securityAnswerHash3);
+
+    if (!answerOk) {
+      auditLog(req, 'password_reset_failed', { status: 'failed', username, reason: 'invalid_answers' });
+      json(res, 401, { ok: false, error: '密保答案错误。' });
+      return true;
+    }
+
+    const nextUser = await saveUser({
+      ...user,
+      passwordHash: hashPassword(newPassword),
+      updatedAt: new Date().toISOString(),
+    });
+
+    auditLog(req, 'password_reset_succeeded', { status: 'ok', username, userId: user.id });
+    json(res, 200, { ok: true, data: buildAuthSession(nextUser) });
     return true;
   }
 
@@ -592,16 +803,12 @@ async function handleApiRoutes(req, res, url) {
       const backup = await getUserBackup(user.id);
       return {
         id: user.id,
+        username: user.username,
         name: user.name,
-        phone: user.phone,
         email: user.email,
         status: user.status,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
-        bindings: {
-          wechat: Boolean(user.wechatOpenId),
-          qq: Boolean(user.qqOpenId),
-        },
         friendCount: backup.friends.length,
         memorialDayCount: backup.memorialDays.length,
       };
@@ -978,13 +1185,9 @@ const server = createServer(async (req, res) => {
         '/api/ai/test',
         '/api/ai/chat',
         '/api/auth/register',
-        '/api/auth/register-code/send',
-        '/api/auth/register-by-code',
         '/api/auth/login',
-        '/api/auth/provider-login',
-        '/api/auth/me',
-        '/api/backup/push',
-        '/api/backup/pull',
+        '/api/auth/password-reset/questions',
+        '/api/auth/password-reset',
       ]);
       const adminProtectedPrefixes = ['/api/admin/', '/api/products', '/api/system/config'];
       const requiresAdmin = adminProtectedPrefixes.some((prefix) => url.pathname.startsWith(prefix));

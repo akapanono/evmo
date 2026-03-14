@@ -99,6 +99,18 @@ export function verifyPassword(password, passwordHash) {
   return crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(nextHash));
 }
 
+export function normalizeSecurityAnswer(answer) {
+  return String(answer || '').trim().toLowerCase();
+}
+
+export function hashSecurityAnswer(answer) {
+  return hashPassword(normalizeSecurityAnswer(answer));
+}
+
+export function verifySecurityAnswer(answer, answerHash) {
+  return verifyPassword(normalizeSecurityAnswer(answer), answerHash);
+}
+
 export function createUserToken(userId) {
   return createToken({ type: 'user', subject: userId });
 }

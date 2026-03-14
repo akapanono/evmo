@@ -78,11 +78,18 @@ export function runMigrations() {
 
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
+      username TEXT,
       name TEXT,
       phone TEXT,
       email TEXT,
       status TEXT NOT NULL DEFAULT 'active',
       password_hash TEXT,
+      security_question_1 TEXT,
+      security_answer_hash_1 TEXT,
+      security_question_2 TEXT,
+      security_answer_hash_2 TEXT,
+      security_question_3 TEXT,
+      security_answer_hash_3 TEXT,
       wechat_open_id TEXT,
       qq_open_id TEXT,
       created_at TEXT NOT NULL,
@@ -247,10 +254,18 @@ export function runMigrations() {
 }
 
 function ensureUsersTableShape() {
+  addColumnIfMissing('users', 'username', 'TEXT');
   addColumnIfMissing('users', 'password_hash', 'TEXT');
+  addColumnIfMissing('users', 'security_question_1', 'TEXT');
+  addColumnIfMissing('users', 'security_answer_hash_1', 'TEXT');
+  addColumnIfMissing('users', 'security_question_2', 'TEXT');
+  addColumnIfMissing('users', 'security_answer_hash_2', 'TEXT');
+  addColumnIfMissing('users', 'security_question_3', 'TEXT');
+  addColumnIfMissing('users', 'security_answer_hash_3', 'TEXT');
   addColumnIfMissing('users', 'wechat_open_id', 'TEXT');
   addColumnIfMissing('users', 'qq_open_id', 'TEXT');
   addColumnIfMissing('users', 'updated_at', "TEXT NOT NULL DEFAULT ''");
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users(username);');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_unique ON users(phone);');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_wechat_open_id_unique ON users(wechat_open_id);');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_qq_open_id_unique ON users(qq_open_id);');

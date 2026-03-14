@@ -29,15 +29,23 @@ const MYSQL_MIGRATIONS = [
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(64) PRIMARY KEY,
+    username VARCHAR(64),
     name VARCHAR(191),
     phone VARCHAR(64),
     email VARCHAR(191),
     status VARCHAR(32) NOT NULL DEFAULT 'active',
     password_hash VARCHAR(255),
+    security_question_1 VARCHAR(191),
+    security_answer_hash_1 VARCHAR(255),
+    security_question_2 VARCHAR(191),
+    security_answer_hash_2 VARCHAR(255),
+    security_question_3 VARCHAR(191),
+    security_answer_hash_3 VARCHAR(255),
     wechat_open_id VARCHAR(191),
     qq_open_id VARCHAR(191),
     created_at VARCHAR(40) NOT NULL,
     updated_at VARCHAR(40) NOT NULL,
+    UNIQUE KEY idx_users_username_unique (username),
     UNIQUE KEY idx_users_phone_unique (phone),
     UNIQUE KEY idx_users_wechat_open_id_unique (wechat_open_id),
     UNIQUE KEY idx_users_qq_open_id_unique (qq_open_id)
@@ -218,6 +226,27 @@ async function executeWithNamedParams(connection, sql, params = []) {
   return connection.execute(normalized.sql, normalized.values);
 }
 
+async function ensureUsersTableShape() {
+  await execute(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS username VARCHAR(64),
+    ADD COLUMN IF NOT EXISTS security_question_1 VARCHAR(191),
+    ADD COLUMN IF NOT EXISTS security_answer_hash_1 VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS security_question_2 VARCHAR(191),
+    ADD COLUMN IF NOT EXISTS security_answer_hash_2 VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS security_question_3 VARCHAR(191),
+    ADD COLUMN IF NOT EXISTS security_answer_hash_3 VARCHAR(255)
+  `);
+
+  try {
+    await execute('CREATE UNIQUE INDEX idx_users_username_unique ON users(username)');
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes('Duplicate key name')) {
+      throw error;
+    }
+  }
+}
+
 
 export function getDb() {
   return pool;
@@ -272,6 +301,7 @@ export async function runMigrations() {
   for (const statement of MYSQL_MIGRATIONS) {
     await pool.query(statement);
   }
+  await ensureUsersTableShape();
 }
 
 export async function getConfigRow(key, fallbackValue) {

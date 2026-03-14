@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { cloudService } from '@/services/cloudService';
 import { storageService } from '@/services/storageService';
-import type { AuthProvider, AuthUser } from '@/types/auth';
+import type { AuthUser, SecurityQuestionInput } from '@/types/auth';
 
 export const useAuthStore = defineStore('auth', () => {
   const session = ref(storageService.getAuthSession());
@@ -32,7 +32,12 @@ export const useAuthStore = defineStore('auth', () => {
     });
   }
 
-  async function register(input: { name?: string; phone: string; password: string }): Promise<void> {
+  async function register(input: {
+    username: string;
+    password: string;
+    confirmPassword: string;
+    securityQuestions: SecurityQuestionInput[];
+  }): Promise<void> {
     loading.value = true;
     try {
       persistSession(await cloudService.register(input));
@@ -41,7 +46,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function login(input: { phone: string; password: string }): Promise<void> {
+  async function login(input: { username: string; password: string }): Promise<void> {
     loading.value = true;
     try {
       persistSession(await cloudService.login(input));
@@ -50,55 +55,25 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function sendRegisterCode(phone: string): Promise<{ maskedPhone: string; expiresInSeconds: number; devCode?: string }> {
+  async function getPasswordResetQuestions(username: string): Promise<string[]> {
     loading.value = true;
     try {
-      return await cloudService.sendRegisterCode(phone);
+      const result = await cloudService.getPasswordResetQuestions(username);
+      return result.questions;
     } finally {
       loading.value = false;
     }
   }
 
-  async function registerByCode(input: { name?: string; phone: string; code: string }): Promise<void> {
+  async function resetPassword(input: {
+    username: string;
+    securityAnswers: string[];
+    newPassword: string;
+    confirmNewPassword: string;
+  }): Promise<void> {
     loading.value = true;
     try {
-      persistSession(await cloudService.registerByCode(input));
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function loginWithProvider(input: { provider: AuthProvider; providerId: string; displayName?: string }): Promise<void> {
-    loading.value = true;
-    try {
-      persistSession(await cloudService.providerLogin(input));
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function bindPhoneWithCode(input: { phone: string; code: string }): Promise<void> {
-    loading.value = true;
-    try {
-      updateUser(await cloudService.bindPhoneWithCode(input));
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function bindProvider(input: { provider: AuthProvider; providerId: string }): Promise<void> {
-    loading.value = true;
-    try {
-      updateUser(await cloudService.bindProvider(input));
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function unbindProvider(provider: AuthProvider): Promise<void> {
-    loading.value = true;
-    try {
-      updateUser(await cloudService.unbindProvider(provider));
+      persistSession(await cloudService.resetPassword(input));
     } finally {
       loading.value = false;
     }
@@ -127,12 +102,8 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     register,
     login,
-    sendRegisterCode,
-    registerByCode,
-    loginWithProvider,
-    bindPhoneWithCode,
-    bindProvider,
-    unbindProvider,
+    getPasswordResetQuestions,
+    resetPassword,
     refreshCurrentUser,
     logout,
   };

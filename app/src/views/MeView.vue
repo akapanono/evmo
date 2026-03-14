@@ -21,7 +21,7 @@
           <button type="button" class="setting-row" @click="openAccountEntry">
             <div>
               <strong>账号与安全</strong>
-              <span>{{ accountSummary }}</span>
+              <span>{{ accountSummaryText || _accountSummary }}</span>
             </div>
           </button>
           <button type="button" class="setting-row" @click="openSection('appearance')">
@@ -342,15 +342,15 @@ const sectionTitle = computed(() => ({
   about: '通用设置',
 }[activeSection.value || 'about']));
 const canTestConnection = computed(() => Boolean(proxyServerUrl.value.trim()));
-const accountSummary = computed(() => {
+const _accountSummary = computed(() => {
   if (!authStore.isLoggedIn) {
     return '未登录，支持手机号、微信和 QQ 登录';
   }
 
   const bindings = [
     authStore.user?.phone ? '已绑定手机号' : '未绑手机号',
-    authStore.user?.bindings.wechat ? '已绑微信' : null,
-    authStore.user?.bindings.qq ? '已绑QQ' : null,
+    authStore.user?.bindings?.wechat ? '已绑微信' : null,
+    authStore.user?.bindings?.qq ? '已绑QQ' : null,
   ].filter(Boolean);
   return bindings.join(' / ');
 });
@@ -360,6 +360,14 @@ const privacySummary = computed(() => [hideSensitiveInfo.value ? '隐藏敏感�
 const reminderSummary = computed(() => birthdayReminderEnabled.value ? `提前 ${birthdayReminderDaysBefore.value} 天 · ${birthdayReminderTime.value}` : '生日提醒已关闭');
 const dataSummary = computed(() => `${wifiOnlyBackup.value ? '仅 Wi-Fi 备份' : '允许移动网络备份'} · ${autoBackup.value ? '自动备份开启' : '手动备份'}`);
 const aboutSummary = computed(() => `${profileDeviceName.value || '当前设备'} · 好友排序 ${friendSortModeLabel(friendSortMode.value)}`);
+
+const accountSummaryText = computed(() => {
+  if (!authStore.isLoggedIn) {
+    return '未登录，可使用账号密码登录或注册。';
+  }
+
+  return `当前账号：${authStore.user?.username || authStore.user?.name || '--'}`;
+});
 
 onMounted(async () => {
   await Promise.all([

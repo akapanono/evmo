@@ -81,11 +81,6 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/AuthView.vue'),
   },
   {
-    path: '/auth/bind-phone',
-    name: 'auth-bind-phone',
-    component: () => import('@/views/PhoneBindView.vue'),
-  },
-  {
     path: '/me',
     name: 'me',
     component: () => import('@/views/MeView.vue'),
