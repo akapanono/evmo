@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { buildOrderByRecent, buildUpsertClause } from '../database/sql-helpers.mjs';
 
 export function createUserRepository(database) {
@@ -40,6 +41,8 @@ export function createUserRepository(database) {
     },
 
     async save(user) {
+      const userId = user.id || crypto.randomUUID();
+
       await database.execute(`
         INSERT INTO users (
           id, username, name, email, status, password_hash,
@@ -70,7 +73,7 @@ export function createUserRepository(database) {
           'updated_at',
         ])}
       `, {
-        id: user.id,
+        id: userId,
         username: user.username || '',
         name: user.name || '',
         email: user.email || '',
@@ -86,7 +89,7 @@ export function createUserRepository(database) {
         updated_at: user.updatedAt || new Date().toISOString(),
       });
 
-      return this.getById(user.id);
+      return this.getById(userId);
     },
   };
 }
