@@ -32,9 +32,6 @@ export interface AppSettings {
   defaultQuestions: string[];
   friendSortMode: 'name' | 'contact' | 'viewed';
 
-  loginPreference: 'auto' | 'phone' | 'wechat' | 'qq';
-  wechatConnected: boolean;
-  qqConnected: boolean;
   boundPhone: string;
 
   startPage: 'home' | 'calendar' | 'friends';
@@ -66,9 +63,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
     '如果我想准备一份礼物，应该从哪里下手？',
   ],
   friendSortMode: 'viewed',
-  loginPreference: 'auto',
-  wechatConnected: false,
-  qqConnected: false,
   boundPhone: '',
   startPage: 'home',
   allowCellularAI: true,

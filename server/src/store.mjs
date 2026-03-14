@@ -121,14 +121,6 @@ export async function getUserByUsername(username) {
   return userRepository.getByUsername(username);
 }
 
-export async function getUserByPhone(phone) {
-  return userRepository.getByPhone(phone);
-}
-
-export async function getUserByProvider(provider, providerId) {
-  return userRepository.getByProvider(provider, providerId);
-}
-
 export async function saveUser(user) {
   return userRepository.save(user);
 }
@@ -194,7 +186,6 @@ export async function getAdminUserDetail(userId) {
       id: user.id,
       username: user.username,
       name: user.name,
-      phone: user.phone,
       email: user.email,
       status: user.status,
       createdAt: user.createdAt,

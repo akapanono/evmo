@@ -11,11 +11,13 @@
             </div>
           </div>
 
-          <p class="hero-text">使用账号和密码登录。注册时需要设置 3 个密保问题，用于忘记密码时重置。</p>
+          <p class="hero-text">
+            使用账号密码登录。注册时设置 3 个密保问题，忘记密码时可用密保答案重置。
+          </p>
 
           <div class="card-stack">
-            <button type="button" class="primary-btn" @click="openLogin">进入登录</button>
-            <button type="button" class="secondary-btn" @click="openRegister">创建账号</button>
+            <button type="button" class="primary-btn" @click="openLogin">去登录</button>
+            <button type="button" class="secondary-btn" @click="openRegister">去注册</button>
           </div>
         </article>
 
@@ -35,7 +37,7 @@
                 v-model="loginForm.username"
                 type="text"
                 maxlength="30"
-                placeholder="请输入 8-30 位字母或数字"
+                placeholder="8-30 位字母或数字"
               />
             </label>
 
@@ -45,7 +47,7 @@
                 v-model="loginForm.password"
                 type="password"
                 maxlength="15"
-                placeholder="请输入密码"
+                placeholder="6-15 位字母或数字"
               />
             </label>
 
@@ -68,7 +70,7 @@
             <button type="button" class="ghost-btn" @click="activeScreen = 'login'">返回</button>
             <div>
               <p class="eyebrow">SIGN UP</p>
-              <h1>注册账号</h1>
+              <h1>账号注册</h1>
             </div>
           </div>
 
@@ -99,7 +101,7 @@
                 v-model="registerForm.confirmPassword"
                 type="password"
                 maxlength="15"
-                placeholder="请再次输入密码"
+                placeholder="再次输入密码"
               />
             </label>
 
@@ -114,7 +116,7 @@
                   v-model="item.question"
                   type="text"
                   maxlength="60"
-                  placeholder="例如：你小学的名字是什么？"
+                  placeholder="请输入密保问题"
                 />
               </label>
 
@@ -124,7 +126,7 @@
                   v-model="item.answer"
                   type="text"
                   maxlength="60"
-                  placeholder="请输入对应答案"
+                  placeholder="请输入答案"
                 />
               </label>
             </div>
@@ -143,7 +145,7 @@
             <button type="button" class="ghost-btn" @click="activeScreen = 'login'">返回</button>
             <div>
               <p class="eyebrow">RESET</p>
-              <h1>找回密码</h1>
+              <h1>重置密码</h1>
             </div>
           </div>
 
@@ -155,10 +157,10 @@
                   v-model="resetForm.username"
                   type="text"
                   maxlength="30"
-                  placeholder="输入账号后获取密保问题"
+                  placeholder="输入账号后读取密保问题"
                 />
                 <button type="button" class="inline-btn" :disabled="authStore.loading" @click="loadSecurityQuestions">
-                  获取问题
+                  读取问题
                 </button>
               </div>
             </label>
@@ -190,7 +192,7 @@
                 v-model="resetForm.newPassword"
                 type="password"
                 maxlength="15"
-                placeholder="请输入新密码"
+                placeholder="6-15 位字母或数字"
               />
             </label>
 
@@ -200,7 +202,7 @@
                 v-model="resetForm.confirmNewPassword"
                 type="password"
                 maxlength="15"
-                placeholder="请再次输入新密码"
+                placeholder="再次输入新密码"
               />
             </label>
 
@@ -259,8 +261,8 @@ const router = useRouter();
 const authStore = useAuthStore();
 
 const activeScreen = ref<AuthScreen>('landing');
-const message = ref('');
 const error = ref('');
+const message = ref('');
 const resetQuestions = ref<string[]>([]);
 
 const loginForm = reactive({
@@ -286,18 +288,29 @@ const resetForm = reactive({
   confirmNewPassword: '',
 });
 
-const redirectTarget = computed(() => {
-  const redirect = route.query.redirect;
-  return typeof redirect === 'string' && redirect ? redirect : '/me';
-});
+const canGoBack = computed(() => window.history.length > 1);
 
 function resetFeedback(): void {
-  message.value = '';
   error.value = '';
+  message.value = '';
 }
 
-function goBack(): void {
-  void router.push(redirectTarget.value);
+function resetRegisterForm(): void {
+  registerForm.username = '';
+  registerForm.password = '';
+  registerForm.confirmPassword = '';
+  registerForm.securityQuestions.forEach((item) => {
+    item.question = '';
+    item.answer = '';
+  });
+}
+
+function resetResetForm(): void {
+  resetForm.username = '';
+  resetForm.securityAnswers = ['', '', ''];
+  resetForm.newPassword = '';
+  resetForm.confirmNewPassword = '';
+  resetQuestions.value = [];
 }
 
 function openLogin(): void {
@@ -307,316 +320,102 @@ function openLogin(): void {
 
 function openRegister(): void {
   resetFeedback();
+  resetRegisterForm();
   activeScreen.value = 'register';
 }
 
 function openForgotPassword(): void {
   resetFeedback();
+  resetResetForm();
   activeScreen.value = 'forgot';
+}
+
+function goBack(): void {
+  if (canGoBack.value) {
+    router.back();
+    return;
+  }
+
+  router.replace('/');
 }
 
 async function submitLogin(): Promise<void> {
   resetFeedback();
-
   try {
     await authStore.login({
-      username: loginForm.username.trim(),
+      username: loginForm.username,
       password: loginForm.password,
     });
-    message.value = '登录成功。';
-    void router.push(redirectTarget.value);
+    message.value = '登录成功';
   } catch (err) {
-    error.value = (err as Error).message;
+    error.value = err instanceof Error ? err.message : '登录失败';
   }
 }
 
 async function submitRegister(): Promise<void> {
   resetFeedback();
-
   try {
     await authStore.register({
-      username: registerForm.username.trim(),
+      username: registerForm.username,
       password: registerForm.password,
       confirmPassword: registerForm.confirmPassword,
       securityQuestions: registerForm.securityQuestions.map((item) => ({
-        question: item.question.trim(),
-        answer: item.answer.trim(),
+        question: item.question,
+        answer: item.answer,
       })),
     });
-    message.value = '注册成功。';
-    void router.push(redirectTarget.value);
+    message.value = '注册成功';
   } catch (err) {
-    error.value = (err as Error).message;
+    error.value = err instanceof Error ? err.message : '注册失败';
   }
 }
 
 async function loadSecurityQuestions(): Promise<void> {
   resetFeedback();
-
   try {
-    resetQuestions.value = await authStore.getPasswordResetQuestions(resetForm.username.trim());
-    resetForm.securityAnswers = ['', '', ''];
-    message.value = '密保问题已加载。';
+    resetQuestions.value = await authStore.getPasswordResetQuestions(resetForm.username);
+    message.value = '已加载密保问题';
   } catch (err) {
-    error.value = (err as Error).message;
+    error.value = err instanceof Error ? err.message : '读取失败';
   }
 }
 
 async function submitResetPassword(): Promise<void> {
   resetFeedback();
-
   try {
     await authStore.resetPassword({
-      username: resetForm.username.trim(),
-      securityAnswers: resetForm.securityAnswers.map((item) => item.trim()),
+      username: resetForm.username,
+      securityAnswers: [...resetForm.securityAnswers],
       newPassword: resetForm.newPassword,
       confirmNewPassword: resetForm.confirmNewPassword,
     });
-    message.value = '密码已重置。';
-    void router.push(redirectTarget.value);
+    message.value = '密码已重置';
   } catch (err) {
-    error.value = (err as Error).message;
+    error.value = err instanceof Error ? err.message : '重置失败';
   }
 }
 
 async function refreshCurrentUser(): Promise<void> {
   resetFeedback();
-
   try {
     await authStore.refreshCurrentUser();
-    message.value = '账号信息已刷新。';
+    message.value = '已刷新';
   } catch (err) {
-    error.value = (err as Error).message;
+    error.value = err instanceof Error ? err.message : '刷新失败';
   }
 }
 
 function logout(): void {
   authStore.logout();
-  activeScreen.value = 'landing';
   resetFeedback();
-  void router.push('/auth');
+  activeScreen.value = 'landing';
+}
+
+if (route.query.mode === 'register') {
+  activeScreen.value = 'register';
+} else if (route.query.mode === 'forgot') {
+  activeScreen.value = 'forgot';
+} else if (route.query.mode === 'login') {
+  activeScreen.value = 'login';
 }
 </script>
-
-<style scoped>
-.auth-screen {
-  overflow-y: auto;
-  padding: 18px 16px 42px;
-  background:
-    radial-gradient(circle at top left, rgba(247, 205, 139, 0.28), transparent 24%),
-    radial-gradient(circle at top right, rgba(115, 166, 150, 0.18), transparent 22%),
-    linear-gradient(180deg, #f4efe7 0%, #e7eff0 100%);
-}
-
-.auth-shell {
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-.auth-card {
-  border-radius: 28px;
-  padding: 22px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(36, 56, 77, 0.08);
-  box-shadow: 0 20px 60px rgba(54, 69, 79, 0.12);
-}
-
-.auth-landing {
-  display: grid;
-  gap: 18px;
-  min-height: 320px;
-  align-content: center;
-}
-
-.card-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  margin-bottom: 18px;
-}
-
-.eyebrow {
-  margin: 0 0 8px;
-  color: #6a7d8a;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-}
-
-h1 {
-  margin: 0;
-  color: #20384e;
-  font-size: 38px;
-  line-height: 1.05;
-}
-
-.hero-text {
-  margin: 0;
-  color: #506474;
-  line-height: 1.7;
-}
-
-.card-stack,
-.summary-grid,
-.provider-row {
-  display: grid;
-  gap: 14px;
-}
-
-.field {
-  display: grid;
-  gap: 8px;
-}
-
-.field span {
-  color: #29445b;
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.field input {
-  width: 100%;
-  border: 1px solid rgba(36, 56, 77, 0.12);
-  border-radius: 20px;
-  padding: 16px 18px;
-  background: rgba(255, 255, 255, 0.94);
-  color: #20384e;
-  font-size: 17px;
-}
-
-.inline-field {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-}
-
-.security-block {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border-radius: 22px;
-  background: rgba(235, 241, 246, 0.72);
-}
-
-.primary-btn,
-.secondary-btn,
-.danger-btn,
-.ghost-btn,
-.inline-btn,
-.link-btn {
-  border: none;
-  border-radius: 18px;
-  font-weight: 700;
-  transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
-}
-
-.primary-btn,
-.secondary-btn,
-.danger-btn {
-  padding: 16px 18px;
-  font-size: 17px;
-}
-
-.primary-btn {
-  background: #243c55;
-  color: #fff;
-}
-
-.secondary-btn,
-.ghost-btn,
-.inline-btn {
-  background: #dfe7ee;
-  color: #243c55;
-}
-
-.danger-btn {
-  background: #f5d7d7;
-  color: #883f3f;
-}
-
-.ghost-btn {
-  padding: 12px 18px;
-}
-
-.inline-btn {
-  padding: 0 16px;
-}
-
-.link-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.link-btn {
-  padding: 0;
-  background: transparent;
-  color: #45617a;
-}
-
-.summary-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.summary-item {
-  padding: 16px;
-  border-radius: 22px;
-  background: rgba(235, 241, 246, 0.72);
-  display: grid;
-  gap: 6px;
-}
-
-.summary-item span {
-  color: #6a7d8a;
-  font-size: 13px;
-}
-
-.summary-item strong {
-  color: #20384e;
-  font-size: 17px;
-}
-
-.feedback {
-  margin: 18px 0 0;
-  border-radius: 18px;
-  padding: 14px 16px;
-  font-size: 15px;
-  line-height: 1.6;
-}
-
-.feedback.success {
-  color: #24523b;
-  background: rgba(205, 235, 216, 0.78);
-}
-
-.feedback.error {
-  color: #9a4e44;
-  background: rgba(255, 226, 223, 0.88);
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.68;
-  transform: none;
-}
-
-@media (max-width: 640px) {
-  .auth-screen {
-    padding: 14px 12px 34px;
-  }
-
-  .auth-card {
-    border-radius: 24px;
-    padding: 18px;
-  }
-
-  h1 {
-    font-size: 31px;
-  }
-
-  .summary-grid {
-    grid-template-columns: 1fr;
-  }
-}
-</style>

@@ -31,8 +31,6 @@ import {
   getSystemConfig,
   getUserBackup,
   getUserById,
-  getUserByPhone,
-  getUserByProvider,
   getUserByUsername,
   getUsers,
   replaceUserBackup,
@@ -46,53 +44,6 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const adminDir = join(__dirname, '..', '..', 'admin');
 const rateLimitBuckets = new Map();
-const phoneCodeBuckets = new Map();
-
-function normalizeProvider(value) {
-  return value === 'wechat' ? 'wechat' : value === 'qq' ? 'qq' : '';
-}
-
-function normalizePhone(value) {
-  return String(value || '').replace(/\s+/g, '').trim();
-}
-
-function maskPhone(phone) {
-  if (phone.length < 7) {
-    return phone;
-  }
-
-  return `${phone.slice(0, 3)}****${phone.slice(-4)}`;
-}
-
-function issuePhoneCode(userId, phone, purpose) {
-  const code = String(Math.floor(100000 + Math.random() * 900000));
-  const expiresAt = Date.now() + 5 * 60 * 1000;
-  phoneCodeBuckets.set(`${userId}:${purpose}:${phone}`, { code, expiresAt });
-  return {
-    code,
-    expiresAt,
-  };
-}
-
-function consumePhoneCode(userId, phone, purpose, code) {
-  const key = `${userId}:${purpose}:${phone}`;
-  const current = phoneCodeBuckets.get(key);
-  if (!current) {
-    return { ok: false, error: '请先获取验证码。' };
-  }
-
-  if (current.expiresAt <= Date.now()) {
-    phoneCodeBuckets.delete(key);
-    return { ok: false, error: '验证码已过期，请重新获取。' };
-  }
-
-  if (current.code !== code) {
-    return { ok: false, error: '验证码不正确。' };
-  }
-
-  phoneCodeBuckets.delete(key);
-  return { ok: true };
-}
 
 const USERNAME_PATTERN = /^[A-Za-z0-9]{8,30}$/;
 const PASSWORD_PATTERN = /^[A-Za-z0-9]{6,15}$/;
@@ -263,7 +214,7 @@ async function handleAuthRoutes(req, res, url) {
 
     if (!checkAdminPassword(body.username, body.password)) {
       auditLog(req, 'admin_login_failed', { status: 'failed', username: adminUsername });
-      json(res, 401, { ok: false, error: '管理员账号或密码错误。' });
+      json(res, 401, { ok: false, error: 'Invalid admin credentials' });
       return true;
     }
 
@@ -287,17 +238,17 @@ async function handleAuthRoutes(req, res, url) {
     const questionsError = validateSecurityQuestions(securityQuestions);
 
     if (!isValidUsername(username)) {
-      json(res, 400, { ok: false, error: '账号需为 8-30 位字母或数字。' });
+      json(res, 400, { ok: false, error: 'Username must be 8-30 letters or digits.' });
       return true;
     }
 
     if (!isValidPassword(password)) {
-      json(res, 400, { ok: false, error: '密码需为 6-15 位字母或数字。' });
+      json(res, 400, { ok: false, error: 'Password must be 6-15 letters or digits.' });
       return true;
     }
 
     if (password !== confirmPassword) {
-      json(res, 400, { ok: false, error: '两次输入的密码不一致。' });
+      json(res, 400, { ok: false, error: 'Passwords do not match.' });
       return true;
     }
 
@@ -309,7 +260,7 @@ async function handleAuthRoutes(req, res, url) {
     const existing = await getUserByUsername(username);
     if (existing) {
       auditLog(req, 'register_failed', { status: 'failed', username, reason: 'username_exists' });
-      json(res, 409, { ok: false, error: '该账号已存在。' });
+      json(res, 409, { ok: false, error: 'Username already exists.' });
       return true;
     }
 
@@ -318,7 +269,6 @@ async function handleAuthRoutes(req, res, url) {
       id: crypto.randomUUID(),
       username,
       name: username,
-      phone: '',
       email: '',
       status: 'active',
       passwordHash: hashPassword(password),
@@ -328,8 +278,6 @@ async function handleAuthRoutes(req, res, url) {
       securityAnswerHash2: hashSecurityAnswer(securityQuestions[1].answer),
       securityQuestion3: securityQuestions[2].question,
       securityAnswerHash3: hashSecurityAnswer(securityQuestions[2].answer),
-      wechatOpenId: '',
-      qqOpenId: '',
       createdAt: now,
       updatedAt: now,
     });
@@ -347,7 +295,7 @@ async function handleAuthRoutes(req, res, url) {
 
     if (!user || !verifyPassword(password, user.passwordHash)) {
       auditLog(req, 'login_failed', { status: 'failed', username });
-      json(res, 401, { ok: false, error: '账号或密码错误。' });
+      json(res, 401, { ok: false, error: 'Invalid username or password.' });
       return true;
     }
 
@@ -361,13 +309,13 @@ async function handleAuthRoutes(req, res, url) {
     const username = normalizeUsername(body.username);
 
     if (!isValidUsername(username)) {
-      json(res, 400, { ok: false, error: '账号需为 8-30 位字母或数字。' });
+      json(res, 400, { ok: false, error: 'Username must be 8-30 letters or digits.' });
       return true;
     }
 
     const user = await getUserByUsername(username);
     if (!user) {
-      json(res, 404, { ok: false, error: '账号不存在。' });
+      json(res, 404, { ok: false, error: 'User not found.' });
       return true;
     }
 
@@ -389,28 +337,28 @@ async function handleAuthRoutes(req, res, url) {
     const user = await getUserByUsername(username);
 
     if (!isValidUsername(username)) {
-      json(res, 400, { ok: false, error: '账号需为 8-30 位字母或数字。' });
+      json(res, 400, { ok: false, error: 'Username must be 8-30 letters or digits.' });
       return true;
     }
 
     if (!user) {
       auditLog(req, 'password_reset_failed', { status: 'failed', username, reason: 'user_not_found' });
-      json(res, 404, { ok: false, error: '账号不存在。' });
+      json(res, 404, { ok: false, error: 'User not found.' });
       return true;
     }
 
     if (!isValidPassword(newPassword)) {
-      json(res, 400, { ok: false, error: '新密码需为 6-15 位字母或数字。' });
+      json(res, 400, { ok: false, error: 'Password must be 6-15 letters or digits.' });
       return true;
     }
 
     if (newPassword !== confirmNewPassword) {
-      json(res, 400, { ok: false, error: '两次输入的新密码不一致。' });
+      json(res, 400, { ok: false, error: 'Passwords do not match.' });
       return true;
     }
 
     if (securityAnswers.length !== SECURITY_QUESTION_COUNT) {
-      json(res, 400, { ok: false, error: '请填写 3 个密保答案。' });
+      json(res, 400, { ok: false, error: 'Please answer all three security questions.' });
       return true;
     }
 
@@ -420,7 +368,7 @@ async function handleAuthRoutes(req, res, url) {
 
     if (!answerOk) {
       auditLog(req, 'password_reset_failed', { status: 'failed', username, reason: 'invalid_answers' });
-      json(res, 401, { ok: false, error: '密保答案错误。' });
+      json(res, 401, { ok: false, error: 'Security answers are incorrect.' });
       return true;
     }
 
@@ -435,351 +383,20 @@ async function handleAuthRoutes(req, res, url) {
     return true;
   }
 
-  if (req.method === 'POST' && url.pathname === '/api/auth/register') {
-    const body = await readBody(req);
-    const phone = String(body.phone || '').trim();
-    const password = String(body.password || '').trim();
-    const name = String(body.name || '').trim();
-
-    if (!phone || !password) {
-      json(res, 400, { ok: false, error: '请输入手机号和密码。' });
-      return true;
-    }
-
-    const existing = await getUserByPhone(phone);
-    if (existing) {
-      auditLog(req, 'register_failed', { status: 'failed', phone, reason: 'phone_exists' });
-      json(res, 409, { ok: false, error: '该手机号已注册。' });
-      return true;
-    }
-
-    const user = await saveUser({
-      id: crypto.randomUUID(),
-      name: name || `用户${phone.slice(-4)}`,
-      phone,
-      email: '',
-      status: 'active',
-      passwordHash: hashPassword(password),
-      wechatOpenId: '',
-      qqOpenId: '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-
-    auditLog(req, 'register_succeeded', { status: 'ok', phone, userId: user.id });
-    json(res, 201, { ok: true, data: buildAuthSession(user) });
-    return true;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/auth/register-code/send') {
-    const body = await readBody(req);
-    const phone = normalizePhone(body.phone);
-
-    if (!phone) {
-      json(res, 400, { ok: false, error: '请输入手机号。' });
-      return true;
-    }
-
-    const existing = await getUserByPhone(phone);
-    if (existing) {
-      auditLog(req, 'register_code_send_failed', { status: 'failed', phone, reason: 'phone_exists' });
-      json(res, 409, { ok: false, error: '该手机号已注册。' });
-      return true;
-    }
-
-    const verification = issuePhoneCode('public', phone, 'register');
-    auditLog(req, 'register_code_sent', { status: 'ok', phone });
-    json(res, 200, {
-      ok: true,
-      data: {
-        maskedPhone: maskPhone(phone),
-        expiresInSeconds: Math.max(1, Math.ceil((verification.expiresAt - Date.now()) / 1000)),
-        devCode: verification.code,
-      },
-    });
-    return true;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/auth/register-by-code') {
-    const body = await readBody(req);
-    const phone = normalizePhone(body.phone);
-    const code = String(body.code || '').trim();
-    const name = String(body.name || '').trim();
-
-    if (!phone || !code) {
-      json(res, 400, { ok: false, error: '请输入手机号和验证码。' });
-      return true;
-    }
-
-    const existing = await getUserByPhone(phone);
-    if (existing) {
-      auditLog(req, 'register_by_code_failed', { status: 'failed', phone, reason: 'phone_exists' });
-      json(res, 409, { ok: false, error: '该手机号已注册。' });
-      return true;
-    }
-
-    const verification = consumePhoneCode('public', phone, 'register', code);
-    if (!verification.ok) {
-      auditLog(req, 'register_by_code_failed', { status: 'failed', phone, reason: 'invalid_code' });
-      json(res, 400, { ok: false, error: verification.error });
-      return true;
-    }
-
-    const now = new Date().toISOString();
-    const user = await saveUser({
-      id: crypto.randomUUID(),
-      name: name || `用户${phone.slice(-4)}`,
-      phone,
-      email: '',
-      status: 'active',
-      passwordHash: '',
-      wechatOpenId: '',
-      qqOpenId: '',
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    auditLog(req, 'register_by_code_succeeded', { status: 'ok', phone, userId: user.id });
-    json(res, 201, { ok: true, data: buildAuthSession(user) });
-    return true;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/auth/login') {
-    const body = await readBody(req);
-    const phone = String(body.phone || '').trim();
-    const password = String(body.password || '').trim();
-    const user = await getUserByPhone(phone);
-
-    if (!user || !verifyPassword(password, user.passwordHash)) {
-      auditLog(req, 'login_failed', { status: 'failed', phone });
-      json(res, 401, { ok: false, error: '手机号或密码错误。' });
-      return true;
-    }
-
-    if (!user.phone) {
-      json(res, 400, { ok: false, error: '该账号尚未绑定手机号。' });
-      return true;
-    }
-
-    auditLog(req, 'login_succeeded', { status: 'ok', phone, userId: user.id });
-    json(res, 200, { ok: true, data: buildAuthSession(user) });
-    return true;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/auth/provider-login') {
-    const body = await readBody(req);
-    const provider = normalizeProvider(body.provider);
-    const providerId = String(body.providerId || '').trim();
-    const displayName = String(body.displayName || '').trim();
-
-    if (!provider || !providerId) {
-      json(res, 400, { ok: false, error: '缺少第三方账号信息。' });
-      return true;
-    }
-
-    let user = await getUserByProvider(provider, providerId);
-    if (!user) {
-      const now = new Date().toISOString();
-      user = await saveUser({
-        id: crypto.randomUUID(),
-        name: displayName || `${provider === 'wechat' ? '微信' : 'QQ'}用户${providerId.slice(-4)}`,
-        phone: '',
-        email: '',
-        status: 'active',
-        passwordHash: '',
-        wechatOpenId: provider === 'wechat' ? providerId : '',
-        qqOpenId: provider === 'qq' ? providerId : '',
-        createdAt: now,
-        updatedAt: now,
-      });
-      auditLog(req, 'provider_register_succeeded', { status: 'ok', provider, userId: user.id });
-    } else {
-      auditLog(req, 'provider_login_succeeded', { status: 'ok', provider, userId: user.id });
-    }
-
-    json(res, 200, { ok: true, data: buildAuthSession(user) });
-    return true;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/auth/phone-code/send') {
-    const userId = requireUserId(req, res);
-    if (!userId) {
-      return true;
-    }
-
-    const body = await readBody(req);
-    const phone = normalizePhone(body.phone);
-    const purpose = String(body.purpose || 'bind').trim() || 'bind';
-    const currentUser = await getUserById(userId);
-
-    if (!currentUser) {
-      json(res, 404, { ok: false, error: '用户不存在。' });
-      return true;
-    }
-
-    if (!phone) {
-      json(res, 400, { ok: false, error: '请输入手机号。' });
-      return true;
-    }
-
-    const existing = await getUserByPhone(phone);
-    if (existing && existing.id !== userId) {
-      json(res, 409, { ok: false, error: '该手机号已绑定到其他账号。' });
-      return true;
-    }
-
-    const verification = issuePhoneCode(userId, phone, purpose);
-    auditLog(req, 'phone_code_sent', { status: 'ok', userId, phone, purpose });
-    json(res, 200, {
-      ok: true,
-      data: {
-        maskedPhone: maskPhone(phone),
-        expiresInSeconds: Math.max(1, Math.ceil((verification.expiresAt - Date.now()) / 1000)),
-        devCode: verification.code,
-      },
-    });
-    return true;
-  }
-
   if (req.method === 'GET' && url.pathname === '/api/auth/me') {
     const userId = getUserIdFromRequest(req);
     if (!userId) {
-      json(res, 401, { ok: false, error: '请先登录。' });
+      json(res, 401, { ok: false, error: 'Please log in first.' });
       return true;
     }
 
     const user = await getUserById(userId);
     if (!user) {
-      json(res, 404, { ok: false, error: '用户不存在。' });
+      json(res, 404, { ok: false, error: 'User not found.' });
       return true;
     }
 
     json(res, 200, { ok: true, data: buildAuthUser(user) });
-    return true;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/auth/bind/phone-code') {
-    const userId = requireUserId(req, res);
-    if (!userId) {
-      return true;
-    }
-
-    const body = await readBody(req);
-    const phone = normalizePhone(body.phone);
-    const code = String(body.code || '').trim();
-    const currentUser = await getUserById(userId);
-
-    if (!currentUser) {
-      json(res, 404, { ok: false, error: '用户不存在。' });
-      return true;
-    }
-
-    if (!phone || !code) {
-      json(res, 400, { ok: false, error: '请输入手机号和密码。' });
-      return true;
-    }
-
-    const existing = await getUserByPhone(phone);
-    if (existing && existing.id !== userId) {
-      json(res, 409, { ok: false, error: '该手机号已绑定其他账号。' });
-      return true;
-    }
-
-    const verification = consumePhoneCode(userId, phone, 'bind', code);
-    if (!verification.ok) {
-      json(res, 400, { ok: false, error: verification.error });
-      return true;
-    }
-
-    const nextUser = await saveUser({
-      ...currentUser,
-      phone,
-      updatedAt: new Date().toISOString(),
-    });
-
-    auditLog(req, 'phone_bound', { status: 'ok', userId, phone });
-    json(res, 200, { ok: true, data: buildAuthUser(nextUser) });
-    return true;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/auth/bind/provider') {
-    const userId = requireUserId(req, res);
-    if (!userId) {
-      return true;
-    }
-
-    const body = await readBody(req);
-    const provider = normalizeProvider(body.provider);
-    const providerId = String(body.providerId || '').trim();
-    const currentUser = await getUserById(userId);
-
-    if (!currentUser) {
-      json(res, 404, { ok: false, error: '用户不存在。' });
-      return true;
-    }
-
-    if (!provider || !providerId) {
-      json(res, 400, { ok: false, error: '缺少绑定信息。' });
-      return true;
-    }
-
-    const existing = await getUserByProvider(provider, providerId);
-    if (existing && existing.id !== userId) {
-      json(res, 409, { ok: false, error: '该账号已绑定其他用户。' });
-      return true;
-    }
-
-    const nextUser = await saveUser({
-      ...currentUser,
-      wechatOpenId: provider === 'wechat' ? providerId : currentUser.wechatOpenId,
-      qqOpenId: provider === 'qq' ? providerId : currentUser.qqOpenId,
-      updatedAt: new Date().toISOString(),
-    });
-
-    auditLog(req, 'provider_bound', { status: 'ok', userId, provider });
-    json(res, 200, { ok: true, data: buildAuthUser(nextUser) });
-    return true;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/auth/unbind/provider') {
-    const userId = requireUserId(req, res);
-    if (!userId) {
-      return true;
-    }
-
-    const body = await readBody(req);
-    const provider = normalizeProvider(body.provider);
-    const currentUser = await getUserById(userId);
-
-    if (!currentUser) {
-      json(res, 404, { ok: false, error: '用户不存在。' });
-      return true;
-    }
-
-    if (!provider) {
-      json(res, 400, { ok: false, error: '缺少解绑平台。' });
-      return true;
-    }
-
-    if (!currentUser.phone && provider === 'wechat' && !currentUser.qqOpenId) {
-      json(res, 400, { ok: false, error: '请至少保留一种登录方式。' });
-      return true;
-    }
-
-    if (!currentUser.phone && provider === 'qq' && !currentUser.wechatOpenId) {
-      json(res, 400, { ok: false, error: '请至少保留一种登录方式。' });
-      return true;
-    }
-
-    const nextUser = await saveUser({
-      ...currentUser,
-      wechatOpenId: provider === 'wechat' ? '' : currentUser.wechatOpenId,
-      qqOpenId: provider === 'qq' ? '' : currentUser.qqOpenId,
-      updatedAt: new Date().toISOString(),
-    });
-
-    auditLog(req, 'provider_unbound', { status: 'ok', userId, provider });
-    json(res, 200, { ok: true, data: buildAuthUser(nextUser) });
     return true;
   }
 

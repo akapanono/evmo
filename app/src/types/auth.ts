@@ -8,11 +8,6 @@ export interface AuthUser {
   name: string;
   username: string;
   hasPassword: boolean;
-  phone?: string;
-  bindings?: {
-    wechat: boolean;
-    qq: boolean;
-  };
 }
 
 export interface AuthSession {

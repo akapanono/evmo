@@ -344,15 +344,10 @@ const sectionTitle = computed(() => ({
 const canTestConnection = computed(() => Boolean(proxyServerUrl.value.trim()));
 const _accountSummary = computed(() => {
   if (!authStore.isLoggedIn) {
-    return '未登录，支持手机号、微信和 QQ 登录';
+    return '';
   }
 
-  const bindings = [
-    authStore.user?.phone ? '已绑定手机号' : '未绑手机号',
-    authStore.user?.bindings?.wechat ? '已绑微信' : null,
-    authStore.user?.bindings?.qq ? '已绑QQ' : null,
-  ].filter(Boolean);
-  return bindings.join(' / ');
+  return `?????${authStore.user?.username || authStore.user?.name || '--'}`;
 });
 const appearanceSummary = computed(() => `${themeOptions.find((item) => item.value === themeScheme.value)?.label || '默认主题'} · 默认首页 ${startPageLabel(startPage.value)}`);
 const aiSummary = computed(() => `${proxyServerUrl.value.trim() ? '已配置服务地址' : '未配置服务地址'} · ${allowCellularAI.value ? '允许移动网络' : '仅 Wi-Fi'}`);
