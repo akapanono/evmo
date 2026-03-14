@@ -9,8 +9,7 @@
     "build:mobile": "cmd /c npm.cmd run build && npx cap sync",
     "cap:sync": "npx cap sync",
     "cap:open:android": "npx cap open android",
-    "preview": "vite preview",
-    "proxy": "node server/ai-proxy.mjs"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@capacitor/android": "^8.2.0",

@@ -293,7 +293,7 @@ import type { MemorialDay } from '@/types/memorial';
 import { formatDate, formatMonthDay, getDaysUntilMonthDay } from '@/utils/dateHelpers';
 import { PROFILE_INTAKE_FIELD_LABELS } from '@/utils/profileIntake';
 import { getStandardBasicInfoEntries, removeBasicInfoField as pruneBasicInfoField, upsertBasicInfoField, type StandardBasicInfoKey } from '@/utils/basicInfo';
-import { getFriendBackPath, getFriendSourcePageFromRoute, getFriendSourceQuery } from '@/utils/friendNavigation';
+import { getFriendBackPath, getFriendBackTarget, getFriendSourcePageFromRoute, getFriendSourceQuery } from '@/utils/friendNavigation';
 import { getFriendPreferenceItems, getPreferenceCategoryLabel, groupPreferenceItems } from '@/utils/preferences';
 
 type BasicInfoRow =
@@ -456,7 +456,7 @@ function showStableFieldTitle(field: CustomField): boolean {
 }
 
 function goBack(): void {
-  router.push(getFriendBackPath(sourcePage.value));
+  router.push(getFriendBackTarget(route));
 }
 
 function openAskAI(): void {

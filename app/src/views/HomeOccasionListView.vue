@@ -41,7 +41,7 @@
 
         <div class="gift-block">
           <p class="gift-title">礼物推荐</p>
-          <p class="gift-copy">{{ item.suggestion.gifts.join(' / ') }}</p>
+          <p class="gift-copy">{{ getGiftPreviewText(item.id, item.suggestion.gifts) }}</p>
         </div>
       </article>
 
@@ -51,10 +51,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onActivated, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { recommendationService } from '@/services/recommendationService';
 import { useFriendsStore } from '@/stores/friends';
 import { useMemorialDaysStore } from '@/stores/memorialDays';
+import type { MemorialDay } from '@/types/memorial';
+import type { OccasionRecommendation } from '@/types/recommendation';
 import { getFriendSourceQuery } from '@/utils/friendNavigation';
 import { buildHomeOccasionSections, getReminderRangeMeta, type HomeOccasionItem, type ReminderRangeKey } from '@/utils/homeOccasions';
 
@@ -62,6 +65,9 @@ const router = useRouter();
 const route = useRoute();
 const friendsStore = useFriendsStore();
 const memorialDaysStore = useMemorialDaysStore();
+const remoteRecommendations = ref<Record<string, OccasionRecommendation>>({});
+const loadedRecommendationIds = ref<Record<string, boolean>>({});
+let hydrationRunId = 0;
 
 const rangeKey = computed<ReminderRangeKey>(() => {
   const value = route.params.range;
@@ -71,15 +77,127 @@ const rangeKey = computed<ReminderRangeKey>(() => {
 const meta = computed(() => getReminderRangeMeta(rangeKey.value));
 const items = computed(() =>
   buildHomeOccasionSections(friendsStore.friends, memorialDaysStore.memorialDays)
-    .find((section) => section.key === rangeKey.value)?.items ?? [],
+    .find((section) => section.key === rangeKey.value)?.items.map((item) => ({
+      ...item,
+      suggestion: {
+        gifts: remoteRecommendations.value[item.id]?.gifts ?? item.suggestion.gifts ?? [],
+      },
+    })) ?? [],
 );
 
 onMounted(async () => {
+  await initializeList();
+});
+
+onActivated(async () => {
+  await initializeList();
+});
+
+watch(rangeKey, async () => {
+  remoteRecommendations.value = {};
+  await hydrateRemoteRecommendations();
+});
+
+watch(
+  () => buildHomeOccasionSections(friendsStore.friends, memorialDaysStore.memorialDays)
+    .find((section) => section.key === rangeKey.value)?.items.map((item) => item.id).join('|') ?? '',
+  async () => {
+    await hydrateRemoteRecommendations();
+  },
+);
+
+async function initializeList(): Promise<void> {
   await Promise.all([
     friendsStore.loadFriends(),
     memorialDaysStore.loadMemorialDays(),
   ]);
-});
+  await hydrateRemoteRecommendations();
+}
+
+async function hydrateRemoteRecommendations(): Promise<void> {
+  const runId = ++hydrationRunId;
+  const sourceItems = buildHomeOccasionSections(friendsStore.friends, memorialDaysStore.memorialDays)
+    .find((section) => section.key === rangeKey.value)?.items ?? [];
+  for (const item of sourceItems) {
+    if (runId !== hydrationRunId) {
+      return;
+    }
+    await loadRecommendationForItem(item);
+  }
+}
+
+async function loadRecommendationForItem(item: HomeOccasionItem): Promise<void> {
+  loadedRecommendationIds.value = {
+    ...loadedRecommendationIds.value,
+    [item.id]: false,
+  };
+  try {
+    if (item.type === 'birthday') {
+      const friend = item.friends[0];
+      if (!friend) return;
+      const recommendation = await requestRecommendationWithRetry(() => recommendationService.buildBirthdayRecommendation(friend));
+      remoteRecommendations.value = {
+        ...remoteRecommendations.value,
+        [item.id]: recommendation,
+      };
+      friend.birthdayRecommendation = recommendation;
+      loadedRecommendationIds.value = {
+        ...loadedRecommendationIds.value,
+        [item.id]: true,
+      };
+      return;
+    }
+
+    const memorial = memorialDaysStore.memorialDays.find((entry) => entry.id === item.targetId);
+    if (!memorial) return;
+    const recommendation = await requestRecommendationWithRetry(() =>
+      recommendationService.buildMemorialRecommendation(memorial as MemorialDay, item.friends),
+    );
+    remoteRecommendations.value = {
+      ...remoteRecommendations.value,
+      [item.id]: recommendation,
+    };
+    memorial.recommendation = recommendation;
+  } catch {
+    remoteRecommendations.value = {
+      ...remoteRecommendations.value,
+      [item.id]: {
+        gifts: [],
+        scoreCards: [],
+        buckets: [],
+        updatedAt: '',
+        source: 'system',
+      },
+    };
+  } finally {
+    loadedRecommendationIds.value = {
+      ...loadedRecommendationIds.value,
+      [item.id]: true,
+    };
+  }
+}
+
+function isRecommendationLoaded(itemId: string): boolean {
+  return loadedRecommendationIds.value[itemId] === true;
+}
+
+function getGiftPreviewText(itemId: string, gifts: string[]): string {
+  if (gifts.length > 0) {
+    return gifts.slice(0, 3).join(' / ');
+  }
+
+  return isRecommendationLoaded(itemId) ? '暂无推荐的礼物' : '礼物推荐加载中';
+}
+
+async function requestRecommendationWithRetry(
+  request: () => Promise<OccasionRecommendation>,
+): Promise<OccasionRecommendation> {
+  try {
+    return await request();
+  } catch {
+    return request();
+  }
+}
 
 function goBack(): void {
   void router.push('/home');
@@ -89,7 +207,10 @@ function openFriend(friendId: string): void {
   void router.push({
     name: 'friend-detail',
     params: { id: friendId },
-    query: getFriendSourceQuery('home'),
+    query: {
+      ...getFriendSourceQuery('home'),
+      backTo: route.fullPath,
+    },
   });
 }
 
@@ -97,6 +218,7 @@ function openOccasion(item: HomeOccasionItem): void {
   void router.push({
     name: 'home-occasion-detail',
     params: { type: item.type, id: item.targetId },
+    query: { returnTo: route.fullPath },
   });
 }
 </script>
@@ -106,8 +228,8 @@ function openOccasion(item: HomeOccasionItem): void {
   padding: 20px 16px 36px;
   overflow-y: auto;
   background:
-    radial-gradient(circle at top right, rgba(215, 167, 111, 0.16), transparent 28%),
-    linear-gradient(180deg, #f6efe7 0%, #f1ebe4 100%);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--gold) 18%, transparent), transparent 28%),
+    linear-gradient(180deg, color-mix(in srgb, var(--body-grad-start) 94%, var(--paper)) 0%, color-mix(in srgb, var(--body-grad-end) 96%, var(--paper)) 100%);
 }
 
 .home-list-shell {
@@ -125,8 +247,8 @@ function openOccasion(item: HomeOccasionItem): void {
   height: 38px;
   border: 0;
   border-radius: 16px;
-  background: rgba(37, 31, 26, 0.08);
-  color: #1f1914;
+  background: var(--surface-3);
+  color: var(--ink);
 }
 
 .mini-label,
@@ -137,7 +259,7 @@ function openOccasion(item: HomeOccasionItem): void {
 }
 
 .mini-label {
-  color: #8c6a53;
+  color: var(--muted);
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -150,7 +272,7 @@ function openOccasion(item: HomeOccasionItem): void {
 }
 
 .list-header h1 {
-  color: #1f1a17;
+  color: var(--ink);
   font-size: 28px;
 }
 
@@ -159,8 +281,8 @@ function openOccasion(item: HomeOccasionItem): void {
   gap: 14px;
   padding: 18px;
   border-radius: 24px;
-  background: rgba(255, 251, 247, 0.94);
-  box-shadow: 0 16px 40px rgba(84, 56, 28, 0.08);
+  background: color-mix(in srgb, var(--card-soft) 96%, transparent);
+  box-shadow: 0 16px 40px var(--nav-shadow);
 }
 
 .list-top {
@@ -174,7 +296,7 @@ function openOccasion(item: HomeOccasionItem): void {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  color: #7a6553;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -189,13 +311,13 @@ function openOccasion(item: HomeOccasionItem): void {
 }
 
 .occasion-badge.birthday {
-  background: rgba(223, 108, 80, 0.12);
-  color: #b85441;
+  background: color-mix(in srgb, var(--coral) 22%, var(--paper));
+  color: color-mix(in srgb, var(--coral) 88%, var(--ink));
 }
 
 .occasion-badge.memorial {
-  background: rgba(54, 117, 101, 0.12);
-  color: #2d6f61;
+  background: color-mix(in srgb, var(--teal) 22%, var(--paper));
+  color: color-mix(in srgb, var(--teal) 88%, var(--ink));
 }
 
 .friend-actions {
@@ -208,19 +330,22 @@ function openOccasion(item: HomeOccasionItem): void {
 .friend-chip {
   padding: 7px 12px;
   border: 0;
-  background: rgba(255, 232, 204, 0.88);
-  color: #35261d;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--teal) 18%, var(--paper)), color-mix(in srgb, var(--gold) 24%, var(--paper)));
+  color: color-mix(in srgb, var(--ink) 90%, var(--teal));
   font-size: 12px;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--teal) 18%, transparent),
+    0 8px 18px color-mix(in srgb, var(--teal) 10%, transparent);
 }
 
 .list-main h2 {
-  color: #241b15;
+  color: var(--ink);
   font-size: 18px;
 }
 
 .summary {
   margin-top: 6px;
-  color: #786351;
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -229,17 +354,18 @@ function openOccasion(item: HomeOccasionItem): void {
   gap: 6px;
   padding: 14px;
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(255, 245, 233, 0.98), rgba(251, 239, 226, 0.9));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--paper) 72%, var(--card-accent-gold)), color-mix(in srgb, var(--paper) 54%, var(--card-accent-teal)));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paper) 62%, transparent);
 }
 
 .gift-title {
-  color: #8d5c26;
+  color: color-mix(in srgb, var(--gold) 82%, var(--ink));
   font-size: 12px;
   font-weight: 700;
 }
 
 .gift-copy {
-  color: #2b1f17;
+  color: color-mix(in srgb, var(--ink) 92%, var(--teal));
   font-size: 15px;
   line-height: 1.6;
 }
@@ -247,8 +373,8 @@ function openOccasion(item: HomeOccasionItem): void {
 .empty-state {
   padding: 18px;
   border-radius: 20px;
-  background: rgba(255, 252, 248, 0.84);
-  color: #8a7460;
+  background: color-mix(in srgb, var(--surface-panel) 84%, transparent);
+  color: var(--muted);
 }
 
 @media (max-width: 640px) {

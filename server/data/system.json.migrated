@@ -1,0 +1,13 @@
+{
+  "aiProvider": {
+    "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+    "apiKey": "",
+    "model": "ep-20260312201822-c65kb"
+  },
+  "recommendation": {
+    "enabled": true,
+    "topScoreLimit": 6,
+    "previewGiftLimit": 3
+  },
+  "updatedAt": "2026-03-12T13:13:12.101Z"
+}

@@ -76,6 +76,16 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/AddFriendView.vue'),
   },
   {
+    path: '/auth',
+    name: 'auth',
+    component: () => import('@/views/AuthView.vue'),
+  },
+  {
+    path: '/auth/bind-phone',
+    name: 'auth-bind-phone',
+    component: () => import('@/views/PhoneBindView.vue'),
+  },
+  {
     path: '/me',
     name: 'me',
     component: () => import('@/views/MeView.vue'),

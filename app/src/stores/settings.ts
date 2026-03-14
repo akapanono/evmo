@@ -3,17 +3,20 @@ import { ref, watch } from 'vue';
 import type { AppSettings } from '@/types/settings';
 import { DEFAULT_SETTINGS } from '@/types/settings';
 import { storageService } from '@/services/storageService';
+import { applyThemeScheme } from '@/utils/theme';
 
 export const useSettingsStore = defineStore('settings', () => {
   const settings = ref<AppSettings>(storageService.getSettings());
 
-  // 监听变化并自动保存
+  applyThemeScheme(settings.value.themeScheme);
+
   watch(
     settings,
     (newSettings) => {
       storageService.saveSettings(newSettings);
+      applyThemeScheme(newSettings.themeScheme);
     },
-    { deep: true }
+    { deep: true },
   );
 
   function updateSettings(updates: Partial<AppSettings>): void {

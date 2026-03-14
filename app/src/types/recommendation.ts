@@ -11,6 +11,7 @@ export interface GiftSuggestionItem {
   priceLabel: string;
   link: string;
   reason: string;
+  matchTags?: string[];
 }
 
 export interface GiftSuggestionBucket {
@@ -22,6 +23,14 @@ export interface GiftSuggestionBucket {
 export interface OccasionRecommendation {
   gifts: string[];
   scoreCards: RecommendationScore[];
+  buckets?: GiftSuggestionBucket[];
+  profile?: {
+    relationshipSummary: string;
+    intentTags: string[];
+    preferredCategories: string[];
+    preferredPriceBuckets: string[];
+    avoidCategories: string[];
+  };
   updatedAt: string;
   source: 'system';
 }

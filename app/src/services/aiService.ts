@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { createEmptyAIPersona, type Friend, type FriendAIPersona } from '@/types/friend';
 import type { LlmExtractionPayload, SemanticExtractionRecord, SemanticExtractionResult } from '@/types/extraction';
-import type { AppSettings } from '@/types/settings';
+import { DEFAULT_PROXY_SERVER_URL, type AppSettings } from '@/types/settings';
 import type { ChatMessage } from '@/stores/ai';
 import { storageService } from './storageService';
 import { runtimeContextService, type RuntimePromptContext } from './runtimeContextService';
@@ -16,12 +16,6 @@ interface ProxyResponse<T> {
   ok: boolean;
   data?: T;
   error?: string;
-}
-
-interface RuntimeProviderConfig {
-  apiKey?: string;
-  baseUrl?: string;
-  model?: string;
 }
 
 interface AskAIRequestContext {
@@ -299,12 +293,8 @@ function buildExtractionContext(friend: Friend): string {
   return parts.join('\n');
 }
 
-function canUseDirectModel(settings: AppSettings): boolean {
-  return Boolean(settings.openaiApiKey && getActiveModel(settings));
-}
-
 function canUseProxyModel(settings: AppSettings): boolean {
-  return Boolean(settings.proxyServerUrl && getActiveModel(settings));
+  return Boolean(settings.proxyServerUrl);
 }
 
 function getSystemPrompt(style: 'friendly' | 'professional' | 'concise'): string {
@@ -328,42 +318,24 @@ function normalizeBaseUrl(baseUrl: string | undefined): string | undefined {
 }
 
 function getProxyBaseUrl(settings: AppSettings): string {
-  return normalizeBaseUrl(settings.proxyServerUrl) || 'http://localhost:8787';
+  return normalizeBaseUrl(settings.proxyServerUrl) || DEFAULT_PROXY_SERVER_URL;
 }
 
 function getActiveModel(settings: AppSettings): string {
   return settings.openaiModel?.trim() || 'ep-20260309112425-mwdsp';
 }
 
-function getRuntimeProviderConfig(settings: AppSettings): RuntimeProviderConfig {
-  return {
-    apiKey: settings.openaiApiKey,
-    baseUrl: normalizeBaseUrl(settings.openaiBaseUrl),
-    model: getActiveModel(settings),
-  };
-}
-
-function createClient(settings: AppSettings): OpenAI {
-  if (!settings.openaiApiKey) {
+function createClient(_settings: AppSettings): never {
     throw new Error('请先在设置中填写 API Key。');
-  }
 
-  return new OpenAI({
-    apiKey: settings.openaiApiKey,
-    baseURL: normalizeBaseUrl(settings.openaiBaseUrl),
-    dangerouslyAllowBrowser: true,
-  });
+  throw new Error('Direct AI mode has been removed.');
 }
 
 async function postToProxy<T>(path: string, body: Record<string, unknown>, settings: AppSettings): Promise<T> {
   const response = await fetch(`${getProxyBaseUrl(settings)}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      providerId: settings.proxyProviderId?.trim() || undefined,
-      runtimeProvider: getRuntimeProviderConfig(settings),
-      ...body,
-    }),
+    body: JSON.stringify(body),
   });
 
   const payload = await response.json() as ProxyResponse<T>;
@@ -384,8 +356,6 @@ async function postToProxyStream(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      providerId: settings.proxyProviderId?.trim() || undefined,
-      runtimeProvider: getRuntimeProviderConfig(settings),
       ...body,
       stream: true,
     }),
@@ -425,14 +395,15 @@ async function postToProxyStream(
         continue;
       }
 
-      const payload = JSON.parse(payloadText) as { delta?: string; error?: string };
+      const payload = JSON.parse(payloadText) as { delta?: string; content?: string; error?: string };
       if (payload.error) {
         throw new Error(payload.error);
       }
 
-      if (payload.delta) {
-        text += payload.delta;
-        onDelta(payload.delta);
+      const chunk = payload.delta ?? payload.content ?? '';
+      if (chunk) {
+        text += chunk;
+        onDelta(chunk);
       }
     }
   }
@@ -735,16 +706,14 @@ export const aiService = {
     return runtimeContextService.buildPromptContext(false);
   },
 
-  getConnectionSummary(): { configured: boolean; mode: 'direct' | 'proxy'; baseUrl?: string; model: string; providerId?: string } {
+  getConnectionSummary(): { configured: boolean; mode: 'proxy'; baseUrl?: string; model: string; providerId?: string } {
     const settings = storageService.getSettings();
     return {
-      configured: settings.aiAccessMode === 'proxy'
-        ? Boolean(settings.proxyServerUrl && settings.openaiBaseUrl && settings.openaiApiKey && getActiveModel(settings))
-        : Boolean(settings.openaiApiKey),
-      mode: settings.aiAccessMode,
-      baseUrl: settings.aiAccessMode === 'proxy' ? getProxyBaseUrl(settings) : normalizeBaseUrl(settings.openaiBaseUrl),
+      configured: Boolean(settings.proxyServerUrl && getActiveModel(settings)),
+      mode: 'proxy',
+      baseUrl: getProxyBaseUrl(settings),
       model: getActiveModel(settings),
-      providerId: settings.proxyProviderId,
+      providerId: undefined,
     };
   },
 
@@ -776,7 +745,7 @@ export const aiService = {
   async testProxyConnection(): Promise<{ success: boolean; message: string }> {
     const settings = storageService.getSettings();
     try {
-      const result = await postToProxy<{ message: string }>('/api/ai/test', { model: getActiveModel(settings) }, settings);
+      const result = await postToProxy<{ message: string }>('/api/ai/test', {}, settings);
       return { success: true, message: result.message };
     } catch (err) {
       return { success: false, message: err instanceof Error ? err.message : '代理测试失败。' };
@@ -798,10 +767,9 @@ export const aiService = {
 
     const { guidance, messages } = requestContext;
 
-    if (settings.aiAccessMode === 'proxy') {
+    if (canUseProxyModel(settings)) {
       const result = await postToProxy<{ content: string }>('/api/ai/chat', {
         messages,
-        model: getActiveModel(settings),
         temperature: guidance.lowInfoMode ? 0.85 : 0.72,
         max_tokens: 420,
       }, settings);
@@ -812,7 +780,7 @@ export const aiService = {
       };
     }
 
-    const client = createClient(settings);
+    const client = createClient(settings) as unknown as OpenAI;
     const completion = await client.chat.completions.create({
       model: getActiveModel(settings),
       messages,
@@ -847,10 +815,9 @@ export const aiService = {
 
     const { guidance, messages } = requestContext;
 
-    if (settings.aiAccessMode === 'proxy') {
+    if (canUseProxyModel(settings)) {
       const content = await postToProxyStream('/api/ai/chat', {
         messages,
-        model: getActiveModel(settings),
         temperature: guidance.lowInfoMode ? 0.85 : 0.72,
         max_tokens: 420,
       }, settings, onDelta);
@@ -866,7 +833,7 @@ export const aiService = {
       };
     }
 
-    const client = createClient(settings);
+    const client = createClient(settings) as unknown as OpenAI;
     const stream = await client.chat.completions.create({
       model: getActiveModel(settings),
       messages,
@@ -902,14 +869,13 @@ export const aiService = {
     const fallback = buildFallbackPersona(friend);
     const updatedAt = new Date().toISOString();
 
-    if (settings.aiAccessMode === 'proxy' && canUseProxyModel(settings)) {
+    if (canUseProxyModel(settings)) {
       try {
           const result = await postToProxy<{ content: string }>('/api/ai/chat', {
             messages: [
               { role: 'system', content: '你擅长从人物资料中提炼抽象画像。输出必须是合法 JSON。' },
               { role: 'user', content: buildPersonaPrompt(friend) },
             ],
-            model: getActiveModel(settings),
             temperature: 0.35,
             max_tokens: 480,
           }, settings);
@@ -924,9 +890,9 @@ export const aiService = {
       }
     }
 
-    if (settings.aiAccessMode === 'direct' && canUseDirectModel(settings)) {
+    if (false) {
       try {
-        const client = createClient(settings);
+        const client = createClient(settings) as unknown as OpenAI;
           const completion = await client.chat.completions.create({
             model: getActiveModel(settings),
             messages: [
@@ -941,7 +907,7 @@ export const aiService = {
           return fallback;
         }
 
-        const payload = JSON.parse(stripJsonWrapper(content)) as Partial<FriendAIPersona>;
+        const payload = JSON.parse(stripJsonWrapper(content ?? '')) as Partial<FriendAIPersona>;
         return normalizePersonaPayload(payload, updatedAt, fallback);
       } catch {
         return {
@@ -974,13 +940,12 @@ export const aiService = {
       return quickParsed;
     }
 
-    if (settings.aiAccessMode === 'proxy') {
+    if (canUseProxyModel(settings)) {
       const result = await postToProxy<{ content: string }>('/api/ai/chat', {
         messages: [
           { role: 'system', content: '你是一个信息抽取器。输出必须是合法 JSON。' },
           { role: 'user', content: buildExtractionPrompt(friend, normalizedText) },
           ],
-          model: getActiveModel(settings),
           temperature: 0.2,
           max_tokens: 260,
         }, settings);
@@ -991,11 +956,11 @@ export const aiService = {
       ], normalizedText);
     }
 
-    if (!settings.openaiApiKey) {
+    if (true) {
       return quickParsed;
     }
 
-    const client = createClient(settings);
+    const client = createClient(settings) as unknown as OpenAI;
       const completion = await client.chat.completions.create({
         model: getActiveModel(settings),
         messages: [
@@ -1009,7 +974,7 @@ export const aiService = {
     const content = completion.choices[0]?.message?.content;
     if (!content) throw new Error('AI 没有返回抽取结果。');
 
-    const payload = JSON.parse(stripJsonWrapper(content)) as Partial<LlmExtractionPayload>;
+    const payload = JSON.parse(stripJsonWrapper(content ?? '')) as Partial<LlmExtractionPayload>;
     return mergeSemanticExtractionResults([
       quickParsed,
       normalizeExtractionPayload(payload, normalizedText),

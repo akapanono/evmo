@@ -348,9 +348,9 @@ function openFriend(friendId: string): void {
 }
 
 .brand-title {
-  color: #26404a;
+  color: var(--ink-soft);
   letter-spacing: 0.03em;
-  text-shadow: 0 8px 18px rgba(38, 64, 74, 0.06);
+  text-shadow: 0 8px 18px color-mix(in srgb, var(--ink-soft) 12%, transparent);
 }
 
 .calendar-card,
@@ -395,7 +395,7 @@ function openFriend(friendId: string): void {
 
 .mini-action {
   border: 0;
-  background: rgba(29, 40, 49, 0.08);
+  background: var(--surface-3);
   color: var(--ink);
   border-radius: 999px;
   padding: 8px 12px;
@@ -404,15 +404,18 @@ function openFriend(friendId: string): void {
 
 .mini-action.solid {
   background: var(--ink);
-  color: #fff;
+  color: var(--raised-text);
 }
 
 .calendar-shell {
-  border: 1.5px solid rgba(38, 64, 74, 0.22);
+  border: 1.5px solid color-mix(in srgb, var(--ink-soft) 36%, transparent);
   border-radius: 24px;
   overflow: hidden;
-  background: rgba(238, 227, 214, 0.92);
-  box-shadow: inset 0 0 0 1px rgba(255, 252, 247, 0.65);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--paper) 66%, var(--card-accent-gold)), color-mix(in srgb, var(--paper) 84%, var(--card-accent-teal)));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--white-soft) 72%, transparent),
+    0 14px 30px color-mix(in srgb, var(--nav-shadow) 82%, transparent);
 }
 
 .weekday-row,
@@ -422,8 +425,8 @@ function openFriend(friendId: string): void {
 }
 
 .weekday-row {
-  border-bottom: 1px solid rgba(38, 64, 74, 0.12);
-  background: rgba(221, 207, 191, 0.68);
+  border-bottom: 1px solid color-mix(in srgb, var(--ink-soft) 16%, transparent);
+  background: color-mix(in srgb, var(--surface-3) 62%, var(--paper));
 }
 
 .weekday-row span {
@@ -434,16 +437,16 @@ function openFriend(friendId: string): void {
 }
 
 .weekday-row span + span {
-  border-left: 1px solid rgba(38, 64, 74, 0.08);
+  border-left: 1px solid color-mix(in srgb, var(--ink-soft) 10%, transparent);
 }
 
 .calendar-cell {
   min-height: 72px;
   border: 0;
-  border-right: 1px solid rgba(38, 64, 74, 0.08);
-  border-bottom: 1px solid rgba(38, 64, 74, 0.08);
+  border-right: 1px solid color-mix(in srgb, var(--ink-soft) 10%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--ink-soft) 10%, transparent);
   border-radius: 0;
-  background: rgba(255, 252, 247, 0.72);
+  background: color-mix(in srgb, var(--surface-panel) 76%, transparent);
   padding: 6px 5px;
   display: grid;
   grid-template-rows: auto 14px 14px 14px;
@@ -465,18 +468,20 @@ function openFriend(friendId: string): void {
 }
 
 .calendar-cell.is-placeholder {
-  background: rgba(241, 232, 220, 0.82);
+  background: color-mix(in srgb, var(--bg) 58%, var(--paper));
 }
 
 .calendar-cell.is-selected {
-  background: rgba(255, 244, 234, 0.96);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--coral) 18%, var(--paper)), color-mix(in srgb, var(--gold) 18%, var(--paper)));
 }
 
 .calendar-cell.is-selected::after {
   content: '';
   position: absolute;
   inset: 0;
-  border: 1.5px solid rgba(29, 40, 49, 0.55);
+  border: 2px solid color-mix(in srgb, var(--coral) 68%, var(--ink));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--white-soft) 64%, transparent);
   border-radius: inherit;
   pointer-events: none;
 }
@@ -507,15 +512,15 @@ function openFriend(friendId: string): void {
 }
 
 .birthday-line {
-  color: #b84545;
+  color: color-mix(in srgb, var(--danger-text) 88%, var(--coral));
 }
 
 .memorial-line {
-  color: #26404a;
+  color: var(--ink-soft);
 }
 
 .timeline-line {
-  color: #705293;
+  color: var(--plum);
 }
 
 .day-group {
@@ -527,7 +532,7 @@ function openFriend(friendId: string): void {
 .memorial-item {
   border: 1px solid var(--line);
   border-radius: 16px;
-  background: #fff;
+  background: var(--white);
   padding: 12px 14px;
 }
 
