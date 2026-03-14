@@ -1,14 +1,14 @@
 import { useLocalStorage } from '@vueuse/core';
 import type { AuthSession, AuthUser } from '@/types/auth';
 import type { AppSettings } from '@/types/settings';
-import { DEFAULT_SETTINGS } from '@/types/settings';
+import { DEFAULT_PROXY_SERVER_URL, DEFAULT_SETTINGS } from '@/types/settings';
 import { STORAGE_KEY_AUTH_TOKEN, STORAGE_KEY_AUTH_USER, STORAGE_KEY_SETTINGS } from '@/utils/constants';
 
 function normalizeSettings(settings: AppSettings): AppSettings {
   return {
     ...DEFAULT_SETTINGS,
     ...settings,
-    proxyServerUrl: settings.proxyServerUrl || DEFAULT_SETTINGS.proxyServerUrl,
+    proxyServerUrl: DEFAULT_PROXY_SERVER_URL,
     themeScheme: settings.themeScheme || DEFAULT_SETTINGS.themeScheme,
     birthdayReminder: {
       ...DEFAULT_SETTINGS.birthdayReminder,

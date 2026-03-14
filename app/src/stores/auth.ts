@@ -50,6 +50,24 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function sendRegisterCode(phone: string): Promise<{ maskedPhone: string; expiresInSeconds: number; devCode?: string }> {
+    loading.value = true;
+    try {
+      return await cloudService.sendRegisterCode(phone);
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function registerByCode(input: { name?: string; phone: string; code: string }): Promise<void> {
+    loading.value = true;
+    try {
+      persistSession(await cloudService.registerByCode(input));
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function loginWithProvider(input: { provider: AuthProvider; providerId: string; displayName?: string }): Promise<void> {
     loading.value = true;
     try {
@@ -109,6 +127,8 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     register,
     login,
+    sendRegisterCode,
+    registerByCode,
     loginWithProvider,
     bindPhoneWithCode,
     bindProvider,

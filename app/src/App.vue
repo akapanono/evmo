@@ -115,6 +115,10 @@ function handleFloatingAction(): void {
 function getNativeBackTarget(): RouteLocationRaw | null {
   const sourcePage = getFriendSourcePageFromRoute(route);
 
+  if (route.name === 'me' && typeof route.query.section === 'string' && route.query.section) {
+    return { name: 'me' };
+  }
+
   if (route.name === 'friend-detail' || route.name === 'edit-friend') {
     return getFriendBackTarget(route);
   }

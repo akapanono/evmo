@@ -3,7 +3,10 @@ function normalizeDefaultProxyServerUrl(value: string | undefined): string {
   return trimmed ? trimmed.replace(/\/+$/, '') : '';
 }
 
-export const DEFAULT_PROXY_SERVER_URL = normalizeDefaultProxyServerUrl(import.meta.env.VITE_PROXY_SERVER_URL);
+const FALLBACK_PROXY_SERVER_URL = 'http://14.103.80.102';
+
+export const DEFAULT_PROXY_SERVER_URL = normalizeDefaultProxyServerUrl(import.meta.env.VITE_PROXY_SERVER_URL)
+  || FALLBACK_PROXY_SERVER_URL;
 
 export interface AppSettings {
   profileName?: string;

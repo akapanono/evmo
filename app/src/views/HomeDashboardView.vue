@@ -1,6 +1,6 @@
 <template>
   <section class="app-screen is-active home-dashboard-screen">
-    <div class="topbar compact home-topbar">
+    <div class="topbar">
       <div class="topbar-title">
         <p class="eyebrow">首页提醒</p>
         <h1>生日和纪念日</h1>
@@ -259,10 +259,7 @@ function openOccasion(item: HomeOccasionItem): void {
 }
 
 .eyebrow {
-  color: var(--muted);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  display: none;
 }
 
 .home-topbar h1,

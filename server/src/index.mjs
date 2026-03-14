@@ -142,6 +142,8 @@ function getRateLimitRule(url) {
   if (
     url.pathname === '/api/auth/login'
     || url.pathname === '/api/auth/register'
+    || url.pathname === '/api/auth/register-code/send'
+    || url.pathname === '/api/auth/register-by-code'
     || url.pathname === '/api/auth/provider-login'
     || url.pathname === '/api/auth/phone-code/send'
     || url.pathname === '/api/admin/login'
@@ -228,7 +230,7 @@ async function handleAuthRoutes(req, res, url) {
     const password = String(body.password || '').trim();
     const name = String(body.name || '').trim();
 
-    if (!phone || !code) {
+    if (!phone || !password) {
       json(res, 400, { ok: false, error: '请输入手机号和密码。' });
       return true;
     }
@@ -254,6 +256,79 @@ async function handleAuthRoutes(req, res, url) {
     });
 
     auditLog(req, 'register_succeeded', { status: 'ok', phone, userId: user.id });
+    json(res, 201, { ok: true, data: buildAuthSession(user) });
+    return true;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/auth/register-code/send') {
+    const body = await readBody(req);
+    const phone = normalizePhone(body.phone);
+
+    if (!phone) {
+      json(res, 400, { ok: false, error: '请输入手机号。' });
+      return true;
+    }
+
+    const existing = await getUserByPhone(phone);
+    if (existing) {
+      auditLog(req, 'register_code_send_failed', { status: 'failed', phone, reason: 'phone_exists' });
+      json(res, 409, { ok: false, error: '该手机号已注册。' });
+      return true;
+    }
+
+    const verification = issuePhoneCode('public', phone, 'register');
+    auditLog(req, 'register_code_sent', { status: 'ok', phone });
+    json(res, 200, {
+      ok: true,
+      data: {
+        maskedPhone: maskPhone(phone),
+        expiresInSeconds: Math.max(1, Math.ceil((verification.expiresAt - Date.now()) / 1000)),
+        devCode: verification.code,
+      },
+    });
+    return true;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/auth/register-by-code') {
+    const body = await readBody(req);
+    const phone = normalizePhone(body.phone);
+    const code = String(body.code || '').trim();
+    const name = String(body.name || '').trim();
+
+    if (!phone || !code) {
+      json(res, 400, { ok: false, error: '请输入手机号和验证码。' });
+      return true;
+    }
+
+    const existing = await getUserByPhone(phone);
+    if (existing) {
+      auditLog(req, 'register_by_code_failed', { status: 'failed', phone, reason: 'phone_exists' });
+      json(res, 409, { ok: false, error: '该手机号已注册。' });
+      return true;
+    }
+
+    const verification = consumePhoneCode('public', phone, 'register', code);
+    if (!verification.ok) {
+      auditLog(req, 'register_by_code_failed', { status: 'failed', phone, reason: 'invalid_code' });
+      json(res, 400, { ok: false, error: verification.error });
+      return true;
+    }
+
+    const now = new Date().toISOString();
+    const user = await saveUser({
+      id: crypto.randomUUID(),
+      name: name || `用户${phone.slice(-4)}`,
+      phone,
+      email: '',
+      status: 'active',
+      passwordHash: '',
+      wechatOpenId: '',
+      qqOpenId: '',
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    auditLog(req, 'register_by_code_succeeded', { status: 'ok', phone, userId: user.id });
     json(res, 201, { ok: true, data: buildAuthSession(user) });
     return true;
   }
@@ -903,6 +978,8 @@ const server = createServer(async (req, res) => {
         '/api/ai/test',
         '/api/ai/chat',
         '/api/auth/register',
+        '/api/auth/register-code/send',
+        '/api/auth/register-by-code',
         '/api/auth/login',
         '/api/auth/provider-login',
         '/api/auth/me',

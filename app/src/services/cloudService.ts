@@ -97,6 +97,20 @@ export const cloudService = {
     });
   },
 
+  async sendRegisterCode(phone: string): Promise<PhoneCodeSendResult> {
+    return requestJson<PhoneCodeSendResult>('/api/auth/register-code/send', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    });
+  },
+
+  async registerByCode(input: { name?: string; phone: string; code: string }): Promise<AuthSession> {
+    return requestJson<AuthSession>('/api/auth/register-by-code', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
   async login(input: { phone: string; password: string }): Promise<AuthSession> {
     return requestJson<AuthSession>('/api/auth/login', {
       method: 'POST',

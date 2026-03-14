@@ -2,9 +2,8 @@
   <section class="app-screen is-active settings-screen">
     <div class="settings-shell">
       <template v-if="!activeSection">
-        <header class="settings-top">
+        <header class="topbar">
           <div>
-            <p class="eyebrow">Settings</p>
             <h1>设置</h1>
             <p class="subcopy">把账号、提醒、隐私、备份和 AI 接入集中管理。</p>
           </div>
@@ -273,8 +272,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import Avatar from '@/components/common/Avatar.vue';
 import { aiService } from '@/services/aiService';
 import { cloudService } from '@/services/cloudService';
@@ -287,6 +286,7 @@ import { THEME_OPTIONS } from '@/utils/theme';
 
 type SettingSection = 'appearance' | 'ai' | 'privacy' | 'reminder' | 'data' | 'about' | null;
 
+const route = useRoute();
 const router = useRouter();
 const settingsStore = useSettingsStore();
 const friendsStore = useFriendsStore();
@@ -316,6 +316,17 @@ const restoreLoading = ref(false);
 const testResult = ref<{ success: boolean; message: string } | null>(null);
 const dataMessage = ref('');
 const dataError = ref('');
+
+function normalizeSection(value: unknown): SettingSection {
+  return value === 'appearance'
+    || value === 'ai'
+    || value === 'privacy'
+    || value === 'reminder'
+    || value === 'data'
+    || value === 'about'
+    ? value
+    : null;
+}
 
 const themeOptions = THEME_OPTIONS;
 
@@ -357,6 +368,12 @@ onMounted(async () => {
     authStore.refreshCurrentUser(),
   ]);
   loadSettingsIntoForm();
+  activeSection.value = normalizeSection(route.query.section);
+});
+
+watch(() => route.query.section, (value) => {
+  activeSection.value = normalizeSection(value);
+  resetFeedback();
 });
 
 function loadSettingsIntoForm(): void {
@@ -384,13 +401,18 @@ function openAccountEntry(): void {
 }
 
 function openSection(section: Exclude<SettingSection, null>): void {
-  activeSection.value = section;
-  resetFeedback();
+  void router.push({
+    name: 'me',
+    query: {
+      section,
+    },
+  });
 }
 
 function closeSection(): void {
-  activeSection.value = null;
-  resetFeedback();
+  void router.push({
+    name: 'me',
+  });
 }
 
 function resetFeedback(): void {
@@ -410,10 +432,11 @@ function saveAppearanceSettings(): void {
 function saveAISettings(): void {
   testResult.value = null;
   settingsStore.updateSettings({
-    proxyServerUrl: proxyServerUrl.value.trim() || DEFAULT_PROXY_SERVER_URL,
+    proxyServerUrl: DEFAULT_PROXY_SERVER_URL,
     aiStyle: aiStyle.value,
     allowCellularAI: allowCellularAI.value,
   });
+  proxyServerUrl.value = DEFAULT_PROXY_SERVER_URL;
 }
 
 function savePrivacySettings(): void {
@@ -584,6 +607,10 @@ function friendSortModeLabel(value: typeof DEFAULT_SETTINGS.friendSortMode): str
 .field-hint,
 .toggle-row span {
   color: var(--muted);
+}
+
+.subcopy {
+  display: none;
 }
 
 .settings-top h1,
