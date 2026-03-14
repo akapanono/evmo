@@ -191,6 +191,34 @@ async function withConnection(callback) {
   }
 }
 
+function normalizeSqlParams(sql, params = []) {
+  if (!params || Array.isArray(params) || typeof params !== 'object') {
+    return { sql, values: params };
+  }
+
+  const values = [];
+  const normalizedSql = sql.replace(/@([a-zA-Z0-9_]+)/g, (_, key) => {
+    values.push(params[key] ?? null);
+    return '?';
+  });
+
+  return {
+    sql: normalizedSql,
+    values,
+  };
+}
+
+async function queryWithNamedParams(connection, sql, params = []) {
+  const normalized = normalizeSqlParams(sql, params);
+  return connection.query(normalized.sql, normalized.values);
+}
+
+async function executeWithNamedParams(connection, sql, params = []) {
+  const normalized = normalizeSqlParams(sql, params);
+  return connection.execute(normalized.sql, normalized.values);
+}
+
+
 export function getDb() {
   return pool;
 }
@@ -216,15 +244,15 @@ export async function runInTransaction(callback) {
     try {
       const scope = {
         queryAll: async (sql, params = []) => {
-          const [rows] = await connection.query(sql, params);
+          const [rows] = await queryWithNamedParams(connection, sql, params);
           return normalizeRows(rows);
         },
         queryOne: async (sql, params = []) => {
-          const [rows] = await connection.query(sql, params);
+          const [rows] = await queryWithNamedParams(connection, sql, params);
           return normalizeRows(rows)[0];
         },
         execute: async (sql, params = []) => {
-          const [result] = await connection.execute(sql, params);
+          const [result] = await executeWithNamedParams(connection, sql, params);
           return result;
         },
       };
@@ -238,6 +266,7 @@ export async function runInTransaction(callback) {
     }
   });
 }
+
 
 export async function runMigrations() {
   for (const statement of MYSQL_MIGRATIONS) {
