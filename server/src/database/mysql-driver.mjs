@@ -227,16 +227,25 @@ async function executeWithNamedParams(connection, sql, params = []) {
 }
 
 async function ensureUsersTableShape() {
-  await execute(`
-    ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS username VARCHAR(64),
-    ADD COLUMN IF NOT EXISTS security_question_1 VARCHAR(191),
-    ADD COLUMN IF NOT EXISTS security_answer_hash_1 VARCHAR(255),
-    ADD COLUMN IF NOT EXISTS security_question_2 VARCHAR(191),
-    ADD COLUMN IF NOT EXISTS security_answer_hash_2 VARCHAR(255),
-    ADD COLUMN IF NOT EXISTS security_question_3 VARCHAR(191),
-    ADD COLUMN IF NOT EXISTS security_answer_hash_3 VARCHAR(255)
-  `);
+  const columns = [
+    ['username', 'VARCHAR(64)'],
+    ['security_question_1', 'VARCHAR(191)'],
+    ['security_answer_hash_1', 'VARCHAR(255)'],
+    ['security_question_2', 'VARCHAR(191)'],
+    ['security_answer_hash_2', 'VARCHAR(255)'],
+    ['security_question_3', 'VARCHAR(191)'],
+    ['security_answer_hash_3', 'VARCHAR(255)'],
+  ];
+
+  for (const [columnName, definition] of columns) {
+    try {
+      await execute(`ALTER TABLE users ADD COLUMN ${columnName} ${definition}`);
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('Duplicate column name')) {
+        throw error;
+      }
+    }
+  }
 
   try {
     await execute('CREATE UNIQUE INDEX idx_users_username_unique ON users(username)');
