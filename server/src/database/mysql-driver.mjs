@@ -247,7 +247,6 @@ async function ensureUsersTableShape() {
   }
 }
 
-
 export function getDb() {
   return pool;
 }
