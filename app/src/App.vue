@@ -167,6 +167,23 @@ async function bindNativeBackButton(): Promise<void> {
   }
 
   const listener = await CapacitorApp.addListener('backButton', async () => {
+    if (route.name === 'me' && typeof route.query.section === 'string' && route.query.section) {
+      if (window.history.length > 1) {
+        await router.back();
+        return;
+      }
+
+      await router.push({ name: 'me' });
+      return;
+    }
+
+    if (route.name === 'auth') {
+      if (window.history.length > 1) {
+        await router.back();
+        return;
+      }
+    }
+
     const target = getNativeBackTarget();
     if (target) {
       await router.push(target);

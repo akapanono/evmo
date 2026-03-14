@@ -2,8 +2,7 @@
   <section class="app-screen is-active home-dashboard-screen">
     <div class="topbar">
       <div class="topbar-title">
-        <p class="eyebrow">棣栭〉鎻愰啋</p>
-        <h1>鐢熸棩鍜岀邯蹇垫棩</h1>
+        <h1>首页</h1>
       </div>
     </div>
 
@@ -108,7 +107,7 @@ const remoteRecommendations = ref<Record<string, OccasionRecommendation>>({});
 const loadedRecommendationIds = ref<Record<string, boolean>>({});
 let hydrationRunId = 0;
 
-const previewLimit = 2;
+const previewLimit = 1;
 
 const previewSections = computed(() =>
   buildHomeOccasionSections(friendsStore.friends, memorialDaysStore.memorialDays).map((section) => ({
@@ -270,15 +269,11 @@ function openOccasion(item: HomeOccasionItem): void {
   box-shadow: 0 18px 42px var(--nav-shadow);
 }
 
-.eyebrow,
 .gift-label,
 .summary {
   margin: 0;
 }
 
-.eyebrow {
-  display: none;
-}
 
 .home-topbar h1,
 .section-header h2,
@@ -520,4 +515,5 @@ function openOccasion(item: HomeOccasionItem): void {
   }
 }
 </style>
+
 

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <section class="app-screen is-active auth-screen">
     <div class="auth-shell">
       <template v-if="!authStore.isLoggedIn">
@@ -7,12 +7,12 @@
             <button type="button" class="ghost-btn" @click="goBack">返回</button>
             <div>
               <p class="eyebrow">ACCOUNT</p>
-              <h1>账号中心</h1>
+              <h1>账号与安全</h1>
             </div>
           </div>
 
           <p class="hero-text">
-            使用账号密码登录。注册时设置 3 个密保问题，忘记密码时可用密保答案重置。
+            用账号和密码登录。注册时设置 3 个密保问题，忘记密码时可用密保答案重置。
           </p>
 
           <div class="card-stack">
@@ -219,6 +219,7 @@
       <template v-else>
         <article class="auth-card">
           <div class="card-head">
+            <button type="button" class="ghost-btn" @click="goBack">返回</button>
             <div>
               <p class="eyebrow">ACCOUNT READY</p>
               <h1>{{ authStore.user?.username || authStore.user?.name || '已登录' }}</h1>
@@ -248,7 +249,6 @@
     </div>
   </section>
 </template>
-
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -423,3 +423,4 @@ if (route.query.mode === 'register') {
   activeScreen.value = 'login';
 }
 </script>
+
