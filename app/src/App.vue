@@ -115,8 +115,14 @@ function handleFloatingAction(): void {
 function getNativeBackTarget(): RouteLocationRaw | null {
   const sourcePage = getFriendSourcePageFromRoute(route);
 
+  if (route.name === 'auth') {
+    return typeof route.query.redirect === 'string' && route.query.redirect
+      ? route.query.redirect
+      : '/me';
+  }
+
   if (route.name === 'me' && typeof route.query.section === 'string' && route.query.section) {
-    return { name: 'me' };
+    return window.history.length > 1 ? null : { name: 'me' };
   }
 
   if (route.name === 'friend-detail' || route.name === 'edit-friend') {

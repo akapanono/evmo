@@ -264,6 +264,10 @@ const activeScreen = ref<AuthScreen>('landing');
 const error = ref('');
 const message = ref('');
 const resetQuestions = ref<string[]>([]);
+const fallbackBackTarget = computed(() => {
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect.trim() : '';
+  return redirect || '/me';
+});
 
 const loginForm = reactive({
   username: '',
@@ -336,7 +340,7 @@ function goBack(): void {
     return;
   }
 
-  router.replace('/');
+  router.replace(fallbackBackTarget.value);
 }
 
 async function submitLogin(): Promise<void> {

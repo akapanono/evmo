@@ -400,7 +400,7 @@ function loadSettingsIntoForm(): void {
 }
 
 function openAccountEntry(): void {
-  void router.push({ path: '/auth', query: { redirect: '/me' } });
+  void router.push({ path: '/auth', query: { redirect: route.fullPath } });
 }
 
 function openSection(section: Exclude<SettingSection, null>): void {
@@ -413,6 +413,11 @@ function openSection(section: Exclude<SettingSection, null>): void {
 }
 
 function closeSection(): void {
+  if (window.history.length > 1) {
+    void router.back();
+    return;
+  }
+
   void router.push({
     name: 'me',
   });
