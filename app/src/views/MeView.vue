@@ -1,11 +1,11 @@
-<template>
+﻿<template>
   <section class="app-screen is-active settings-screen">
     <div class="settings-shell">
       <template v-if="!activeSection">
         <header class="topbar">
           <div>
             <h1>设置</h1>
-            <p class="subcopy">把账号、提醒、隐私、备份和 AI 接入集中管理。</p>
+            <p class="subcopy">把账号、首页、AI、隐私、提醒和备份集中管理。</p>
           </div>
         </header>
 
@@ -38,7 +38,7 @@
           </button>
           <button type="button" class="setting-row" @click="openSection('privacy')">
             <div>
-              <strong>隐私与保护</strong>
+              <strong>隐私与安全</strong>
               <span>{{ privacySummary }}</span>
             </div>
           </button>
@@ -101,15 +101,15 @@
               <span>默认首页</span>
               <select v-model="startPage" class="model-select" @change="saveAppearanceSettings">
                 <option value="home">首页</option>
-                <option value="calendar">纪念日</option>
-                <option value="friends">好友</option>
+                <option value="calendar">日历</option>
+                <option value="friends">朋友</option>
               </select>
             </label>
             <label class="field">
-              <span>好友排序方式</span>
+              <span>朋友排序方式</span>
               <select v-model="friendSortMode" class="model-select" @change="saveAppearanceSettings">
-                <option value="viewed">最近查看优先</option>
-                <option value="contact">最近联系优先</option>
+                <option value="viewed">最近查看</option>
+                <option value="contact">最近联系</option>
                 <option value="name">按姓名排序</option>
               </select>
             </label>
@@ -121,11 +121,16 @@
 
         <section v-else-if="activeSection === 'ai'" class="detail-stack">
           <article class="panel-card">
-            <h3>网络接入</h3>
-            <label class="field">
-              <span>后端服务地址</span>
-              <input v-model="proxyServerUrl" type="text" placeholder="例如 https://api.example.com" />
-            </label>
+            <h3>AI 与网络</h3>
+            <div class="status-card">
+              <div>
+                <strong>{{ aiConnectionLabel }}</strong>
+                <span>{{ aiConnectionDescription }}</span>
+              </div>
+              <button type="button" class="action-btn" :disabled="testing" @click="testConnection">
+                {{ testing ? '测试中...' : '测试连接' }}
+              </button>
+            </div>
             <label class="field">
               <span>AI 回答风格</span>
               <select v-model="aiStyle" class="model-select">
@@ -134,18 +139,45 @@
                 <option value="concise">简短直接</option>
               </select>
             </label>
-            <label class="toggle-row">
-              <div>
-                <strong>允许移动网络调用 AI</strong>
-                <span>关闭后仅在 Wi-Fi 环境下走 AI 接口。</span>
-              </div>
-              <input v-model="allowCellularAI" type="checkbox" />
-            </label>
+            <div class="toggle-stack">
+              <label class="toggle-row">
+                <div>
+                  <strong>允许读取基础资料</strong>
+                  <span>姓名、关系、生日和基础资料会参与回答。</span>
+                </div>
+                <input v-model="aiReadBasicProfile" type="checkbox" />
+              </label>
+              <label class="toggle-row">
+                <div>
+                  <strong>允许读取偏好与人物画像</strong>
+                  <span>偏好、互动风格、边界和送礼倾向会参与生成。</span>
+                </div>
+                <input v-model="aiReadPreferences" type="checkbox" />
+              </label>
+              <label class="toggle-row">
+                <div>
+                  <strong>允许读取纪念日信息</strong>
+                  <span>AI 可以结合纪念日做提醒、解释和推荐。</span>
+                </div>
+                <input v-model="aiReadMemorials" type="checkbox" />
+              </label>
+              <label class="toggle-row">
+                <div>
+                  <strong>允许读取近期动态</strong>
+                  <span>只有在问题涉及近况时，才会带入近期时间线和动态。</span>
+                </div>
+                <input v-model="aiReadRecentActivity" type="checkbox" />
+              </label>
+              <label class="toggle-row">
+                <div>
+                  <strong>允许移动网络调用 AI</strong>
+                  <span>关闭后仅在 Wi‑Fi 环境下连接 AI 服务。</span>
+                </div>
+                <input v-model="allowCellularAI" type="checkbox" />
+              </label>
+            </div>
             <div class="section-actions-row">
               <button type="button" class="action-btn" @click="resetAISettings">恢复默认</button>
-              <button type="button" class="action-btn" :disabled="testing || !canTestConnection" @click="testConnection">
-                {{ testing ? '测试中...' : '测试连接' }}
-              </button>
               <button type="button" class="action-btn primary" @click="saveAISettings">保存 AI 设置</button>
             </div>
             <p v-if="testResult" :class="['test-result', testResult.success ? 'success' : 'error']">{{ testResult.message }}</p>
@@ -158,14 +190,14 @@
             <label class="toggle-row">
               <div>
                 <strong>隐藏敏感信息</strong>
-                <span>在部分界面折叠手机号、隐私备注等内容。</span>
+                <span>在部分界面折叠私密备注、账号等信息。</span>
               </div>
               <input v-model="hideSensitiveInfo" type="checkbox" />
             </label>
             <label class="toggle-row">
               <div>
                 <strong>进入应用时锁定</strong>
-                <span>再次进入时需要先解锁再查看内容。</span>
+                <span>再次进入应用时，需要先解锁才能查看内容。</span>
               </div>
               <input v-model="lockScreen" type="checkbox" />
             </label>
@@ -213,7 +245,7 @@
             <h3>备份策略</h3>
             <label class="toggle-row">
               <div>
-                <strong>仅在 Wi-Fi 下备份</strong>
+                <strong>仅在 Wi‑Fi 下备份</strong>
                 <span>避免移动网络下同步大量数据。</span>
               </div>
               <input v-model="wifiOnlyBackup" type="checkbox" />
@@ -221,14 +253,14 @@
             <label class="toggle-row">
               <div>
                 <strong>自动备份</strong>
-                <span>登录后定期把好友和纪念日同步到云端。</span>
+                <span>登录后定期把朋友和纪念日同步到云端。</span>
               </div>
               <input v-model="autoBackup" type="checkbox" />
             </label>
             <div class="data-summary">
               <div>
                 <strong>{{ friendsStore.friends.length }}</strong>
-                <span>位好友</span>
+                <span>位朋友</span>
               </div>
               <div>
                 <strong>{{ memorialDaysStore.memorialDays.length }}</strong>
@@ -270,7 +302,6 @@
     </div>
   </section>
 </template>
-
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -296,6 +327,10 @@ const authStore = useAuthStore();
 const activeSection = ref<SettingSection>(null);
 const proxyServerUrl = ref(DEFAULT_PROXY_SERVER_URL);
 const aiStyle = ref<typeof DEFAULT_SETTINGS.aiStyle>(DEFAULT_SETTINGS.aiStyle);
+const aiReadBasicProfile = ref(DEFAULT_SETTINGS.aiReadBasicProfile);
+const aiReadPreferences = ref(DEFAULT_SETTINGS.aiReadPreferences);
+const aiReadMemorials = ref(DEFAULT_SETTINGS.aiReadMemorials);
+const aiReadRecentActivity = ref(DEFAULT_SETTINGS.aiReadRecentActivity);
 const themeScheme = ref<typeof DEFAULT_SETTINGS.themeScheme>(DEFAULT_SETTINGS.themeScheme);
 const startPage = ref<typeof DEFAULT_SETTINGS.startPage>(DEFAULT_SETTINGS.startPage);
 const friendSortMode = ref<typeof DEFAULT_SETTINGS.friendSortMode>(DEFAULT_SETTINGS.friendSortMode);
@@ -330,35 +365,36 @@ function normalizeSection(value: unknown): SettingSection {
 
 const themeOptions = THEME_OPTIONS;
 
-const displayName = computed(() => authStore.user?.name || profileName.value || '我的账号');
-const displayInitial = computed(() => displayName.value.slice(0, 1) || '我');
-const profileSummary = computed(() => `${authStore.isLoggedIn ? '已登录' : '未登录'} · ${friendsStore.friends.length} 位好友 · ${memorialDaysStore.memorialDays.length} 个纪念日`);
+const displayName = computed(() => authStore.user?.name || profileName.value || '朋友档案');
+const displayInitial = computed(() => displayName.value.slice(0, 1) || '友');
+const profileSummary = computed(() => `${authStore.isLoggedIn ? '已登录' : '未登录'} · ${friendsStore.friends.length} 位朋友 · ${memorialDaysStore.memorialDays.length} 个纪念日`);
 const sectionTitle = computed(() => ({
   appearance: '外观与首页',
   ai: 'AI 与网络',
-  privacy: '隐私与保护',
+  privacy: '隐私与安全',
   reminder: '提醒设置',
   data: '数据与备份',
   about: '通用设置',
 }[activeSection.value || 'about']));
-const canTestConnection = computed(() => Boolean(proxyServerUrl.value.trim()));
 const _accountSummary = computed(() => {
   if (!authStore.isLoggedIn) {
     return '';
   }
 
-  return `?????${authStore.user?.username || authStore.user?.name || '--'}`;
+  return `当前账号 ${authStore.user?.username || authStore.user?.name || '--'}`;
 });
 const appearanceSummary = computed(() => `${themeOptions.find((item) => item.value === themeScheme.value)?.label || '默认主题'} · 默认首页 ${startPageLabel(startPage.value)}`);
-const aiSummary = computed(() => `${proxyServerUrl.value.trim() ? '已配置服务地址' : '未配置服务地址'} · ${allowCellularAI.value ? '允许移动网络' : '仅 Wi-Fi'}`);
-const privacySummary = computed(() => [hideSensitiveInfo.value ? '隐藏敏感信息' : null, lockScreen.value ? '进入需解锁' : null, biometricLock.value ? '生物识别入口已开' : null].filter(Boolean).join(' / ') || '标准保护');
+const aiSummary = computed(() => `${aiReadBasicProfile.value ? '基础资料' : '精简资料'} · ${aiReadPreferences.value ? '画像已开启' : '画像已关闭'} · ${allowCellularAI.value ? '允许移动网络' : '仅 Wi-Fi'}`);
+const aiConnectionLabel = computed(() => proxyServerUrl.value.trim() ? '已连接专属 AI 服务' : '未配置 AI 服务');
+const aiConnectionDescription = computed(() => proxyServerUrl.value.trim() ? '服务地址已保存在应用内部，不在设置页直接展示。' : '当前没有可用的 AI 服务地址。');
+const privacySummary = computed(() => [hideSensitiveInfo.value ? '隐藏敏感信息' : null, lockScreen.value ? '进入需解锁' : null, biometricLock.value ? '生物识别已开启' : null].filter(Boolean).join(' / ') || '标准保护');
 const reminderSummary = computed(() => birthdayReminderEnabled.value ? `提前 ${birthdayReminderDaysBefore.value} 天 · ${birthdayReminderTime.value}` : '生日提醒已关闭');
-const dataSummary = computed(() => `${wifiOnlyBackup.value ? '仅 Wi-Fi 备份' : '允许移动网络备份'} · ${autoBackup.value ? '自动备份开启' : '手动备份'}`);
+const dataSummary = computed(() => `${wifiOnlyBackup.value ? '仅 Wi‑Fi 备份' : '允许移动网络备份'} · ${autoBackup.value ? '自动备份已开启' : '手动备份'}`);
 const aboutSummary = computed(() => `${profileDeviceName.value || '当前设备'} · 好友排序 ${friendSortModeLabel(friendSortMode.value)}`);
 
 const accountSummaryText = computed(() => {
   if (!authStore.isLoggedIn) {
-    return '未登录，可使用账号密码登录或注册。';
+    return '当前还没有登录账号，点击后进入账号与安全。';
   }
 
   return `当前账号：${authStore.user?.username || authStore.user?.name || '--'}`;
@@ -383,6 +419,10 @@ function loadSettingsIntoForm(): void {
   const current = settingsStore.settings;
   proxyServerUrl.value = current.proxyServerUrl || DEFAULT_PROXY_SERVER_URL;
   aiStyle.value = current.aiStyle;
+  aiReadBasicProfile.value = current.aiReadBasicProfile;
+  aiReadPreferences.value = current.aiReadPreferences;
+  aiReadMemorials.value = current.aiReadMemorials;
+  aiReadRecentActivity.value = current.aiReadRecentActivity;
   themeScheme.value = current.themeScheme;
   startPage.value = current.startPage;
   friendSortMode.value = current.friendSortMode;
@@ -442,6 +482,10 @@ function saveAISettings(): void {
   settingsStore.updateSettings({
     proxyServerUrl: DEFAULT_PROXY_SERVER_URL,
     aiStyle: aiStyle.value,
+    aiReadBasicProfile: aiReadBasicProfile.value,
+    aiReadPreferences: aiReadPreferences.value,
+    aiReadMemorials: aiReadMemorials.value,
+    aiReadRecentActivity: aiReadRecentActivity.value,
     allowCellularAI: allowCellularAI.value,
   });
   proxyServerUrl.value = DEFAULT_PROXY_SERVER_URL;
@@ -482,6 +526,10 @@ function saveGeneralSettings(): void {
 function resetAISettings(): void {
   proxyServerUrl.value = DEFAULT_SETTINGS.proxyServerUrl || DEFAULT_PROXY_SERVER_URL;
   aiStyle.value = DEFAULT_SETTINGS.aiStyle;
+  aiReadBasicProfile.value = DEFAULT_SETTINGS.aiReadBasicProfile;
+  aiReadPreferences.value = DEFAULT_SETTINGS.aiReadPreferences;
+  aiReadMemorials.value = DEFAULT_SETTINGS.aiReadMemorials;
+  aiReadRecentActivity.value = DEFAULT_SETTINGS.aiReadRecentActivity;
   allowCellularAI.value = DEFAULT_SETTINGS.allowCellularAI;
   saveAISettings();
 }
@@ -508,7 +556,7 @@ async function testConnection(): Promise<void> {
   } catch (error) {
     testResult.value = {
       success: false,
-      message: `测试失败：${(error as Error).message}`,
+      message: `娴嬭瘯澶辫触锛?{(error as Error).message}`,
     };
   } finally {
     testing.value = false;
@@ -544,20 +592,20 @@ async function restoreFromCloud(): Promise<void> {
       memorialDaysStore.loadMemorialDays(),
     ]);
     loadSettingsIntoForm();
-    dataMessage.value = `恢复完成：${result.restoredAt}`;
+    dataMessage.value = `鎭㈠瀹屾垚锛?{result.restoredAt}`;
   } catch (error) {
-    dataError.value = `恢复失败：${(error as Error).message}`;
+    dataError.value = `鎭㈠澶辫触锛?{(error as Error).message}`;
   } finally {
     restoreLoading.value = false;
   }
 }
 
 function startPageLabel(value: typeof DEFAULT_SETTINGS.startPage): string {
-  return value === 'calendar' ? '纪念日' : value === 'friends' ? '好友' : '首页';
+  return value === 'calendar' ? '纪念日' : value === 'friends' ? '朋友' : '首页';
 }
 
 function friendSortModeLabel(value: typeof DEFAULT_SETTINGS.friendSortMode): string {
-  return value === 'contact' ? '最近联系' : value === 'name' ? '姓名顺序' : '最近查看';
+  return value === 'contact' ? '最近联系' : value === 'name' ? '姓名排序' : '最近查看';
 }
 </script>
 
@@ -681,6 +729,32 @@ function friendSortModeLabel(value: typeof DEFAULT_SETTINGS.friendSortMode): str
 .panel-card {
   display: grid;
   gap: 14px;
+}
+
+.status-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-2) 88%, var(--paper));
+  border: 1px solid var(--line);
+}
+
+.status-card strong {
+  display: block;
+}
+
+.status-card span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.toggle-stack {
+  display: grid;
+  gap: 10px;
 }
 
 .field-grid,
@@ -810,9 +884,14 @@ function friendSortModeLabel(value: typeof DEFAULT_SETTINGS.friendSortMode): str
 @media (max-width: 640px) {
   .profile-hero,
   .detail-top,
+  .status-card,
   .toggle-row,
   .setting-row {
     align-items: flex-start;
+  }
+
+  .status-card {
+    flex-direction: column;
   }
 
   .field-grid,
@@ -827,3 +906,9 @@ function friendSortModeLabel(value: typeof DEFAULT_SETTINGS.friendSortMode): str
   }
 }
 </style>
+
+
+
+
+
+

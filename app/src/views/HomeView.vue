@@ -441,15 +441,16 @@ function openFriend(friendId: string): void {
 }
 
 .calendar-cell {
-  min-height: 72px;
+  aspect-ratio: 1 / 1;
+  min-height: 60px;
   border: 0;
   border-right: 1px solid color-mix(in srgb, var(--ink-soft) 10%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--ink-soft) 10%, transparent);
   border-radius: 0;
   background: color-mix(in srgb, var(--surface-panel) 76%, transparent);
-  padding: 6px 5px;
+  padding: 5px 4px;
   display: grid;
-  grid-template-rows: auto 14px 14px 14px;
+  grid-template-rows: auto 12px 12px 12px;
   gap: 2px;
   text-align: left;
   position: relative;
@@ -505,7 +506,7 @@ function openFriend(friendId: string): void {
   display: block;
   min-width: 0;
   font-size: 9px;
-  line-height: 14px;
+  line-height: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -641,8 +642,8 @@ function openFriend(friendId: string): void {
   }
 
   .calendar-cell {
-    min-height: 66px;
-    padding: 5px 4px;
+    min-height: 52px;
+    padding: 4px 3px;
   }
 
   .day-number {

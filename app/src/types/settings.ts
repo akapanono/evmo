@@ -28,6 +28,10 @@ export interface AppSettings {
   biometricLock: boolean;
 
   aiStyle: 'friendly' | 'professional' | 'concise';
+  aiReadBasicProfile: boolean;
+  aiReadPreferences: boolean;
+  aiReadMemorials: boolean;
+  aiReadRecentActivity: boolean;
   themeScheme: 'default' | 'forest' | 'sunset' | 'ocean';
   defaultQuestions: string[];
   friendSortMode: 'name' | 'contact' | 'viewed';
@@ -56,6 +60,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   hideSensitiveInfo: false,
   biometricLock: false,
   aiStyle: 'friendly',
+  aiReadBasicProfile: true,
+  aiReadPreferences: true,
+  aiReadMemorials: true,
+  aiReadRecentActivity: false,
   themeScheme: 'default',
   defaultQuestions: [
     '最近适合怎么和 TA 打开话题？',

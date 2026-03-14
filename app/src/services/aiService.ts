@@ -188,9 +188,9 @@ function sliceRelevant<T>(items: T[], limit: number): T[] {
   return items.slice(0, limit);
 }
 
-function buildFriendContext(friend: Friend, question: string, memorialDays: MemorialDay[] = []): string {
+function buildFriendContext(friend: Friend, question: string, settings: AppSettings, memorialDays: MemorialDay[] = []): string {
   const parts: string[] = [];
-  const basicInfo = buildBasicInfoContext(friend);
+  const basicInfo = settings.aiReadBasicProfile ? buildBasicInfoContext(friend) : '';
   const persona = friend.aiProfile;
   const isGift = isGiftQuestion(question);
   const isFood = isFoodQuestion(question);
@@ -201,24 +201,24 @@ function buildFriendContext(friend: Friend, question: string, memorialDays: Memo
     parts.push(basicInfo);
   }
 
-  if (memorialDays.length > 0) {
+  if (settings.aiReadMemorials && memorialDays.length > 0) {
     parts.push(`关联纪念日: ${memorialDays.map(describeMemorialDay).join('；')}`);
   }
 
   const personaLines: string[] = [];
-  if (persona.overview && !isGreeting) {
+  if (settings.aiReadPreferences && persona.overview && !isGreeting) {
     personaLines.push(`画像摘要: ${persona.overview}`);
   }
-  if (persona.traits.length > 0 && !isGift) {
+  if (settings.aiReadPreferences && persona.traits.length > 0 && !isGift) {
     personaLines.push(`性格与表达: ${sliceRelevant(persona.traits, 3).join('；')}`);
   }
-  if (persona.interactionStyle.length > 0) {
+  if (settings.aiReadPreferences && persona.interactionStyle.length > 0) {
     personaLines.push(`互动方式: ${sliceRelevant(persona.interactionStyle, isGreeting ? 2 : 3).join('；')}`);
   }
-  if (persona.tasteProfile.length > 0 && (isGift || isFood || !isGreeting)) {
+  if (settings.aiReadPreferences && persona.tasteProfile.length > 0 && (isGift || isFood || !isGreeting)) {
     personaLines.push(`审美与偏好倾向: ${sliceRelevant(persona.tasteProfile, isGift ? 4 : 2).join('；')}`);
   }
-  if (persona.inferenceHints.length > 0 && (isGift || isFood)) {
+  if (settings.aiReadPreferences && persona.inferenceHints.length > 0 && (isGift || isFood)) {
     personaLines.push(`仅在相关时可参考的延展倾向: ${sliceRelevant(persona.inferenceHints, 3).join('；')}`);
   }
   if (persona.boundaries.length > 0 && (isFood || /相处|介意|雷区|别/.test(question))) {
@@ -247,11 +247,11 @@ function buildFriendContext(friend: Friend, question: string, memorialDays: Memo
       return true;
     })
     .slice(0, 4);
-  if (stableFields.length > 0) {
+  if (settings.aiReadPreferences && stableFields.length > 0) {
     parts.push(`稳定资料: ${stableFields.map((field) => `${field.label}-${field.value}`).join('；')}`);
   }
 
-  const timeboundFields = wantsRecent
+  const timeboundFields = settings.aiReadRecentActivity && wantsRecent
     ? friend.customFields.filter((field) => field.temporalScope === 'timebound').slice(0, 4)
     : [];
   if (wantsRecent && timeboundFields.length > 0) {
@@ -636,7 +636,8 @@ function buildProfileGuidance(friend: Friend): ProfileGuidance {
 }
 
 function buildAskUserPrompt(friend: Friend, question: string, guidance: ProfileGuidance, memorialDays: MemorialDay[] = []): string {
-  const context = buildFriendContext(friend, question, memorialDays);
+  const settings = storageService.getSettings();
+  const context = buildFriendContext(friend, question, settings, memorialDays);
   const isGift = isGiftQuestion(question);
   const isFood = isFoodQuestion(question);
   const isDate = isDateQuestion(question);

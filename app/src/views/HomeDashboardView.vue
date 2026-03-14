@@ -1,9 +1,9 @@
-<template>
+﻿<template>
   <section class="app-screen is-active home-dashboard-screen">
     <div class="topbar">
       <div class="topbar-title">
-        <p class="eyebrow">首页提醒</p>
-        <h1>生日和纪念日</h1>
+        <p class="eyebrow">棣栭〉鎻愰啋</p>
+        <h1>鐢熸棩鍜岀邯蹇垫棩</h1>
       </div>
     </div>
 
@@ -20,7 +20,7 @@
           class="ghost-action"
           @click="openMore(section.key)"
         >
-          更多
+          鏇村
         </button>
       </header>
 
@@ -65,8 +65,26 @@
         </article>
       </div>
 
-      <div v-else class="empty-card">
-        这段时间还没有需要特别留意的生日或纪念日。
+      <div v-else class="empty-card onboarding-card">
+        <div class="empty-hero">
+          <p class="empty-badge">从这里开始</p>
+          <h3>还没有要提醒的生日或纪念日</h3>
+          <p>先补齐朋友档案和纪念日，首页才会开始给你整理提醒、礼物推荐和最近要关注的人。</p>
+        </div>
+        <div class="empty-metrics">
+          <div>
+            <strong>{{ friendsStore.friends.length }}</strong>
+            <span>位朋友</span>
+          </div>
+          <div>
+            <strong>{{ memorialDaysStore.memorialDays.length }}</strong>
+            <span>个纪念日</span>
+          </div>
+        </div>
+        <div class="empty-actions">
+          <button type="button" class="action-btn primary" @click="router.push('/friends')">去完善朋友档案</button>
+          <button type="button" class="action-btn" @click="router.push('/calendar')">去添加纪念日</button>
+        </div>
       </div>
     </section>
   </section>
@@ -429,9 +447,77 @@ function openOccasion(item: HomeOccasionItem): void {
   color: var(--muted);
 }
 
+.onboarding-card {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--gold) 20%, transparent), transparent 34%),
+    linear-gradient(135deg, color-mix(in srgb, var(--paper) 86%, var(--card-accent-gold)), color-mix(in srgb, var(--paper) 92%, var(--card-accent-teal)));
+}
+
+.empty-hero {
+  display: grid;
+  gap: 8px;
+}
+
+.empty-badge {
+  margin: 0;
+  width: fit-content;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 8%, var(--paper));
+  color: var(--ink-soft);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.empty-hero h3 {
+  margin: 0;
+  font-size: 24px;
+  color: var(--ink);
+}
+
+.empty-hero p:last-child {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.empty-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.empty-metrics div {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--paper) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+}
+
+.empty-metrics strong {
+  font-size: 28px;
+  color: var(--ink);
+}
+
+.empty-metrics span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 @media (min-width: 900px) {
   .card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>
+
