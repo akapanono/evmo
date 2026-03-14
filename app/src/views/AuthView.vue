@@ -36,8 +36,8 @@
               <input
                 v-model="loginForm.username"
                 type="text"
-                maxlength="30"
-                placeholder="8-30 位字母或数字"
+                maxlength="16"
+                placeholder="4-16 位字母或数字"
               />
             </label>
 
@@ -80,8 +80,8 @@
               <input
                 v-model="registerForm.username"
                 type="text"
-                maxlength="30"
-                placeholder="8-30 位字母或数字"
+                maxlength="16"
+                placeholder="4-16 位字母或数字"
               />
             </label>
 
@@ -156,7 +156,7 @@
                 <input
                   v-model="resetForm.username"
                   type="text"
-                  maxlength="30"
+                  maxlength="16"
                   placeholder="输入账号后读取密保问题"
                 />
                 <button type="button" class="inline-btn" :disabled="authStore.loading" @click="loadSecurityQuestions">

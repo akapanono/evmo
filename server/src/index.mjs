@@ -45,7 +45,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const adminDir = join(__dirname, '..', '..', 'admin');
 const rateLimitBuckets = new Map();
 
-const USERNAME_PATTERN = /^[A-Za-z0-9]{8,30}$/;
+const USERNAME_PATTERN = /^[A-Za-z0-9]{4,16}$/;
 const PASSWORD_PATTERN = /^[A-Za-z0-9]{6,15}$/;
 const SECURITY_QUESTION_COUNT = 3;
 
@@ -238,7 +238,7 @@ async function handleAuthRoutes(req, res, url) {
     const questionsError = validateSecurityQuestions(securityQuestions);
 
     if (!isValidUsername(username)) {
-      json(res, 400, { ok: false, error: 'Username must be 8-30 letters or digits.' });
+      json(res, 400, { ok: false, error: 'Username must be 4-16 letters or digits.' });
       return true;
     }
 
@@ -309,7 +309,7 @@ async function handleAuthRoutes(req, res, url) {
     const username = normalizeUsername(body.username);
 
     if (!isValidUsername(username)) {
-      json(res, 400, { ok: false, error: 'Username must be 8-30 letters or digits.' });
+      json(res, 400, { ok: false, error: 'Username must be 4-16 letters or digits.' });
       return true;
     }
 
@@ -337,7 +337,7 @@ async function handleAuthRoutes(req, res, url) {
     const user = await getUserByUsername(username);
 
     if (!isValidUsername(username)) {
-      json(res, 400, { ok: false, error: 'Username must be 8-30 letters or digits.' });
+      json(res, 400, { ok: false, error: 'Username must be 4-16 letters or digits.' });
       return true;
     }
 
