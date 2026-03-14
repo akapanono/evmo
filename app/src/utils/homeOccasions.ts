@@ -68,8 +68,12 @@ export function buildHomeOccasionItem(
       return null;
     }
 
-    const recommendation = normalizeOccasionRecommendation(friend.birthdayRecommendation, buildBirthdayRecommendation(friend));
+    const recommendation = normalizeOccasionRecommendation(
+      friend.birthdayRecommendation,
+      buildBirthdayRecommendation(friend),
+    );
     const daysUntil = getDaysUntilBirthday(friend.birthday);
+
     return {
       id: `birthday:${friend.id}`,
       targetId: friend.id,
@@ -92,7 +96,10 @@ export function buildHomeOccasionItem(
   const linkedFriends = memorial.friendIds
     .map((friendId) => friends.find((friend) => friend.id === friendId))
     .filter((friend): friend is Friend => Boolean(friend));
-  const recommendation = normalizeOccasionRecommendation(memorial.recommendation, buildMemorialRecommendation(memorial, linkedFriends));
+  const recommendation = normalizeOccasionRecommendation(
+    memorial.recommendation,
+    buildMemorialRecommendation(memorial, linkedFriends),
+  );
   const daysUntil = getDaysUntilMonthDay(memorial.monthDay);
 
   return {
@@ -114,7 +121,10 @@ function buildBirthdayItems(friends: Friend[]): HomeOccasionItem[] {
     .filter((friend) => friend.birthday)
     .map((friend) => {
       const birthday = friend.birthday!;
-      const recommendation = normalizeOccasionRecommendation(friend.birthdayRecommendation, buildBirthdayRecommendation(friend));
+      const recommendation = normalizeOccasionRecommendation(
+        friend.birthdayRecommendation,
+        buildBirthdayRecommendation(friend),
+      );
       const daysUntil = getDaysUntilBirthday(birthday);
 
       return {
@@ -137,7 +147,10 @@ function buildMemorialItems(friends: Friend[], memorialDays: MemorialDay[]): Hom
     const linkedFriends = item.friendIds
       .map((friendId) => friends.find((friend) => friend.id === friendId))
       .filter((friend): friend is Friend => Boolean(friend));
-    const recommendation = normalizeOccasionRecommendation(item.recommendation, buildMemorialRecommendation(item, linkedFriends));
+    const recommendation = normalizeOccasionRecommendation(
+      item.recommendation,
+      buildMemorialRecommendation(item, linkedFriends),
+    );
     const daysUntil = getDaysUntilMonthDay(item.monthDay);
 
     return {

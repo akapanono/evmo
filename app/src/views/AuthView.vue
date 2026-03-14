@@ -426,37 +426,37 @@ if (route.query.mode === 'register') {
 
 <style scoped>
 .auth-screen {
-  padding: 24px 16px 40px;
   overflow-y: auto;
+  padding: 20px 16px 36px;
   background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--gold) 16%, transparent), transparent 28%),
-    linear-gradient(180deg, color-mix(in srgb, var(--body-grad-start) 94%, var(--paper)) 0%, var(--paper) 100%);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--gold) 18%, transparent), transparent 28%),
+    linear-gradient(180deg, color-mix(in srgb, var(--body-grad-start) 96%, var(--paper)), color-mix(in srgb, var(--body-grad-end) 94%, var(--paper)));
 }
 
-.auth-shell {
+.auth-shell,
+.card-stack,
+.summary-grid {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .auth-card {
   display: grid;
-  gap: 18px;
-  padding: 22px 18px;
-  border-radius: 28px;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 24px;
   background: color-mix(in srgb, var(--card-soft) 96%, transparent);
-  border: 1px solid var(--line);
-  box-shadow: 0 18px 42px var(--nav-shadow);
-}
-
-.auth-landing {
-  gap: 22px;
+  box-shadow: 0 18px 40px var(--nav-shadow);
 }
 
 .card-head {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: start;
-  gap: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.card-head > div {
+  flex: 1;
 }
 
 .card-head h1 {
@@ -468,21 +468,22 @@ if (route.query.mode === 'register') {
 
 .eyebrow {
   margin: 0;
-  color: var(--muted);
   font-size: 12px;
-  letter-spacing: 0.14em;
+  letter-spacing: .08em;
   text-transform: uppercase;
+  color: var(--muted);
+}
+
+.hero-text,
+.summary-item span,
+.feedback,
+.field-hint {
+  color: var(--muted);
 }
 
 .hero-text {
   margin: 0;
-  color: var(--muted);
   line-height: 1.75;
-}
-
-.card-stack {
-  display: grid;
-  gap: 14px;
 }
 
 .field,
@@ -491,27 +492,34 @@ if (route.query.mode === 'register') {
   gap: 8px;
 }
 
+.security-block {
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-panel) 90%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+}
+
 .field span {
-  color: var(--ink-soft);
-  font-size: 14px;
-  font-weight: 600;
+  color: var(--ink);
+  font-size: 13px;
 }
 
 .field input,
 .inline-field input {
   width: 100%;
-  min-height: 54px;
-  padding: 0 16px;
-  border-radius: 18px;
+  min-height: 50px;
+  padding: 0 14px;
   border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  border-radius: 16px;
+  background: var(--white);
   color: var(--ink);
-  font-size: 17px;
+  font: inherit;
 }
 
 .field input[readonly] {
+  background: color-mix(in srgb, var(--surface-2) 88%, var(--paper));
   color: var(--muted);
-  background: color-mix(in srgb, var(--surface-2) 88%, transparent);
 }
 
 .inline-field {
@@ -527,83 +535,63 @@ if (route.query.mode === 'register') {
 .link-btn,
 .danger-btn {
   border: 0;
-  border-radius: 16px;
-  font-size: 16px;
-  font-weight: 600;
+  border-radius: 18px;
+  font: inherit;
 }
 
 .ghost-btn,
 .inline-btn,
-.link-btn {
-  background: color-mix(in srgb, var(--paper) 84%, transparent);
+.link-btn,
+.secondary-btn {
+  background: var(--surface-3);
   color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--line);
 }
 
 .ghost-btn {
-  min-height: 44px;
-  padding: 0 14px;
+  min-width: 72px;
+  height: 40px;
 }
 
-.inline-btn {
-  min-width: 88px;
-  min-height: 54px;
-  padding: 0 14px;
-}
-
+.inline-btn,
 .primary-btn,
 .secondary-btn,
 .danger-btn {
-  min-height: 54px;
-  padding: 0 18px;
+  min-height: 42px;
+  padding: 0 16px;
 }
 
 .primary-btn {
   background: var(--ink);
-  color: var(--paper);
-}
-
-.secondary-btn {
-  background: color-mix(in srgb, var(--teal) 14%, var(--paper));
-  color: color-mix(in srgb, var(--ink) 88%, var(--teal));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--teal) 20%, transparent);
+  color: var(--white-soft);
 }
 
 .danger-btn {
   background: color-mix(in srgb, var(--coral) 20%, var(--paper));
   color: color-mix(in srgb, var(--coral) 88%, var(--ink));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--coral) 22%, transparent);
 }
 
 .link-row {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
 .link-btn {
-  min-height: 42px;
+  min-height: 40px;
   padding: 0 14px;
 }
 
 .summary-grid {
-  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
 }
 
 .summary-item {
   display: grid;
-  gap: 4px;
-  padding: 16px;
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--paper) 84%, transparent);
-  border: 1px solid var(--line);
-}
-
-.summary-item span {
-  color: var(--muted);
-  font-size: 13px;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-panel) 90%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
 }
 
 .summary-item strong {
@@ -614,42 +602,35 @@ if (route.query.mode === 'register') {
 
 .provider-row {
   display: flex;
-  justify-content: flex-start;
+  gap: 10px;
 }
 
 .feedback {
   margin: 0;
-  padding: 12px 14px;
-  border-radius: 16px;
-  line-height: 1.6;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14px;
 }
 
 .feedback.success {
-  background: color-mix(in srgb, var(--teal) 14%, var(--paper));
-  color: color-mix(in srgb, var(--teal) 88%, var(--ink));
+  background: var(--success-bg);
+  color: var(--success-text);
 }
 
 .feedback.error {
-  background: color-mix(in srgb, var(--coral) 14%, var(--paper));
-  color: color-mix(in srgb, var(--coral) 86%, var(--ink));
+  background: var(--danger-bg);
+  color: var(--danger-text);
 }
 
-@media (max-width: 520px) {
-  .card-head {
-    grid-template-columns: 1fr;
+@media (max-width: 640px) {
+  .card-head,
+  .provider-row {
+    flex-direction: column;
   }
 
-  .summary-grid {
-    grid-template-columns: 1fr;
-  }
-
+  .summary-grid,
   .inline-field {
     grid-template-columns: 1fr;
   }
-
-  .link-row {
-    flex-wrap: wrap;
-  }
 }
 </style>
-

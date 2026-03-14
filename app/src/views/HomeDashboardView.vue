@@ -1,113 +1,129 @@
-﻿<template>
-  <section class="app-screen is-active home-dashboard-screen">
+<template>
+  <section
+    ref="screenRef"
+    class="app-screen is-active home-dashboard-screen"
+    @touchstart.passive="handleTouchStart"
+    @touchmove="handleTouchMove"
+    @touchend="handleTouchEnd"
+    @touchcancel="handleTouchEnd"
+  >
+    <div class="pull-indicator" :class="{ active: isPulling || refreshLoading }">
+      <span>{{ refreshLoading ? '正在刷新...' : pullHint }}</span>
+    </div>
+
     <div class="topbar">
       <div class="topbar-title">
         <h1>首页</h1>
+        <p class="subcopy">最近值得关注的生日、纪念日和礼物建议都在这里。</p>
       </div>
     </div>
 
-    <section
-      v-for="section in previewSections"
-      :key="section.key"
-      class="reminder-section"
-    >
+    <section class="overview-grid">
+      <button
+        v-for="section in previewSections"
+        :key="section.key"
+        type="button"
+        class="overview-card"
+        @click="openMore(section.key)"
+      >
+        <div class="overview-card-top">
+          <p class="overview-label">{{ section.title }}</p>
+          <span :class="['overview-trend', { alert: section.items.length > 0 }]">
+            {{ section.items.length > 0 ? '有提醒' : '空白' }}
+          </span>
+        </div>
+        <strong>{{ section.items.length }}</strong>
+        <p class="overview-headline">
+          {{ section.items[0]?.title || '当前时间段没有生日或纪念日' }}
+        </p>
+        <span v-if="section.items.length > 0" class="overview-footnote">
+          点击查看这个时间段的全部纪念日
+        </span>
+      </button>
+    </section>
+
+    <section v-if="featuredGiftCards.length > 0" class="gift-section">
       <header class="section-header">
-        <h2>{{ section.title }}</h2>
-        <button
-          v-if="section.items.length > previewLimit"
-          type="button"
-          class="ghost-action"
-          @click="openMore(section.key)"
-        >
-          鏇村
-        </button>
+        <div>
+          <p class="mini-label">礼物推荐</p>
+          <h2>最近值得考虑的礼物</h2>
+        </div>
+        <span class="section-note">{{ refreshLoading ? '更新中' : `${featuredGiftCards.length} 条建议` }}</span>
       </header>
 
-      <div v-if="section.items.length > 0" class="card-grid">
+      <div class="gift-card-list">
         <article
-          v-for="item in section.items.slice(0, previewLimit)"
-          :key="item.id"
-          class="occasion-card"
-          @click="openOccasion(item)"
+          v-for="card in featuredGiftCards"
+          :key="card.id"
+          class="gift-card"
+          @click="openOccasion(card.item)"
         >
-          <div class="card-top">
-            <span :class="['occasion-tag', item.type]">{{ item.type === 'birthday' ? '生日' : '纪念日' }}</span>
-            <span class="date-pill">{{ item.dateLabel }}</span>
-            <strong>{{ item.relativeLabel }}</strong>
+          <div class="gift-card-top">
+            <span :class="['occasion-tag', card.item.type]">
+              {{ card.item.type === 'birthday' ? '生日' : '纪念日' }}
+            </span>
+            <span class="date-pill">{{ card.item.relativeLabel }}</span>
           </div>
 
-          <div class="card-main">
-            <h3>{{ item.title }}</h3>
-            <p class="summary">{{ item.summary }}</p>
-          </div>
-
-          <div v-if="item.friends.length > 0" class="friend-row" @click.stop>
-            <button
-              v-for="friend in item.friends.slice(0, 2)"
-              :key="friend.id"
-              type="button"
-              class="friend-chip"
-              @click="openFriend(friend.id)"
-            >
-              {{ friend.name }}
-            </button>
-          </div>
-
-          <div class="gift-preview">
-            <p class="gift-label">礼物推荐</p>
-            <ul v-if="item.suggestion.gifts.length > 0">
-              <li v-for="gift in item.suggestion.gifts.slice(0, 3)" :key="gift">{{ gift }}</li>
-            </ul>
-            <p v-else-if="!isRecommendationLoaded(item.id)" class="gift-empty">礼物推荐加载中</p>
-            <p v-else class="gift-empty">暂无推荐的礼物</p>
-          </div>
+          <h3>{{ card.gift }}</h3>
+          <p class="gift-recipient">建议送给：{{ card.recipient }}</p>
+          <p class="gift-summary">{{ card.item.title }} · {{ card.item.dateLabel }}</p>
         </article>
       </div>
+    </section>
 
-      <div v-else class="empty-card onboarding-card">
-        <div class="empty-hero">
-          <p class="empty-badge">从这里开始</p>
-          <h3>还没有要提醒的生日或纪念日</h3>
-          <p>先补齐朋友档案和纪念日，首页才会开始给你整理提醒、礼物推荐和最近要关注的人。</p>
+    <section v-else class="empty-card onboarding-card">
+      <div class="empty-hero">
+        <p class="empty-badge">空白首页</p>
+        <h3>你还没有近期纪念日和礼物推荐</h3>
+        <p>先添加朋友和纪念日，首页就会自动整理时间提醒和礼物建议。</p>
+      </div>
+      <div class="empty-metrics">
+        <div>
+          <strong>{{ friendsStore.friends.length }}</strong>
+          <span>位朋友</span>
         </div>
-        <div class="empty-metrics">
-          <div>
-            <strong>{{ friendsStore.friends.length }}</strong>
-            <span>位朋友</span>
-          </div>
-          <div>
-            <strong>{{ memorialDaysStore.memorialDays.length }}</strong>
-            <span>个纪念日</span>
-          </div>
+        <div>
+          <strong>{{ memorialDaysStore.memorialDays.length }}</strong>
+          <span>条纪念日</span>
         </div>
-        <div class="empty-actions">
-          <button type="button" class="action-btn primary" @click="router.push('/friends')">去完善朋友档案</button>
-          <button type="button" class="action-btn" @click="router.push('/calendar')">去添加纪念日</button>
-        </div>
+      </div>
+      <div class="empty-actions">
+        <button type="button" class="action-btn primary" @click="router.push('/friends')">去加朋友</button>
+        <button type="button" class="action-btn" @click="router.push('/calendar')">查看日历</button>
       </div>
     </section>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onMounted, ref, watch } from 'vue';
+import { computed, onActivated, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { recommendationService } from '@/services/recommendationService';
 import { useFriendsStore } from '@/stores/friends';
 import { useMemorialDaysStore } from '@/stores/memorialDays';
 import type { MemorialDay } from '@/types/memorial';
 import type { OccasionRecommendation } from '@/types/recommendation';
-import { getFriendSourceQuery } from '@/utils/friendNavigation';
 import { buildHomeOccasionSections, type HomeOccasionItem, type ReminderRangeKey } from '@/utils/homeOccasions';
 
 const router = useRouter();
 const friendsStore = useFriendsStore();
 const memorialDaysStore = useMemorialDaysStore();
-const remoteRecommendations = ref<Record<string, OccasionRecommendation>>({});
-const loadedRecommendationIds = ref<Record<string, boolean>>({});
-let hydrationRunId = 0;
 
-const previewLimit = 1;
+const screenRef = ref<HTMLElement | null>(null);
+const remoteRecommendations = ref<Record<string, OccasionRecommendation>>({});
+const refreshLoading = ref(false);
+const isPulling = ref(false);
+const pullDistance = ref(0);
+const initialized = ref(false);
+
+let hydrationRunId = 0;
+let touchStartY = 0;
+let readyToPull = false;
+
+const PULL_START = 28;
+const PULL_TRIGGER = 118;
+const PULL_MAX = 132;
 
 const previewSections = computed(() =>
   buildHomeOccasionSections(friendsStore.friends, memorialDaysStore.memorialDays).map((section) => ({
@@ -115,103 +131,112 @@ const previewSections = computed(() =>
     items: section.items.map((item) => ({
       ...item,
       suggestion: {
-        gifts: remoteRecommendations.value[item.id]?.gifts ?? item.suggestion.gifts ?? [],
+        gifts: (() => {
+          const recommendation = remoteRecommendations.value[item.id];
+          return recommendation?.gifts?.length ? recommendation.gifts : item.suggestion.gifts;
+        })(),
       },
     })),
   })),
 );
+
+const featuredGiftCards = computed(() =>
+  previewSections.value
+    .flatMap((section) => section.items.slice(0, 2))
+    .filter((item) => item.suggestion.gifts.length > 0)
+    .slice(0, 4)
+    .map((item) => ({
+      id: `${item.id}:${item.suggestion.gifts[0]}`,
+      item,
+      gift: item.suggestion.gifts[0],
+      recipient: item.friends.length > 0 ? item.friends.map((friend) => friend.name).join('、') : item.title,
+    })),
+);
+
+const pullHint = computed(() => (pullDistance.value >= PULL_TRIGGER ? '松手刷新' : '继续下拉刷新'));
 
 onMounted(async () => {
   await initializeDashboard();
 });
 
 onActivated(async () => {
-  await initializeDashboard();
+  if (!initialized.value) {
+    await initializeDashboard();
+  }
 });
 
-watch(
-  () => buildHomeOccasionSections(friendsStore.friends, memorialDaysStore.memorialDays)
-    .flatMap((section) => section.items.map((item) => item.id))
-    .join('|'),
-  async () => {
-    await hydrateRemoteRecommendations();
-  },
-);
-
 async function initializeDashboard(): Promise<void> {
-  await Promise.all([
-    friendsStore.loadFriends(),
-    memorialDaysStore.loadMemorialDays(),
-  ]);
-  await hydrateRemoteRecommendations();
+  refreshLoading.value = true;
+  try {
+    await Promise.all([friendsStore.loadFriends(), memorialDaysStore.loadMemorialDays()]);
+    await hydrateRemoteRecommendations();
+    initialized.value = true;
+  } finally {
+    refreshLoading.value = false;
+  }
+}
+
+async function refreshDashboard(): Promise<void> {
+  if (refreshLoading.value) return;
+
+  refreshLoading.value = true;
+  try {
+    await Promise.all([friendsStore.loadFriends(), memorialDaysStore.loadMemorialDays()]);
+    await hydrateRemoteRecommendations();
+  } finally {
+    refreshLoading.value = false;
+  }
 }
 
 async function hydrateRemoteRecommendations(): Promise<void> {
   const runId = ++hydrationRunId;
   const sections = buildHomeOccasionSections(friendsStore.friends, memorialDaysStore.memorialDays);
-  const previewItems = sections.flatMap((section) => section.items.slice(0, previewLimit));
+  const previewItems = sections.flatMap((section) => section.items.slice(0, 2));
 
   for (const item of previewItems) {
-    if (runId !== hydrationRunId) {
-      return;
-    }
+    if (runId !== hydrationRunId) return;
     await loadRecommendationForItem(item);
   }
 }
 
 async function loadRecommendationForItem(item: HomeOccasionItem): Promise<void> {
-  loadedRecommendationIds.value = {
-    ...loadedRecommendationIds.value,
-    [item.id]: false,
-  };
   try {
+    let recommendation: OccasionRecommendation | null = null;
+
     if (item.type === 'birthday') {
       const friend = item.friends[0];
       if (!friend) return;
-      const recommendation = await requestRecommendationWithRetry(() => recommendationService.buildBirthdayRecommendation(friend));
+      recommendation = await requestRecommendationWithRetry(() => recommendationService.buildBirthdayRecommendation(friend));
+      friend.birthdayRecommendation = recommendation;
+    } else {
+      const memorial = memorialDaysStore.memorialDays.find((entry) => entry.id === item.targetId);
+      if (!memorial) return;
+      recommendation = await requestRecommendationWithRetry(() =>
+        recommendationService.buildMemorialRecommendation(memorial as MemorialDay, item.friends),
+      );
+      memorial.recommendation = recommendation;
+    }
+
+    if (recommendation?.gifts?.length) {
       remoteRecommendations.value = {
         ...remoteRecommendations.value,
         [item.id]: recommendation,
       };
-      friend.birthdayRecommendation = recommendation;
-      loadedRecommendationIds.value = {
-        ...loadedRecommendationIds.value,
-        [item.id]: true,
-      };
-      return;
     }
-
-    const memorial = memorialDaysStore.memorialDays.find((entry) => entry.id === item.targetId);
-    if (!memorial) return;
-    const recommendation = await requestRecommendationWithRetry(() =>
-      recommendationService.buildMemorialRecommendation(memorial as MemorialDay, item.friends),
-    );
-    remoteRecommendations.value = {
-      ...remoteRecommendations.value,
-      [item.id]: recommendation,
-    };
-    memorial.recommendation = recommendation;
   } catch {
-    remoteRecommendations.value = {
-      ...remoteRecommendations.value,
-      [item.id]: {
-        gifts: [],
-        scoreCards: [],
-        buckets: [],
-        updatedAt: '',
-        source: 'system',
-      },
-    };
-  } finally {
-    loadedRecommendationIds.value = {
-      ...loadedRecommendationIds.value,
-      [item.id]: true,
-    };
+    if (!remoteRecommendations.value[item.id] && item.suggestion.gifts.length > 0) {
+      remoteRecommendations.value = {
+        ...remoteRecommendations.value,
+        [item.id]: {
+          gifts: [...item.suggestion.gifts],
+          scoreCards: [],
+          buckets: [],
+          updatedAt: '',
+          source: 'system',
+        },
+      };
+    }
   }
-}
-
-function isRecommendationLoaded(itemId: string): boolean {
-  return loadedRecommendationIds.value[itemId] === true;
 }
 
 async function requestRecommendationWithRetry(
@@ -224,19 +249,42 @@ async function requestRecommendationWithRetry(
   }
 }
 
-function openMore(range: ReminderRangeKey): void {
-  void router.push({ name: 'home-occasion-more', params: { range } });
+function handleTouchStart(event: TouchEvent): void {
+  touchStartY = event.touches[0]?.clientY ?? 0;
+  readyToPull = (screenRef.value?.scrollTop ?? 0) <= 0 && !refreshLoading.value;
+  isPulling.value = false;
+  pullDistance.value = 0;
 }
 
-function openFriend(friendId: string): void {
-  void router.push({
-    name: 'friend-detail',
-    params: { id: friendId },
-    query: {
-      ...getFriendSourceQuery('home'),
-      backTo: '/home',
-    },
-  });
+function handleTouchMove(event: TouchEvent): void {
+  if (!readyToPull || refreshLoading.value) return;
+
+  const currentY = event.touches[0]?.clientY ?? touchStartY;
+  const delta = currentY - touchStartY;
+
+  if (delta <= PULL_START) {
+    isPulling.value = false;
+    pullDistance.value = 0;
+    return;
+  }
+
+  isPulling.value = true;
+  pullDistance.value = Math.min(PULL_MAX, (delta - PULL_START) * 0.72);
+}
+
+async function handleTouchEnd(): Promise<void> {
+  const shouldRefresh = isPulling.value && pullDistance.value >= PULL_TRIGGER;
+  isPulling.value = false;
+  pullDistance.value = 0;
+  readyToPull = false;
+
+  if (shouldRefresh) {
+    await refreshDashboard();
+  }
+}
+
+function openMore(range: ReminderRangeKey): void {
+  void router.push({ name: 'home-occasion-more', params: { range } });
 }
 
 function openOccasion(item: HomeOccasionItem): void {
@@ -250,119 +298,193 @@ function openOccasion(item: HomeOccasionItem): void {
 
 <style scoped>
 .home-dashboard-screen {
-  padding: 20px 16px 36px;
+  padding: 10px 16px 36px;
   overflow-y: auto;
   background:
     radial-gradient(circle at top left, color-mix(in srgb, var(--gold) 24%, transparent), transparent 32%),
     radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--teal) 16%, transparent), transparent 24%),
-    linear-gradient(180deg, color-mix(in srgb, var(--body-grad-start) 92%, var(--paper)) 0%, color-mix(in srgb, var(--body-grad-end) 96%, var(--paper)) 46%, var(--paper) 100%);
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--body-grad-start) 92%, var(--paper)) 0%,
+      color-mix(in srgb, var(--body-grad-end) 96%, var(--paper)) 46%,
+      var(--paper) 100%
+    );
 }
 
-.home-topbar {
-  margin-bottom: 22px;
-  padding: 20px 18px;
-  border-radius: 28px;
-  background:
-    linear-gradient(135deg, var(--card-soft), color-mix(in srgb, var(--card-accent-gold) 72%, var(--card-soft))),
-    color-mix(in srgb, var(--white) 70%, transparent);
-  border: 1px solid var(--line);
-  box-shadow: 0 18px 42px var(--nav-shadow);
+.pull-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  transition: height 180ms ease, opacity 180ms ease;
+  opacity: 0;
 }
 
-.gift-label,
-.summary {
-  margin: 0;
+.pull-indicator.active {
+  height: 28px;
+  opacity: 1;
 }
 
-
-.home-topbar h1,
+.topbar-title h1,
 .section-header h2,
-.occasion-card h3 {
-  margin: 6px 0 0;
+.gift-card h3 {
+  margin: 0;
   color: var(--ink);
 }
 
-.home-topbar h1 {
-  font-size: 32px;
-  line-height: 1.14;
+.subcopy,
+.mini-label,
+.gift-recipient,
+.gift-summary,
+.empty-badge,
+.section-note {
+  margin: 0;
 }
 
-.reminder-section {
-  margin-top: 20px;
+.subcopy {
+  margin-top: 6px;
+  color: var(--muted);
 }
 
-.section-header {
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.overview-card {
+  display: grid;
+  gap: 6px;
+  min-height: 122px;
+  padding: 12px 11px;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--paper) 92%, var(--card-soft)), color-mix(in srgb, var(--surface-panel) 92%, var(--paper)));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--white-soft) 82%, transparent),
+    0 18px 44px var(--nav-shadow);
+  text-align: left;
+}
+
+.overview-card-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-  padding: 0 2px;
+  gap: 6px;
 }
 
-.section-header h2 {
-  margin: 0;
-  font-size: 24px;
-  color: var(--ink);
+.overview-label,
+.overview-trend,
+.overview-footnote,
+.section-note,
+.overview-headline {
+  white-space: nowrap;
 }
 
-.ghost-action {
-  min-width: 72px;
-  height: 38px;
-  border: 1px solid var(--line);
+.overview-label {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.overview-trend {
+  padding: 2px 7px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-panel) 92%, transparent);
-  color: var(--ink);
-  font-size: 14px;
+  background: color-mix(in srgb, var(--ink) 8%, var(--paper));
+  color: var(--ink-soft);
+  font-size: 9px;
+  font-weight: 700;
 }
 
-.card-grid {
+.overview-trend.alert {
+  background: color-mix(in srgb, var(--coral) 18%, var(--paper));
+  color: color-mix(in srgb, var(--coral) 88%, var(--ink));
+}
+
+.overview-card strong {
+  font-size: 30px;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.overview-headline {
+  min-height: 30px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.overview-footnote {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gift-section {
+  margin-top: 22px;
   display: grid;
   gap: 14px;
 }
 
-.occasion-card,
-.empty-card {
-  border-radius: 28px;
-  background: color-mix(in srgb, var(--card-soft) 96%, transparent);
-  border: 1px solid var(--line);
-  box-shadow: 0 18px 44px var(--nav-shadow);
-}
-
-.occasion-card {
-  display: grid;
-  gap: 16px;
-  padding: 20px;
-  cursor: pointer;
-  transition: transform 160ms ease, box-shadow 160ms ease;
-}
-
-.occasion-card:active {
-  transform: scale(0.99);
-}
-
-.card-top {
+.section-header {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-note {
   color: var(--muted);
   font-size: 12px;
 }
 
-.card-main {
+.mini-label {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gift-card-list {
   display: grid;
+  gap: 14px;
+}
+
+.gift-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 26px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--card-soft) 96%, transparent);
+  box-shadow: 0 18px 44px var(--nav-shadow);
+}
+
+.gift-card-top {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .occasion-tag,
-.date-pill,
-.friend-chip {
+.date-pill {
   border-radius: 999px;
 }
 
 .occasion-tag {
   padding: 6px 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -379,76 +501,36 @@ function openOccasion(item: HomeOccasionItem): void {
 .date-pill {
   padding: 5px 10px;
   background: var(--surface-2);
-}
-
-.occasion-card h3 {
-  font-size: 21px;
-  line-height: 1.3;
-}
-
-.summary {
   color: var(--muted);
-  line-height: 1.6;
-}
-
-.friend-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.friend-chip {
-  min-height: 36px;
-  padding: 0 16px;
-  border: 0;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--teal) 18%, var(--paper)), color-mix(in srgb, var(--gold) 24%, var(--paper)));
-  color: color-mix(in srgb, var(--ink) 90%, var(--teal));
-  font-size: 14px;
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--teal) 18%, transparent),
-    0 8px 18px color-mix(in srgb, var(--teal) 10%, transparent);
-}
-
-.gift-preview {
-  padding: 15px 16px;
-  border-radius: 22px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--paper) 72%, var(--card-accent-gold)), color-mix(in srgb, var(--paper) 54%, var(--card-accent-teal)));
-  border: 1px solid color-mix(in srgb, var(--gold) 16%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paper) 62%, transparent);
-}
-
-.gift-label {
-  color: color-mix(in srgb, var(--gold) 82%, var(--ink));
   font-size: 12px;
-  font-weight: 700;
 }
 
-.gift-preview ul {
-  margin: 8px 0 0;
-  padding-left: 18px;
-  color: color-mix(in srgb, var(--ink) 92%, var(--teal));
-  line-height: 1.7;
+.gift-card h3 {
+  font-size: 22px;
+  line-height: 1.25;
 }
 
-.gift-empty {
-  margin: 8px 0 0;
+.gift-recipient {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.gift-summary {
   color: var(--muted);
   line-height: 1.6;
 }
 
 .empty-card {
-  padding: 20px;
-  color: var(--muted);
-}
-
-.onboarding-card {
+  margin-top: 22px;
   display: grid;
   gap: 18px;
   padding: 24px;
+  border-radius: 28px;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--gold) 20%, transparent), transparent 34%),
     linear-gradient(135deg, color-mix(in srgb, var(--paper) 86%, var(--card-accent-gold)), color-mix(in srgb, var(--paper) 92%, var(--card-accent-teal)));
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 44px var(--nav-shadow);
 }
 
 .empty-hero {
@@ -457,14 +539,12 @@ function openOccasion(item: HomeOccasionItem): void {
 }
 
 .empty-badge {
-  margin: 0;
   width: fit-content;
   padding: 6px 12px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--ink) 8%, var(--paper));
   color: var(--ink-soft);
   font-size: 12px;
-  letter-spacing: 0.08em;
 }
 
 .empty-hero h3 {
@@ -475,6 +555,7 @@ function openOccasion(item: HomeOccasionItem): void {
 
 .empty-hero p:last-child {
   margin: 0;
+  color: var(--muted);
   line-height: 1.7;
 }
 
@@ -510,10 +591,42 @@ function openOccasion(item: HomeOccasionItem): void {
 }
 
 @media (min-width: 900px) {
-  .card-grid {
+  .gift-card-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+@media (max-width: 640px) {
+  .overview-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .overview-card {
+    min-height: 114px;
+    padding: 11px 9px;
+    border-radius: 22px;
+    gap: 6px;
+  }
+
+  .overview-card strong {
+    font-size: 24px;
+  }
+
+  .overview-headline {
+    min-height: 28px;
+    font-size: 10px;
+  }
+
+  .overview-footnote,
+  .overview-trend,
+  .overview-label {
+    font-size: 9px;
+  }
+
+  .section-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
 </style>
-
-

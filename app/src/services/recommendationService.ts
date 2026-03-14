@@ -6,24 +6,31 @@ import type { OccasionRecommendation } from '@/types/recommendation';
 function getServerBaseUrl(): string {
   const baseUrl = storageService.getSettings().proxyServerUrl?.trim();
   if (!baseUrl) {
-    throw new Error('未配置后端服务地址。');
+    throw new Error('尚未配置可用的服务器地址。');
   }
 
   return baseUrl.replace(/\/+$/, '');
 }
 
+function buildHeaders(initHeaders?: HeadersInit): HeadersInit {
+  const session = storageService.getAuthSession();
+
+  return {
+    'Content-Type': 'application/json',
+    ...(session?.token ? { Authorization: `Bearer ${session.token}` } : {}),
+    ...(initHeaders ?? {}),
+  };
+}
+
 async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${getServerBaseUrl()}${path}`, {
     ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
+    headers: buildHeaders(init.headers),
   });
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || !payload?.ok) {
-    throw new Error(payload?.error || '请求失败');
+    throw new Error(payload?.error || '礼物推荐请求失败。');
   }
 
   return payload.data as T;

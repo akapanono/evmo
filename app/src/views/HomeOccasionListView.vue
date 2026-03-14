@@ -5,7 +5,7 @@
         <button type="button" class="mini-action" @click="goBack">返回</button>
         <div>
           <p class="mini-label">{{ meta.title }}</p>
-          <h1>{{ meta.title }}提醒</h1>
+          <h1>{{ meta.title }}的纪念日列表</h1>
         </div>
       </header>
 
@@ -45,7 +45,7 @@
         </div>
       </article>
 
-      <p v-if="items.length === 0" class="empty-state">这个时间段还没有即将到来的生日或纪念日。</p>
+      <p v-if="items.length === 0" class="empty-state">这个时间范围内还没有即将到来的生日或纪念日。</p>
     </div>
   </section>
 </template>
@@ -261,19 +261,14 @@ function openOccasion(item: HomeOccasionItem): void {
 .mini-label {
   color: var(--muted);
   font-size: 12px;
-  letter-spacing: 0.08em;
   text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .list-header h1,
-.list-main h2,
-.gift-copy {
-  margin: 4px 0 0;
-}
-
-.list-header h1 {
+.list-main h2 {
+  margin: 0;
   color: var(--ink);
-  font-size: 28px;
 }
 
 .list-card {
@@ -282,22 +277,17 @@ function openOccasion(item: HomeOccasionItem): void {
   padding: 18px;
   border-radius: 24px;
   background: color-mix(in srgb, var(--card-soft) 96%, transparent);
-  box-shadow: 0 16px 40px var(--nav-shadow);
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 44px var(--nav-shadow);
 }
 
-.list-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.list-meta {
+.list-top,
+.list-meta,
+.friend-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  color: var(--muted);
-  font-size: 12px;
 }
 
 .occasion-badge,
@@ -306,7 +296,8 @@ function openOccasion(item: HomeOccasionItem): void {
 }
 
 .occasion-badge {
-  padding: 4px 10px;
+  padding: 5px 10px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -320,42 +311,22 @@ function openOccasion(item: HomeOccasionItem): void {
   color: color-mix(in srgb, var(--teal) 88%, var(--ink));
 }
 
-.friend-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
 .friend-chip {
-  padding: 7px 12px;
+  min-height: 34px;
+  padding: 0 14px;
   border: 0;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--teal) 18%, var(--paper)), color-mix(in srgb, var(--gold) 24%, var(--paper)));
-  color: color-mix(in srgb, var(--ink) 90%, var(--teal));
-  font-size: 12px;
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--teal) 18%, transparent),
-    0 8px 18px color-mix(in srgb, var(--teal) 10%, transparent);
-}
-
-.list-main h2 {
+  background: color-mix(in srgb, var(--teal) 16%, var(--paper));
   color: var(--ink);
-  font-size: 18px;
 }
 
 .summary {
-  margin-top: 6px;
   color: var(--muted);
-  font-size: 13px;
 }
 
 .gift-block {
-  display: grid;
-  gap: 6px;
-  padding: 14px;
+  padding: 14px 16px;
   border-radius: 18px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--paper) 72%, var(--card-accent-gold)), color-mix(in srgb, var(--paper) 54%, var(--card-accent-teal)));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paper) 62%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 88%, transparent);
 }
 
 .gift-title {
@@ -365,25 +336,13 @@ function openOccasion(item: HomeOccasionItem): void {
 }
 
 .gift-copy {
-  color: color-mix(in srgb, var(--ink) 92%, var(--teal));
-  font-size: 15px;
+  margin: 8px 0 0;
+  color: var(--ink-soft);
   line-height: 1.6;
 }
 
 .empty-state {
-  padding: 18px;
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--surface-panel) 84%, transparent);
   color: var(--muted);
-}
-
-@media (max-width: 640px) {
-  .list-top {
-    display: grid;
-  }
-
-  .friend-actions {
-    justify-content: flex-start;
-  }
+  line-height: 1.7;
 }
 </style>
