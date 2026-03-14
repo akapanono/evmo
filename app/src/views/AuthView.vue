@@ -424,3 +424,232 @@ if (route.query.mode === 'register') {
 }
 </script>
 
+<style scoped>
+.auth-screen {
+  padding: 24px 16px 40px;
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--gold) 16%, transparent), transparent 28%),
+    linear-gradient(180deg, color-mix(in srgb, var(--body-grad-start) 94%, var(--paper)) 0%, var(--paper) 100%);
+}
+
+.auth-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.auth-card {
+  display: grid;
+  gap: 18px;
+  padding: 22px 18px;
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--card-soft) 96%, transparent);
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 42px var(--nav-shadow);
+}
+
+.auth-landing {
+  gap: 22px;
+}
+
+.card-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.card-head h1 {
+  margin: 6px 0 0;
+  color: var(--ink);
+  font-size: 34px;
+  line-height: 1.08;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hero-text {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.card-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.field,
+.security-block {
+  display: grid;
+  gap: 8px;
+}
+
+.field span {
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.field input,
+.inline-field input {
+  width: 100%;
+  min-height: 54px;
+  padding: 0 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  color: var(--ink);
+  font-size: 17px;
+}
+
+.field input[readonly] {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface-2) 88%, transparent);
+}
+
+.inline-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.ghost-btn,
+.inline-btn,
+.primary-btn,
+.secondary-btn,
+.link-btn,
+.danger-btn {
+  border: 0;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ghost-btn,
+.inline-btn,
+.link-btn {
+  background: color-mix(in srgb, var(--paper) 84%, transparent);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.ghost-btn {
+  min-height: 44px;
+  padding: 0 14px;
+}
+
+.inline-btn {
+  min-width: 88px;
+  min-height: 54px;
+  padding: 0 14px;
+}
+
+.primary-btn,
+.secondary-btn,
+.danger-btn {
+  min-height: 54px;
+  padding: 0 18px;
+}
+
+.primary-btn {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.secondary-btn {
+  background: color-mix(in srgb, var(--teal) 14%, var(--paper));
+  color: color-mix(in srgb, var(--ink) 88%, var(--teal));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--teal) 20%, transparent);
+}
+
+.danger-btn {
+  background: color-mix(in srgb, var(--coral) 20%, var(--paper));
+  color: color-mix(in srgb, var(--coral) 88%, var(--ink));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--coral) 22%, transparent);
+}
+
+.link-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.link-btn {
+  min-height: 42px;
+  padding: 0 14px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.summary-item {
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--paper) 84%, transparent);
+  border: 1px solid var(--line);
+}
+
+.summary-item span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.summary-item strong {
+  color: var(--ink);
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+.provider-row {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.feedback {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  line-height: 1.6;
+}
+
+.feedback.success {
+  background: color-mix(in srgb, var(--teal) 14%, var(--paper));
+  color: color-mix(in srgb, var(--teal) 88%, var(--ink));
+}
+
+.feedback.error {
+  background: color-mix(in srgb, var(--coral) 14%, var(--paper));
+  color: color-mix(in srgb, var(--coral) 86%, var(--ink));
+}
+
+@media (max-width: 520px) {
+  .card-head {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inline-field {
+    grid-template-columns: 1fr;
+  }
+
+  .link-row {
+    flex-wrap: wrap;
+  }
+}
+</style>
+
