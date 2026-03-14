@@ -191,6 +191,22 @@ async function withConnection(callback) {
   }
 }
 
+async function queryWithNamedParams(connection, sql, params = []) {
+  if (params && !Array.isArray(params) && typeof params === 'object') {
+    return connection.query({ sql, namedPlaceholders: true }, params);
+  }
+
+  return connection.query(sql, params);
+}
+
+async function executeWithNamedParams(connection, sql, params = []) {
+  if (params && !Array.isArray(params) && typeof params === 'object') {
+    return connection.execute({ sql, namedPlaceholders: true }, params);
+  }
+
+  return connection.execute(sql, params);
+}
+
 export function getDb() {
   return pool;
 }
@@ -216,15 +232,15 @@ export async function runInTransaction(callback) {
     try {
       const scope = {
         queryAll: async (sql, params = []) => {
-          const [rows] = await connection.query(sql, params);
+          const [rows] = await queryWithNamedParams(connection, sql, params);
           return normalizeRows(rows);
         },
         queryOne: async (sql, params = []) => {
-          const [rows] = await connection.query(sql, params);
+          const [rows] = await queryWithNamedParams(connection, sql, params);
           return normalizeRows(rows)[0];
         },
         execute: async (sql, params = []) => {
-          const [result] = await connection.execute(sql, params);
+          const [result] = await executeWithNamedParams(connection, sql, params);
           return result;
         },
       };
