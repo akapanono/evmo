@@ -261,7 +261,8 @@ export function getDb() {
 }
 
 export async function queryAll(sql, params = []) {
-  const [rows] = await pool.query(sql, params);
+  const normalized = normalizeSqlParams(sql, params);
+  const [rows] = await pool.query(normalized.sql, normalized.values);
   return normalizeRows(rows);
 }
 
@@ -271,7 +272,8 @@ export async function queryOne(sql, params = []) {
 }
 
 export async function execute(sql, params = []) {
-  const [result] = await pool.execute(sql, params);
+  const normalized = normalizeSqlParams(sql, params);
+  const [result] = await pool.execute(normalized.sql, normalized.values);
   return result;
 }
 
