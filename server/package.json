@@ -8,6 +8,8 @@
   },
   "scripts": {
     "dev": "node src/index.mjs",
-    "start": "node src/index.mjs"
+    "start": "node src/index.mjs",
+    "migrate:sqlite-to-mysql": "node scripts/migrate-sqlite-to-mysql.mjs",
+    "smoke:mysql": "node scripts/mysql-smoke-test.mjs"
   }
 }

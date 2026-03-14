@@ -12,14 +12,51 @@ const db = new DatabaseSync(dbPath);
 db.exec('PRAGMA journal_mode = WAL;');
 db.exec('PRAGMA foreign_keys = ON;');
 
+function normalizeParams(params = []) {
+  if (Array.isArray(params)) {
+    return { kind: 'positional', value: params };
+  }
+
+  if (params && typeof params === 'object') {
+    return { kind: 'named', value: params };
+  }
+
+  return { kind: 'positional', value: [] };
+}
+
 export function getDb() {
   return db;
 }
 
-export function runInTransaction(callback) {
+export function queryAll(sql, params = []) {
+  const normalized = normalizeParams(params);
+  return normalized.kind === 'named'
+    ? db.prepare(sql).all(normalized.value)
+    : db.prepare(sql).all(...normalized.value);
+}
+
+export function queryOne(sql, params = []) {
+  const normalized = normalizeParams(params);
+  return normalized.kind === 'named'
+    ? db.prepare(sql).get(normalized.value)
+    : db.prepare(sql).get(...normalized.value);
+}
+
+export function execute(sql, params = []) {
+  const normalized = normalizeParams(params);
+  return normalized.kind === 'named'
+    ? db.prepare(sql).run(normalized.value)
+    : db.prepare(sql).run(...normalized.value);
+}
+
+export async function runInTransaction(callback) {
   db.exec('BEGIN');
   try {
-    const result = callback();
+    const result = await callback({
+      queryAll,
+      queryOne,
+      execute,
+    });
     db.exec('COMMIT');
     return result;
   } catch (error) {
@@ -45,6 +82,9 @@ export function runMigrations() {
       phone TEXT,
       email TEXT,
       status TEXT NOT NULL DEFAULT 'active',
+      password_hash TEXT,
+      wechat_open_id TEXT,
+      qq_open_id TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -155,6 +195,9 @@ export function runMigrations() {
       tags_json TEXT NOT NULL DEFAULT '[]',
       match_dimensions_json TEXT NOT NULL DEFAULT '[]',
       target_relationships_json TEXT NOT NULL DEFAULT '[]',
+      gift_scenes_json TEXT NOT NULL DEFAULT '[]',
+      recipient_styles_json TEXT NOT NULL DEFAULT '[]',
+      risk_level TEXT NOT NULL DEFAULT 'medium',
       link TEXT NOT NULL DEFAULT '',
       summary TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL,
@@ -205,12 +248,22 @@ export function runMigrations() {
 
 function ensureUsersTableShape() {
   addColumnIfMissing('users', 'password_hash', 'TEXT');
+  addColumnIfMissing('users', 'wechat_open_id', 'TEXT');
+  addColumnIfMissing('users', 'qq_open_id', 'TEXT');
   addColumnIfMissing('users', 'updated_at', "TEXT NOT NULL DEFAULT ''");
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_unique ON users(phone);');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_wechat_open_id_unique ON users(wechat_open_id);');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_qq_open_id_unique ON users(qq_open_id);');
 }
 
 function ensureProductsTableShape() {
   addColumnIfMissing('products', 'attributes_json', "TEXT NOT NULL DEFAULT '[]'");
+  addColumnIfMissing('products', 'tags_json', "TEXT NOT NULL DEFAULT '[]'");
+  addColumnIfMissing('products', 'match_dimensions_json', "TEXT NOT NULL DEFAULT '[]'");
+  addColumnIfMissing('products', 'target_relationships_json', "TEXT NOT NULL DEFAULT '[]'");
+  addColumnIfMissing('products', 'gift_scenes_json', "TEXT NOT NULL DEFAULT '[]'");
+  addColumnIfMissing('products', 'recipient_styles_json', "TEXT NOT NULL DEFAULT '[]'");
+  addColumnIfMissing('products', 'risk_level', "TEXT NOT NULL DEFAULT 'medium'");
 }
 
 function addColumnIfMissing(tableName, columnName, definition) {
@@ -241,10 +294,12 @@ function migrateProductsFromJson() {
   const insert = db.prepare(`
     INSERT INTO products (
       id, title, category, status, price_bucket, price_label, attributes_json, tags_json,
-      match_dimensions_json, target_relationships_json, link, summary, created_at, updated_at
+      match_dimensions_json, target_relationships_json, gift_scenes_json, recipient_styles_json,
+      risk_level, link, summary, created_at, updated_at
     ) VALUES (
       @id, @title, @category, @status, @price_bucket, @price_label, @attributes_json, @tags_json,
-      @match_dimensions_json, @target_relationships_json, @link, @summary, @created_at, @updated_at
+      @match_dimensions_json, @target_relationships_json, @gift_scenes_json, @recipient_styles_json,
+      @risk_level, @link, @summary, @created_at, @updated_at
     )
   `);
 
@@ -261,6 +316,9 @@ function migrateProductsFromJson() {
         tags_json: JSON.stringify(item.tags || []),
         match_dimensions_json: JSON.stringify(item.matchDimensions || []),
         target_relationships_json: JSON.stringify(item.targetRelationships || []),
+        gift_scenes_json: JSON.stringify(item.giftScenes || []),
+        recipient_styles_json: JSON.stringify(item.recipientStyles || []),
+        risk_level: item.riskLevel || 'medium',
         link: item.link || '',
         summary: item.summary || '',
         created_at: item.createdAt || new Date().toISOString(),

@@ -1,0 +1,2 @@
+EVMO server listening on http://localhost:9090
+{"time":"2026-03-13T07:40:10.116Z","event":"admin_login_failed","method":"POST","path":"/api/admin/login","ip":"::ffff:127.0.0.1","status":"failed","username":"wrong"}

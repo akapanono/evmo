@@ -1,3 +1,5 @@
+import { buildOrderByRecent, buildUpsertClause } from '../database/sql-helpers.mjs';
+
 function safeParseJson(value, fallback) {
   try {
     return JSON.parse(value);
@@ -18,6 +20,9 @@ function mapRow(row) {
     tags: safeParseJson(row.tags_json, []),
     matchDimensions: safeParseJson(row.match_dimensions_json, []),
     targetRelationships: safeParseJson(row.target_relationships_json, []),
+    giftScenes: safeParseJson(row.gift_scenes_json, []),
+    recipientStyles: safeParseJson(row.recipient_styles_json, []),
+    riskLevel: row.risk_level || 'medium',
     link: row.link,
     summary: row.summary,
     createdAt: row.created_at,
@@ -26,11 +31,9 @@ function mapRow(row) {
 }
 
 export function createProductRepository(database) {
-  const db = database.getDb();
-
   return {
-    list() {
-      const rows = db.prepare(`
+    async list() {
+      const rows = await database.queryAll(`
         SELECT
           id,
           title,
@@ -42,46 +45,55 @@ export function createProductRepository(database) {
           tags_json,
           match_dimensions_json,
           target_relationships_json,
+          gift_scenes_json,
+          recipient_styles_json,
+          risk_level,
           link,
           summary,
           created_at,
           updated_at
         FROM products
-        ORDER BY datetime(updated_at) DESC, datetime(created_at) DESC
-      `).all();
+        ORDER BY ${buildOrderByRecent(database, ['updated_at', 'created_at'])}
+      `);
 
       return rows.map(mapRow);
     },
 
-    saveAll(products) {
-      const insert = db.prepare(`
+    async saveAll(products) {
+      const upsertSql = `
         INSERT INTO products (
           id, title, category, status, price_bucket, price_label, attributes_json, tags_json,
-          match_dimensions_json, target_relationships_json, link, summary, created_at, updated_at
+          match_dimensions_json, target_relationships_json, gift_scenes_json, recipient_styles_json,
+          risk_level, link, summary, created_at, updated_at
         ) VALUES (
           @id, @title, @category, @status, @price_bucket, @price_label, @attributes_json, @tags_json,
-          @match_dimensions_json, @target_relationships_json, @link, @summary, @created_at, @updated_at
+          @match_dimensions_json, @target_relationships_json, @gift_scenes_json, @recipient_styles_json,
+          @risk_level, @link, @summary, @created_at, @updated_at
         )
-        ON CONFLICT(id) DO UPDATE SET
-          title = excluded.title,
-          category = excluded.category,
-          status = excluded.status,
-          price_bucket = excluded.price_bucket,
-          price_label = excluded.price_label,
-          attributes_json = excluded.attributes_json,
-          tags_json = excluded.tags_json,
-          match_dimensions_json = excluded.match_dimensions_json,
-          target_relationships_json = excluded.target_relationships_json,
-          link = excluded.link,
-          summary = excluded.summary,
-          created_at = excluded.created_at,
-          updated_at = excluded.updated_at
-      `);
+        ${buildUpsertClause(database, ['id'], [
+          'title',
+          'category',
+          'status',
+          'price_bucket',
+          'price_label',
+          'attributes_json',
+          'tags_json',
+          'match_dimensions_json',
+          'target_relationships_json',
+          'gift_scenes_json',
+          'recipient_styles_json',
+          'risk_level',
+          'link',
+          'summary',
+          'created_at',
+          'updated_at',
+        ])}
+      `;
 
       const incomingIds = new Set(products.map((item) => item.id));
-      database.runInTransaction(() => {
+      await database.runInTransaction(async (tx = database) => {
         for (const item of products) {
-          insert.run({
+          await tx.execute(upsertSql, {
             id: item.id,
             title: item.title || '',
             category: item.category || 'other',
@@ -92,6 +104,9 @@ export function createProductRepository(database) {
             tags_json: JSON.stringify(item.tags || []),
             match_dimensions_json: JSON.stringify(item.matchDimensions || []),
             target_relationships_json: JSON.stringify(item.targetRelationships || []),
+            gift_scenes_json: JSON.stringify(item.giftScenes || []),
+            recipient_styles_json: JSON.stringify(item.recipientStyles || []),
+            risk_level: item.riskLevel || 'medium',
             link: item.link || '',
             summary: item.summary || '',
             created_at: item.createdAt || new Date().toISOString(),
@@ -99,10 +114,10 @@ export function createProductRepository(database) {
           });
         }
 
-        const existingIds = db.prepare('SELECT id FROM products').all().map((row) => row.id);
+        const existingIds = (await tx.queryAll('SELECT id FROM products')).map((row) => row.id);
         for (const existingId of existingIds) {
           if (!incomingIds.has(existingId)) {
-            db.prepare('DELETE FROM products WHERE id = ?').run(existingId);
+            await tx.execute('DELETE FROM products WHERE id = ?', [existingId]);
           }
         }
       });
@@ -110,33 +125,39 @@ export function createProductRepository(database) {
       return products;
     },
 
-    upsertMany(products) {
-      const insert = db.prepare(`
+    async upsertMany(products) {
+      const upsertSql = `
         INSERT INTO products (
           id, title, category, status, price_bucket, price_label, attributes_json, tags_json,
-          match_dimensions_json, target_relationships_json, link, summary, created_at, updated_at
+          match_dimensions_json, target_relationships_json, gift_scenes_json, recipient_styles_json,
+          risk_level, link, summary, created_at, updated_at
         ) VALUES (
           @id, @title, @category, @status, @price_bucket, @price_label, @attributes_json, @tags_json,
-          @match_dimensions_json, @target_relationships_json, @link, @summary, @created_at, @updated_at
+          @match_dimensions_json, @target_relationships_json, @gift_scenes_json, @recipient_styles_json,
+          @risk_level, @link, @summary, @created_at, @updated_at
         )
-        ON CONFLICT(id) DO UPDATE SET
-          title = excluded.title,
-          category = excluded.category,
-          status = excluded.status,
-          price_bucket = excluded.price_bucket,
-          price_label = excluded.price_label,
-          attributes_json = excluded.attributes_json,
-          tags_json = excluded.tags_json,
-          match_dimensions_json = excluded.match_dimensions_json,
-          target_relationships_json = excluded.target_relationships_json,
-          link = excluded.link,
-          summary = excluded.summary,
-          updated_at = excluded.updated_at
-      `);
+        ${buildUpsertClause(database, ['id'], [
+          'title',
+          'category',
+          'status',
+          'price_bucket',
+          'price_label',
+          'attributes_json',
+          'tags_json',
+          'match_dimensions_json',
+          'target_relationships_json',
+          'gift_scenes_json',
+          'recipient_styles_json',
+          'risk_level',
+          'link',
+          'summary',
+          'updated_at',
+        ])}
+      `;
 
-      database.runInTransaction(() => {
+      await database.runInTransaction(async (tx = database) => {
         for (const item of products) {
-          insert.run({
+          await tx.execute(upsertSql, {
             id: item.id,
             title: item.title || '',
             category: item.category || 'other',
@@ -147,6 +168,9 @@ export function createProductRepository(database) {
             tags_json: JSON.stringify(item.tags || []),
             match_dimensions_json: JSON.stringify(item.matchDimensions || []),
             target_relationships_json: JSON.stringify(item.targetRelationships || []),
+            gift_scenes_json: JSON.stringify(item.giftScenes || []),
+            recipient_styles_json: JSON.stringify(item.recipientStyles || []),
+            risk_level: item.riskLevel || 'medium',
             link: item.link || '',
             summary: item.summary || '',
             created_at: item.createdAt || new Date().toISOString(),

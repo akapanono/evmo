@@ -1,16 +1,16 @@
 const PRODUCT_CATEGORIES = [
-  { value: 'food', label: '饮食' },
-  { value: 'entertainment', label: '娱乐' },
-  { value: 'life', label: '生活' },
-  { value: 'social', label: '社交' },
-  { value: 'travel', label: '出行' },
-  { value: 'shopping', label: '消费' },
-  { value: 'ritual', label: '仪式' },
+  { value: 'food', label: '食品饮料' },
+  { value: 'entertainment', label: '娱乐兴趣' },
+  { value: 'life', label: '生活家居' },
+  { value: 'social', label: '社交聚会' },
+  { value: 'travel', label: '旅行出游' },
+  { value: 'shopping', label: '精致消费' },
+  { value: 'ritual', label: '仪式送礼' },
   { value: 'other', label: '其他' },
 ];
 
 const PRICE_BUCKETS = [
-  { value: 'under50', label: '50 元以内' },
+  { value: 'under50', label: '50 元以下' },
   { value: '50to100', label: '50-100 元' },
   { value: '100to300', label: '100-300 元' },
   { value: '300to1000', label: '300-1000 元' },
@@ -18,165 +18,185 @@ const PRICE_BUCKETS = [
 ];
 
 const PRODUCT_STATUS = [
-  { value: 'active', label: '上架' },
+  { value: 'active', label: '启用中' },
   { value: 'draft', label: '草稿' },
-  { value: 'archived', label: '归档' },
+  { value: 'archived', label: '已归档' },
+];
+
+const GIFT_SCENE_OPTIONS = [
+  { value: 'birthday', label: '生日' },
+  { value: 'anniversary', label: '纪念日' },
+  { value: 'gathering', label: '聚会见面' },
+  { value: 'travel', label: '旅行出游' },
+  { value: 'dailyCare', label: '日常关心' },
+  { value: 'safeChoice', label: '稳妥通用' },
+];
+
+const RECIPIENT_STYLE_OPTIONS = [
+  { value: 'practical', label: '偏实用' },
+  { value: 'ritual', label: '偏仪式感' },
+  { value: 'experience', label: '偏体验型' },
+  { value: 'refined', label: '偏精致审美' },
+  { value: 'social', label: '偏社交氛围' },
+  { value: 'easygoing', label: '偏轻松治愈' },
 ];
 
 const ATTRIBUTE_OPTIONS = [
-  { value: 'sweet', label: '甜食' },
+  { value: 'sweet', label: '甜口' },
   { value: 'snack', label: '零食' },
   { value: 'drink', label: '饮品' },
-  { value: 'spicy', label: '辛辣' },
+  { value: 'spicy', label: '辣味' },
   { value: 'giftBox', label: '礼盒' },
-  { value: 'healing', label: '疗愈' },
+  { value: 'healing', label: '治愈感' },
   { value: 'fragrance', label: '香氛' },
-  { value: 'beauty', label: '美妆护肤' },
+  { value: 'beauty', label: '美妆护理' },
   { value: 'digital', label: '数码' },
   { value: 'game', label: '游戏' },
-  { value: 'anime', label: '动漫周边' },
+  { value: 'anime', label: '二次元' },
   { value: 'sports', label: '运动' },
   { value: 'home', label: '家居' },
   { value: 'practical', label: '实用' },
-  { value: 'collectible', label: '收藏' },
-  { value: 'travel', label: '出游' },
-  { value: 'social', label: '聚会分享' },
+  { value: 'collectible', label: '收藏向' },
+  { value: 'travel', label: '旅行' },
+  { value: 'social', label: '社交分享' },
   { value: 'handmade', label: '手作定制' },
-  { value: 'cute', label: '可爱' },
-  { value: 'premium', label: '精致' },
+  { value: 'cute', label: '可爱治愈' },
+  { value: 'premium', label: '品质感' },
 ];
 
 const ATTRIBUTE_LABELS = new Map(ATTRIBUTE_OPTIONS.map((item) => [item.value, item.label]));
+
 const DIMENSION_LABELS = {
-  stimulation: '刺激度',
-  refinement: '精致感',
+  sweetPreference: '甜口偏好',
+  spicyPreference: '辣味偏好',
+  practicality: '实用导向',
   ritualSense: '仪式感',
-  companionship: '陪伴感',
-  practicality: '实用度',
-  aesthetics: '审美度',
-  relaxation: '松弛感',
-  exploration: '探索欲',
-  sweetPreference: '甜感偏好',
-  spicyPreference: '辣感偏好',
+  aesthetics: '审美表达',
+  companionship: '陪伴互动',
+  exploration: '体验探索',
+  relaxation: '放松治愈',
+  stimulation: '新鲜刺激',
+  refinement: '精致品质',
 };
 
 const ATTRIBUTE_RULES = {
   sweet: {
-    tags: ['甜食', '零食'],
+    tags: ['甜口', '治愈小食'],
     dimensions: ['sweetPreference', 'companionship'],
-    relationships: ['恋人', '朋友', '家人'],
+    relationships: ['朋友', '对象', '家人'],
   },
   snack: {
-    tags: ['零食', '分享'],
+    tags: ['零食', '分享型'],
     dimensions: ['companionship', 'relaxation'],
     relationships: ['朋友', '同事', '家人'],
   },
   drink: {
-    tags: ['饮品', '日常'],
+    tags: ['饮品', '轻松氛围'],
     dimensions: ['relaxation', 'companionship'],
     relationships: ['朋友', '同事', '家人'],
   },
   spicy: {
-    tags: ['重口味', '零食'],
+    tags: ['辣味', '重口偏好'],
     dimensions: ['spicyPreference', 'stimulation'],
     relationships: ['朋友', '同事'],
   },
   giftBox: {
-    tags: ['礼盒', '送礼'],
+    tags: ['礼盒', '送礼感'],
     dimensions: ['ritualSense', 'refinement'],
-    relationships: ['恋人', '家人', '朋友'],
+    relationships: ['对象', '家人', '朋友'],
   },
   healing: {
-    tags: ['疗愈', '放松'],
+    tags: ['治愈感', '舒缓'],
     dimensions: ['relaxation', 'companionship'],
-    relationships: ['恋人', '朋友', '家人'],
+    relationships: ['对象', '朋友', '家人'],
   },
   fragrance: {
-    tags: ['香氛', '氛围'],
+    tags: ['香氛', '氛围感'],
     dimensions: ['aesthetics', 'relaxation'],
-    relationships: ['恋人', '朋友', '家人'],
+    relationships: ['对象', '朋友', '家人'],
   },
   beauty: {
-    tags: ['护肤', '精致'],
+    tags: ['美妆护理', '精致感'],
     dimensions: ['aesthetics', 'refinement'],
-    relationships: ['恋人', '闺蜜', '家人'],
+    relationships: ['对象', '闺蜜', '家人'],
   },
   digital: {
-    tags: ['数码', '潮流'],
+    tags: ['数码', '效率工具'],
     dimensions: ['practicality', 'exploration'],
-    relationships: ['朋友', '同事', '恋人'],
+    relationships: ['朋友', '同事', '对象'],
   },
   game: {
-    tags: ['游戏', '娱乐'],
+    tags: ['游戏', '互动感'],
     dimensions: ['stimulation', 'companionship'],
-    relationships: ['朋友', '恋人'],
+    relationships: ['朋友', '对象'],
   },
   anime: {
-    tags: ['周边', '收藏'],
+    tags: ['二次元', '收藏向'],
     dimensions: ['exploration', 'aesthetics'],
-    relationships: ['朋友', '恋人'],
+    relationships: ['朋友', '对象'],
   },
   sports: {
-    tags: ['运动', '健康'],
+    tags: ['运动', '活力'],
     dimensions: ['stimulation', 'practicality'],
     relationships: ['朋友', '同事', '家人'],
   },
   home: {
-    tags: ['家居', '日常'],
+    tags: ['家居', '生活感'],
     dimensions: ['practicality', 'relaxation'],
-    relationships: ['家人', '朋友', '恋人'],
+    relationships: ['家人', '对象', '朋友'],
   },
   practical: {
-    tags: ['实用', '日常'],
+    tags: ['实用', '低风险'],
     dimensions: ['practicality'],
     relationships: ['同事', '家人', '朋友'],
   },
   collectible: {
-    tags: ['收藏', '纪念'],
+    tags: ['收藏向', '纪念意义'],
     dimensions: ['ritualSense', 'exploration'],
-    relationships: ['恋人', '朋友'],
+    relationships: ['对象', '朋友'],
   },
   travel: {
-    tags: ['出游', '体验'],
+    tags: ['旅行', '探索欲'],
     dimensions: ['exploration', 'companionship'],
-    relationships: ['恋人', '朋友', '家人'],
+    relationships: ['对象', '朋友', '家人'],
   },
   social: {
-    tags: ['聚会', '分享'],
+    tags: ['社交分享', '聚会氛围'],
     dimensions: ['companionship', 'stimulation'],
     relationships: ['朋友', '同事'],
   },
   handmade: {
-    tags: ['手作', '纪念'],
+    tags: ['手作定制', '专属感'],
     dimensions: ['ritualSense', 'aesthetics'],
-    relationships: ['恋人', '家人', '朋友'],
+    relationships: ['对象', '家人', '朋友'],
   },
   cute: {
-    tags: ['可爱', '氛围'],
+    tags: ['可爱治愈', '轻松感'],
     dimensions: ['aesthetics', 'companionship'],
-    relationships: ['恋人', '闺蜜', '朋友'],
+    relationships: ['对象', '闺蜜', '朋友'],
   },
   premium: {
-    tags: ['精致', '高级感'],
+    tags: ['品质感', '高级感'],
     dimensions: ['refinement', 'ritualSense'],
-    relationships: ['恋人', '客户', '家人'],
+    relationships: ['对象', '长辈', '家人'],
   },
 };
 
 const TEXT_RULES = [
-  { pattern: /巧克力|蛋糕|糖|甜品|曲奇|布丁/i, attributes: ['sweet', 'snack'] },
-  { pattern: /咖啡|奶茶|茶叶|果汁|酒|饮料/i, attributes: ['drink'] },
-  { pattern: /辣条|火锅|烧烤|麻辣/i, attributes: ['spicy', 'snack'] },
-  { pattern: /礼盒|套装|礼包/i, attributes: ['giftBox', 'premium'] },
-  { pattern: /香薰|香水|蜡烛/i, attributes: ['fragrance', 'healing'] },
-  { pattern: /口红|面膜|护肤|彩妆/i, attributes: ['beauty', 'premium'] },
-  { pattern: /耳机|键盘|音箱|相机|手表|平板/i, attributes: ['digital', 'practical'] },
-  { pattern: /游戏|点卡|手柄/i, attributes: ['game'] },
-  { pattern: /手办|盲盒|周边|徽章/i, attributes: ['anime', 'collectible'] },
-  { pattern: /瑜伽|健身|球拍|跑步/i, attributes: ['sports', 'practical'] },
-  { pattern: /抱枕|水杯|床品|灯具|餐具/i, attributes: ['home', 'practical'] },
-  { pattern: /旅行|露营|酒店|机票/i, attributes: ['travel'] },
-  { pattern: /手作|定制|照片|相册/i, attributes: ['handmade', 'collectible'] },
+  { pattern: /蛋糕|巧克力|甜点|饼干|糖果/i, attributes: ['sweet', 'snack'] },
+  { pattern: /咖啡|茶|奶茶|酒|饮料/i, attributes: ['drink'] },
+  { pattern: /火锅|烧烤|麻辣|川味/i, attributes: ['spicy', 'snack'] },
+  { pattern: /礼盒|礼物|伴手礼/i, attributes: ['giftBox', 'premium'] },
+  { pattern: /香薰|香氛|蜡烛/i, attributes: ['fragrance', 'healing'] },
+  { pattern: /护肤|彩妆|口红|面霜/i, attributes: ['beauty', 'premium'] },
+  { pattern: /耳机|键盘|音箱|数码|充电/i, attributes: ['digital', 'practical'] },
+  { pattern: /游戏|桌游|手办|模型/i, attributes: ['game'] },
+  { pattern: /动漫|周边|二次元/i, attributes: ['anime', 'collectible'] },
+  { pattern: /运动|球鞋|健身|户外/i, attributes: ['sports', 'practical'] },
+  { pattern: /家居|抱枕|收纳|小夜灯|香薰机/i, attributes: ['home', 'practical'] },
+  { pattern: /旅行|出游|citywalk|露营/i, attributes: ['travel'] },
+  { pattern: /手作|定制|刻字/i, attributes: ['handmade', 'collectible'] },
+  { pattern: /可爱|治愈|毛绒/i, attributes: ['cute', 'healing'] },
 ];
 
 const state = {
@@ -223,9 +243,13 @@ const els = {
   productPriceBucket: document.querySelector('#productPriceBucket'),
   productStatus: document.querySelector('#productStatus'),
   productAttributes: document.querySelector('#productAttributes'),
+  productGiftScenes: document.querySelector('#productGiftScenes'),
+  productRecipientStyles: document.querySelector('#productRecipientStyles'),
   productDerivedTags: document.querySelector('#productDerivedTags'),
   productDerivedDimensions: document.querySelector('#productDerivedDimensions'),
   productDerivedRelationships: document.querySelector('#productDerivedRelationships'),
+  productDerivedScenes: document.querySelector('#productDerivedScenes'),
+  productDerivedStyles: document.querySelector('#productDerivedStyles'),
   productLink: document.querySelector('#productLink'),
   productSummary: document.querySelector('#productSummary'),
   aiBaseUrl: document.querySelector('#aiBaseUrl'),
@@ -243,6 +267,8 @@ function init() {
   fillSelect(els.productPriceBucket, PRICE_BUCKETS);
   fillSelect(els.productStatus, PRODUCT_STATUS);
   renderOptionGroup(els.productAttributes, 'productAttribute', ATTRIBUTE_OPTIONS);
+  renderOptionGroup(els.productGiftScenes, 'productGiftScene', GIFT_SCENE_OPTIONS);
+  renderOptionGroup(els.productRecipientStyles, 'productRecipientStyle', RECIPIENT_STYLE_OPTIONS);
   bindMenu();
   bindAuth();
   bindUsers();
@@ -279,6 +305,7 @@ function bindAuth() {
     event.preventDefault();
     await login();
   });
+
   els.logoutBtn.addEventListener('click', () => {
     state.token = '';
     state.userDetail = null;
@@ -303,6 +330,8 @@ function bindProducts() {
   els.productSummary.addEventListener('input', renderDerivedProductPreview);
   els.productCategory.addEventListener('change', renderDerivedProductPreview);
   els.productAttributes.addEventListener('change', renderDerivedProductPreview);
+  els.productGiftScenes.addEventListener('change', renderDerivedProductPreview);
+  els.productRecipientStyles.addEventListener('change', renderDerivedProductPreview);
 }
 
 function bindSystem() {
@@ -336,7 +365,9 @@ async function login() {
       }),
     });
     const payload = await response.json();
-    if (!response.ok || !payload.ok) throw new Error(payload.error || '登录失败');
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.error || '登录失败');
+    }
     state.token = payload.data.token;
     els.loginMessage.textContent = '';
     renderAuth();
@@ -368,7 +399,9 @@ async function api(path, options = {}) {
     },
   });
   const payload = await response.json();
-  if (!response.ok || !payload.ok) throw new Error(payload.error || '请求失败');
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.error || '请求失败');
+  }
   return payload.data;
 }
 
@@ -396,7 +429,7 @@ async function loadUserDetail(userId) {
 function renderUsers() {
   els.userList.innerHTML = '';
   if (!state.filteredUsers.length) {
-    els.userList.innerHTML = '<div class="empty-state">没有找到符合条件的用户。</div>';
+    els.userList.innerHTML = '<div class="empty-state">没有找到匹配的用户。</div>';
     return;
   }
 
@@ -407,14 +440,15 @@ function renderUsers() {
       <div class="user-item-head">
         <div>
           <strong>${escapeHtml(user.name || '未命名用户')}</strong>
-          <div class="muted">${escapeHtml(user.phone || '未填写手机号')}</div>
+          <div class="muted">${escapeHtml(user.phone || '未绑定手机号')}</div>
         </div>
         <button class="ghost-btn" data-detail="${escapeHtml(user.id)}">查看详情</button>
       </div>
       <div class="pill-row">
-        <span class="pill">朋友 ${user.friendCount}</span>
+        <span class="pill">好友 ${user.friendCount}</span>
         <span class="pill">纪念日 ${user.memorialDayCount}</span>
-        <span class="pill">会员 是</span>
+        <span class="pill">${user.bindings?.wechat ? '已绑微信' : '未绑微信'}</span>
+        <span class="pill">${user.bindings?.qq ? '已绑QQ' : '未绑QQ'}</span>
       </div>
     `;
     item.querySelector('[data-detail]').addEventListener('click', async () => {
@@ -433,7 +467,7 @@ function renderUserDetail() {
   const detail = state.userDetail;
   if (!detail) return;
 
-  els.userDetailTitle.textContent = detail.user.name || '未命名用户';
+  els.userDetailTitle.textContent = detail.user.name || '查看用户';
   els.userMeta.innerHTML = '';
 
   const metaItems = [
@@ -441,7 +475,6 @@ function renderUserDetail() {
     ['昵称', detail.user.name || '-'],
     ['手机号', detail.user.phone || '-'],
     ['邮箱', detail.user.email || '-'],
-    ['会员', '是'],
     ['状态', detail.user.status || '-'],
     ['创建时间', formatDateTime(detail.user.createdAt)],
     ['更新时间', formatDateTime(detail.user.updatedAt)],
@@ -457,11 +490,11 @@ function renderUserDetail() {
   els.userFriends.innerHTML = detail.friends.length
     ? detail.friends.map((friend) => `
         <article class="sub-item">
-          <strong>${escapeHtml(friend.name || '未命名朋友')}</strong>
+          <strong>${escapeHtml(friend.name || '未命名好友')}</strong>
           <div class="muted">${escapeHtml(friend.relationship || '未填写关系')}</div>
         </article>
       `).join('')
-    : '<div class="empty-state">还没有朋友数据。</div>';
+    : '<div class="empty-state">该用户还没有好友数据。</div>';
 
   els.userMemorialDays.innerHTML = detail.memorialDays.length
     ? detail.memorialDays.map((item) => `
@@ -470,7 +503,7 @@ function renderUserDetail() {
           <div class="muted">${escapeHtml(item.monthDay || '-')}</div>
         </article>
       `).join('')
-    : '<div class="empty-state">还没有纪念日数据。</div>';
+    : '<div class="empty-state">该用户还没有纪念日数据。</div>';
 }
 
 async function loadProducts() {
@@ -489,24 +522,18 @@ function filterProducts() {
         product.category,
         ...(product.tags || []),
         ...(product.attributes || []),
+        ...(product.giftScenes || []),
+        ...(product.recipientStyles || []),
       ].join(' ').toLowerCase();
       return haystack.includes(keyword);
     });
   renderProducts();
 }
 
-async function loadSystemConfig() {
-  state.systemConfig = await api('/api/system/config');
-  const provider = state.systemConfig?.aiProvider ?? {};
-  els.aiBaseUrl.value = provider.baseUrl || '';
-  els.aiApiKey.value = provider.apiKey || '';
-  els.aiModel.value = provider.model || '';
-}
-
 function renderProducts() {
   els.productList.innerHTML = '';
   if (!state.filteredProducts.length) {
-    els.productList.innerHTML = '<div class="empty-state">没有找到符合条件的商品。</div>';
+    els.productList.innerHTML = '<div class="empty-state">没有找到匹配的商品。</div>';
     return;
   }
 
@@ -517,7 +544,7 @@ function renderProducts() {
       <div class="product-item-head">
         <div>
           <strong>${escapeHtml(product.title)}</strong>
-          <div class="muted">${escapeHtml(product.summary || '未填写简介')}</div>
+          <div class="muted">${escapeHtml(product.summary || '暂无摘要')}</div>
         </div>
         <button class="ghost-btn" data-edit="${escapeHtml(product.id)}">编辑</button>
       </div>
@@ -561,6 +588,8 @@ function fillProductForm(product) {
   els.productPriceBucket.value = product.priceBucket || '100to300';
   els.productStatus.value = product.status || 'active';
   setCheckedValues(els.productAttributes, product.attributes || []);
+  setCheckedValues(els.productGiftScenes, product.giftScenes || []);
+  setCheckedValues(els.productRecipientStyles, product.recipientStyles || []);
   els.productLink.value = product.link || '';
   els.productSummary.value = product.summary || '';
 }
@@ -571,6 +600,8 @@ function clearProductForm() {
   els.productPriceBucket.value = '100to300';
   els.productStatus.value = 'active';
   setCheckedValues(els.productAttributes, []);
+  setCheckedValues(els.productGiftScenes, []);
+  setCheckedValues(els.productRecipientStyles, []);
   els.productLink.value = '';
   els.productSummary.value = '';
 }
@@ -589,11 +620,12 @@ function getCheckedValues(container) {
 function deriveProductMetadata(input = {}) {
   const text = `${input.title || ''} ${input.summary || ''}`.trim();
   const category = String(input.category || '').trim();
-  const selectedAttributes = Array.isArray(input.attributes) ? input.attributes.map(String) : [];
-  const inferredAttributes = [...selectedAttributes];
+  const inferredAttributes = [...new Set(Array.isArray(input.attributes) ? input.attributes.map(String) : [])];
 
   for (const rule of TEXT_RULES) {
-    if (rule.pattern.test(text)) inferredAttributes.push(...rule.attributes);
+    if (rule.pattern.test(text)) {
+      inferredAttributes.push(...rule.attributes);
+    }
   }
 
   if (category === 'food') inferredAttributes.push('snack');
@@ -608,8 +640,45 @@ function deriveProductMetadata(input = {}) {
   ));
   const matchDimensions = unique(attributes.flatMap((attribute) => ATTRIBUTE_RULES[attribute]?.dimensions || []));
   const targetRelationships = unique(attributes.flatMap((attribute) => ATTRIBUTE_RULES[attribute]?.relationships || []));
+  const giftScenes = inferGiftScenes({ category, attributes, input, text });
+  const recipientStyles = inferRecipientStyles({ category, attributes, input, text });
 
-  return { attributes, tags, matchDimensions, targetRelationships };
+  return {
+    attributes,
+    tags,
+    matchDimensions,
+    targetRelationships,
+    giftScenes,
+    recipientStyles,
+  };
+}
+
+function inferGiftScenes({ category, attributes, input, text }) {
+  const scenes = new Set(Array.isArray(input.giftScenes) ? input.giftScenes.map(String) : []);
+  const normalized = text.toLowerCase();
+
+  if (category === 'ritual' || attributes.includes('giftBox') || normalized.includes('生日')) scenes.add('birthday');
+  if (normalized.includes('纪念') || normalized.includes('周年')) scenes.add('anniversary');
+  if (attributes.includes('social') || attributes.includes('drink')) scenes.add('gathering');
+  if (attributes.includes('travel')) scenes.add('travel');
+  if (attributes.includes('home') || attributes.includes('practical') || attributes.includes('healing')) scenes.add('dailyCare');
+  if (category === 'other' || attributes.includes('giftBox')) scenes.add('safeChoice');
+
+  return unique([...scenes]);
+}
+
+function inferRecipientStyles({ category, attributes, input, text }) {
+  const styles = new Set(Array.isArray(input.recipientStyles) ? input.recipientStyles.map(String) : []);
+  const normalized = text.toLowerCase();
+
+  if (attributes.includes('practical') || attributes.includes('home') || category === 'life') styles.add('practical');
+  if (attributes.includes('giftBox') || attributes.includes('handmade') || category === 'ritual') styles.add('ritual');
+  if (attributes.includes('travel') || attributes.includes('game') || normalized.includes('体验')) styles.add('experience');
+  if (attributes.includes('premium') || attributes.includes('beauty') || attributes.includes('fragrance')) styles.add('refined');
+  if (attributes.includes('social') || attributes.includes('drink')) styles.add('social');
+  if (attributes.includes('cute') || attributes.includes('healing')) styles.add('easygoing');
+
+  return unique([...styles]);
 }
 
 function renderDerivedProductPreview() {
@@ -618,11 +687,15 @@ function renderDerivedProductPreview() {
     summary: els.productSummary.value.trim(),
     category: els.productCategory.value,
     attributes: getCheckedValues(els.productAttributes),
+    giftScenes: getCheckedValues(els.productGiftScenes),
+    recipientStyles: getCheckedValues(els.productRecipientStyles),
   });
 
   renderPills(els.productDerivedTags, derived.tags);
   renderPills(els.productDerivedDimensions, derived.matchDimensions.map((key) => DIMENSION_LABELS[key] || key));
   renderPills(els.productDerivedRelationships, derived.targetRelationships);
+  renderPills(els.productDerivedScenes, derived.giftScenes.map((key) => getLabel(GIFT_SCENE_OPTIONS, key)));
+  renderPills(els.productDerivedStyles, derived.recipientStyles.map((key) => getLabel(RECIPIENT_STYLE_OPTIONS, key)));
 }
 
 function renderPills(container, values) {
@@ -633,11 +706,14 @@ function renderPills(container, values) {
 
 async function saveProduct() {
   els.productMessage.textContent = '保存中...';
+
   const derived = deriveProductMetadata({
     title: els.productTitle.value.trim(),
     summary: els.productSummary.value.trim(),
     category: els.productCategory.value,
     attributes: getCheckedValues(els.productAttributes),
+    giftScenes: getCheckedValues(els.productGiftScenes),
+    recipientStyles: getCheckedValues(els.productRecipientStyles),
   });
 
   const body = {
@@ -646,6 +722,8 @@ async function saveProduct() {
     priceBucket: els.productPriceBucket.value,
     status: els.productStatus.value,
     attributes: derived.attributes,
+    giftScenes: derived.giftScenes,
+    recipientStyles: derived.recipientStyles,
     link: els.productLink.value.trim(),
     summary: els.productSummary.value.trim(),
     priceLabel: getLabel(PRICE_BUCKETS, els.productPriceBucket.value),
@@ -663,6 +741,7 @@ async function saveProduct() {
         body: JSON.stringify(body),
       });
     }
+
     await loadProducts();
     renderStats();
     els.productMessage.textContent = '商品已保存。';
@@ -670,6 +749,14 @@ async function saveProduct() {
   } catch (error) {
     els.productMessage.textContent = error.message;
   }
+}
+
+async function loadSystemConfig() {
+  state.systemConfig = await api('/api/system/config');
+  const provider = state.systemConfig?.aiProvider ?? {};
+  els.aiBaseUrl.value = provider.baseUrl || '';
+  els.aiApiKey.value = provider.apiKey || '';
+  els.aiModel.value = provider.model || '';
 }
 
 async function saveSystemConfig() {
@@ -696,10 +783,13 @@ async function saveSystemConfig() {
 async function testAiConnection() {
   els.systemMessage.textContent = '测试中...';
   try {
-    await api('/api/ai/test', { method: 'POST', body: JSON.stringify({}) });
-    els.systemMessage.textContent = '连接成功。';
+    await api('/api/ai/test', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    els.systemMessage.textContent = '连接测试通过。';
   } catch (error) {
-    els.systemMessage.textContent = `连接失败：${error.message}`;
+    els.systemMessage.textContent = `连接测试失败：${error.message}`;
   }
 }
 

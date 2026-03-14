@@ -1,6 +1,15 @@
-export function createUserRepository(database) {
-  const db = database.getDb();
+import { buildOrderByRecent, buildUpsertClause } from '../database/sql-helpers.mjs';
 
+function normalizeProvider(provider) {
+  return provider === 'wechat' ? 'wechat' : provider === 'qq' ? 'qq' : '';
+}
+
+function getProviderColumn(provider) {
+  const normalized = normalizeProvider(provider);
+  return normalized ? `${normalized}_open_id` : '';
+}
+
+export function createUserRepository(database) {
   function mapUser(row) {
     return row
       ? {
@@ -10,6 +19,8 @@ export function createUserRepository(database) {
           email: row.email || '',
           status: row.status || 'active',
           passwordHash: row.password_hash || '',
+          wechatOpenId: row.wechat_open_id || '',
+          qqOpenId: row.qq_open_id || '',
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         }
@@ -17,44 +28,58 @@ export function createUserRepository(database) {
   }
 
   return {
-    list() {
-      return db.prepare(`
+    async list() {
+      return (await database.queryAll(`
         SELECT *
         FROM users
-        ORDER BY datetime(updated_at) DESC, datetime(created_at) DESC
-      `).all().map(mapUser);
+        ORDER BY ${buildOrderByRecent(database, ['updated_at', 'created_at'])}
+      `)).map(mapUser);
     },
 
-    getById(id) {
-      return mapUser(db.prepare('SELECT * FROM users WHERE id = ?').get(id));
+    async getById(id) {
+      return mapUser(await database.queryOne('SELECT * FROM users WHERE id = ?', [id]));
     },
 
-    getByPhone(phone) {
-      return mapUser(db.prepare('SELECT * FROM users WHERE phone = ?').get(phone));
+    async getByPhone(phone) {
+      return mapUser(await database.queryOne('SELECT * FROM users WHERE phone = ?', [phone]));
     },
 
-    save(user) {
-      db.prepare(`
+    async getByProvider(provider, providerId) {
+      const column = getProviderColumn(provider);
+      if (!column || !providerId) {
+        return undefined;
+      }
+
+      return mapUser(await database.queryOne(`SELECT * FROM users WHERE ${column} = ?`, [providerId]));
+    },
+
+    async save(user) {
+      await database.execute(`
         INSERT INTO users (
-          id, name, phone, email, status, password_hash, created_at, updated_at
+          id, name, phone, email, status, password_hash, wechat_open_id, qq_open_id, created_at, updated_at
         ) VALUES (
-          @id, @name, @phone, @email, @status, @password_hash, @created_at, @updated_at
+          @id, @name, @phone, @email, @status, @password_hash, @wechat_open_id, @qq_open_id, @created_at, @updated_at
         )
-        ON CONFLICT(id) DO UPDATE SET
-          name = excluded.name,
-          phone = excluded.phone,
-          email = excluded.email,
-          status = excluded.status,
-          password_hash = excluded.password_hash,
-          created_at = excluded.created_at,
-          updated_at = excluded.updated_at
-      `).run({
+        ${buildUpsertClause(database, ['id'], [
+          'name',
+          'phone',
+          'email',
+          'status',
+          'password_hash',
+          'wechat_open_id',
+          'qq_open_id',
+          'created_at',
+          'updated_at',
+        ])}
+      `, {
         id: user.id,
         name: user.name || '',
         phone: user.phone || '',
         email: user.email || '',
         status: user.status || 'active',
         password_hash: user.passwordHash || '',
+        wechat_open_id: user.wechatOpenId || '',
+        qq_open_id: user.qqOpenId || '',
         created_at: user.createdAt || new Date().toISOString(),
         updated_at: user.updatedAt || new Date().toISOString(),
       });

@@ -174,11 +174,64 @@ export function deriveProductMetadata(input = {}) {
   ));
   const matchDimensions = unique(attributes.flatMap((attribute) => ATTRIBUTE_RULES[attribute]?.dimensions || []));
   const targetRelationships = unique(attributes.flatMap((attribute) => ATTRIBUTE_RULES[attribute]?.relationships || []));
+  const giftScenes = inferGiftScenes({ text, category, attributes, tags, input });
+  const recipientStyles = inferRecipientStyles({ text, category, attributes, input });
+  const riskLevel = inferRiskLevel({ category, attributes, giftScenes, recipientStyles, input });
 
   return {
     attributes,
     tags,
     matchDimensions,
     targetRelationships,
+    giftScenes,
+    recipientStyles,
+    riskLevel,
   };
+}
+
+function inferGiftScenes({ text, category, attributes, input }) {
+  const scenes = new Set(Array.isArray(input.giftScenes) ? input.giftScenes.map(String) : []);
+  const normalized = text.toLowerCase();
+
+  if (category === 'ritual' || attributes.includes('giftBox') || attributes.includes('handmade')) scenes.add('birthday');
+  if (category === 'ritual' || normalized.includes('纪念') || normalized.includes('周年')) scenes.add('anniversary');
+  if (attributes.includes('social') || attributes.includes('drink')) scenes.add('gathering');
+  if (attributes.includes('travel')) scenes.add('travel');
+  if (attributes.includes('home') || attributes.includes('practical') || attributes.includes('healing')) scenes.add('dailyCare');
+  if (category === 'other' || attributes.includes('giftBox')) scenes.add('safeChoice');
+
+  return unique([...scenes]);
+}
+
+function inferRecipientStyles({ text, category, attributes, input }) {
+  const styles = new Set(Array.isArray(input.recipientStyles) ? input.recipientStyles.map(String) : []);
+  const normalized = text.toLowerCase();
+
+  if (attributes.includes('practical') || attributes.includes('home') || category === 'life') styles.add('practical');
+  if (attributes.includes('giftBox') || attributes.includes('handmade') || category === 'ritual') styles.add('ritual');
+  if (attributes.includes('travel') || attributes.includes('game') || normalized.includes('体验')) styles.add('experience');
+  if (attributes.includes('premium') || attributes.includes('beauty') || attributes.includes('fragrance')) styles.add('refined');
+  if (attributes.includes('social') || attributes.includes('drink')) styles.add('social');
+  if (attributes.includes('cute') || attributes.includes('healing')) styles.add('easygoing');
+
+  return unique([...styles]);
+}
+
+function inferRiskLevel({ category, attributes, giftScenes, recipientStyles, input }) {
+  if (typeof input.riskLevel === 'string' && input.riskLevel.trim()) {
+    return input.riskLevel.trim();
+  }
+
+  let score = 0;
+  if (category === 'food') score += 2;
+  if (attributes.includes('spicy')) score += 2;
+  if (attributes.includes('beauty')) score += 2;
+  if (attributes.includes('digital')) score += 1;
+  if (attributes.includes('giftBox') || category === 'ritual') score += 1;
+  if (giftScenes.includes('safeChoice')) score -= 2;
+  if (recipientStyles.includes('practical')) score -= 1;
+
+  if (score >= 4) return 'high';
+  if (score >= 2) return 'medium';
+  return 'low';
 }

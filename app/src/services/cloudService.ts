@@ -1,6 +1,6 @@
 import { getDB } from '@/database';
 import { storageService } from '@/services/storageService';
-import type { AuthSession, AuthUser } from '@/types/auth';
+import type { AuthProvider, AuthSession, AuthUser } from '@/types/auth';
 import type { Friend } from '@/types/friend';
 import type { MemorialDay } from '@/types/memorial';
 import type { AppSettings } from '@/types/settings';
@@ -11,10 +11,16 @@ interface CloudBackupPayload {
   settings: AppSettings;
 }
 
+interface PhoneCodeSendResult {
+  maskedPhone: string;
+  expiresInSeconds: number;
+  devCode?: string;
+}
+
 function getServerBaseUrl(): string {
   const baseUrl = storageService.getSettings().proxyServerUrl?.trim();
   if (!baseUrl) {
-    throw new Error('请先配置后端服务地址。');
+    throw new Error('请先在设置中配置后端服务地址。');
   }
 
   return baseUrl.replace(/\/+$/, '');
@@ -42,7 +48,7 @@ async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> 
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || !payload?.ok) {
-    throw new Error(payload?.error || '请求失败。');
+    throw new Error(payload?.error || '请求失败，请稍后再试。');
   }
 
   return payload.data as T;
@@ -98,9 +104,48 @@ export const cloudService = {
     });
   },
 
+  async providerLogin(input: { provider: AuthProvider; providerId: string; displayName?: string }): Promise<AuthSession> {
+    return requestJson<AuthSession>('/api/auth/provider-login', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
   async getCurrentUser(): Promise<AuthUser> {
     return requestJson<AuthUser>('/api/auth/me', {
       headers: getAuthHeaders(),
+    });
+  },
+
+  async sendBindPhoneCode(phone: string): Promise<PhoneCodeSendResult> {
+    return requestJson<PhoneCodeSendResult>('/api/auth/phone-code/send', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ phone, purpose: 'bind' }),
+    });
+  },
+
+  async bindPhoneWithCode(input: { phone: string; code: string }): Promise<AuthUser> {
+    return requestJson<AuthUser>('/api/auth/bind/phone-code', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(input),
+    });
+  },
+
+  async bindProvider(input: { provider: AuthProvider; providerId: string }): Promise<AuthUser> {
+    return requestJson<AuthUser>('/api/auth/bind/provider', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(input),
+    });
+  },
+
+  async unbindProvider(provider: AuthProvider): Promise<AuthUser> {
+    return requestJson<AuthUser>('/api/auth/unbind/provider', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ provider }),
     });
   },
 

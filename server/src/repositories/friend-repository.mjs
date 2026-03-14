@@ -1,3 +1,5 @@
+import { buildOrderByRecent, buildUpsertClause } from '../database/sql-helpers.mjs';
+
 function safeParseJson(value, fallback) {
   if (!value) {
     return fallback;
@@ -13,6 +15,7 @@ function safeParseJson(value, fallback) {
 function mapFriendRow(row) {
   return {
     id: row.id,
+    userId: row.user_id || undefined,
     name: row.name,
     nickname: row.nickname || '',
     relationship: row.relationship || '',
@@ -47,22 +50,20 @@ function mapFriendRow(row) {
 }
 
 export function createFriendRepository(database) {
-  const db = database.getDb();
-
-  function hydrateFriend(friend) {
-    const preferenceItems = db.prepare(`
+  async function hydrateFriend(friend) {
+    const preferenceItems = await database.queryAll(`
       SELECT id, category, value
       FROM friend_preference_items
       WHERE friend_id = ?
       ORDER BY created_at ASC
-    `).all(friend.id);
+    `, [friend.id]);
 
-    const basicInfoFields = db.prepare(`
+    const basicInfoFields = await database.queryAll(`
       SELECT id, label, value, created_at, source_text
       FROM friend_basic_info_fields
       WHERE friend_id = ?
       ORDER BY created_at ASC
-    `).all(friend.id).map((row) => ({
+    `, [friend.id]).map((row) => ({
       id: row.id,
       label: row.label,
       value: row.value,
@@ -70,7 +71,7 @@ export function createFriendRepository(database) {
       sourceText: row.source_text || row.value,
     }));
 
-    const customFields = db.prepare(`
+    const customFields = await database.queryAll(`
       SELECT
         id, label, value, created_at, include_in_timeline,
         semantic_type, temporal_scope, extraction_method,
@@ -78,7 +79,7 @@ export function createFriendRepository(database) {
       FROM friend_custom_fields
       WHERE friend_id = ?
       ORDER BY created_at ASC
-    `).all(friend.id).map((row) => ({
+    `, [friend.id]).map((row) => ({
       id: row.id,
       label: row.label,
       value: row.value,
@@ -100,35 +101,35 @@ export function createFriendRepository(database) {
   }
 
   return {
-    list() {
-      const rows = db.prepare(`
+    async list() {
+      const rows = await database.queryAll(`
         SELECT *
         FROM friends
-        ORDER BY is_important DESC, datetime(updated_at) DESC, datetime(created_at) DESC
-      `).all();
+        ORDER BY is_important DESC, ${buildOrderByRecent(database, ['updated_at', 'created_at'])}
+      `);
 
-      return rows.map((row) => hydrateFriend(mapFriendRow(row)));
+      return Promise.all(rows.map((row) => hydrateFriend(mapFriendRow(row))));
     },
 
-    listByUserId(userId) {
-      const rows = db.prepare(`
+    async listByUserId(userId) {
+      const rows = await database.queryAll(`
         SELECT *
         FROM friends
         WHERE user_id = ?
-        ORDER BY is_important DESC, datetime(updated_at) DESC, datetime(created_at) DESC
-      `).all(userId);
+        ORDER BY is_important DESC, ${buildOrderByRecent(database, ['updated_at', 'created_at'])}
+      `, [userId]);
 
-      return rows.map((row) => hydrateFriend(mapFriendRow(row)));
+      return Promise.all(rows.map((row) => hydrateFriend(mapFriendRow(row))));
     },
 
-    getById(id) {
-      const row = db.prepare('SELECT * FROM friends WHERE id = ?').get(id);
+    async getById(id) {
+      const row = await database.queryOne('SELECT * FROM friends WHERE id = ?', [id]);
       return row ? hydrateFriend(mapFriendRow(row)) : undefined;
     },
 
-    save(friend) {
-      database.runInTransaction(() => {
-        db.prepare(`
+    async save(friend) {
+      await database.runInTransaction(async (tx = database) => {
+        await tx.execute(`
           INSERT INTO friends (
             id, user_id, name, nickname, relationship, birthday, gender, age, height_cm, weight_kg,
             city, hometown, occupation, company, school, major, avatar_color, avatar_preset,
@@ -140,36 +141,37 @@ export function createFriendRepository(database) {
             @avatar_image, @last_contact_date, @last_viewed_at, @is_important, @notes, @preferences_json,
             @birthday_recommendation_json, @ai_profile_json, @contact_count, @created_at, @updated_at
           )
-          ON CONFLICT(id) DO UPDATE SET
-            user_id = excluded.user_id,
-            name = excluded.name,
-            nickname = excluded.nickname,
-            relationship = excluded.relationship,
-            birthday = excluded.birthday,
-            gender = excluded.gender,
-            age = excluded.age,
-            height_cm = excluded.height_cm,
-            weight_kg = excluded.weight_kg,
-            city = excluded.city,
-            hometown = excluded.hometown,
-            occupation = excluded.occupation,
-            company = excluded.company,
-            school = excluded.school,
-            major = excluded.major,
-            avatar_color = excluded.avatar_color,
-            avatar_preset = excluded.avatar_preset,
-            avatar_image = excluded.avatar_image,
-            last_contact_date = excluded.last_contact_date,
-            last_viewed_at = excluded.last_viewed_at,
-            is_important = excluded.is_important,
-            notes = excluded.notes,
-            preferences_json = excluded.preferences_json,
-            birthday_recommendation_json = excluded.birthday_recommendation_json,
-            ai_profile_json = excluded.ai_profile_json,
-            contact_count = excluded.contact_count,
-            created_at = excluded.created_at,
-            updated_at = excluded.updated_at
-        `).run({
+          ${buildUpsertClause(database, ['id'], [
+            'user_id',
+            'name',
+            'nickname',
+            'relationship',
+            'birthday',
+            'gender',
+            'age',
+            'height_cm',
+            'weight_kg',
+            'city',
+            'hometown',
+            'occupation',
+            'company',
+            'school',
+            'major',
+            'avatar_color',
+            'avatar_preset',
+            'avatar_image',
+            'last_contact_date',
+            'last_viewed_at',
+            'is_important',
+            'notes',
+            'preferences_json',
+            'birthday_recommendation_json',
+            'ai_profile_json',
+            'contact_count',
+            'created_at',
+            'updated_at',
+          ])}
+        `, {
           id: friend.id,
           user_id: friend.userId || null,
           name: friend.name || '',
@@ -201,16 +203,15 @@ export function createFriendRepository(database) {
           updated_at: friend.updatedAt || new Date().toISOString(),
         });
 
-        db.prepare('DELETE FROM friend_preference_items WHERE friend_id = ?').run(friend.id);
-        db.prepare('DELETE FROM friend_basic_info_fields WHERE friend_id = ?').run(friend.id);
-        db.prepare('DELETE FROM friend_custom_fields WHERE friend_id = ?').run(friend.id);
+        await tx.execute('DELETE FROM friend_preference_items WHERE friend_id = ?', [friend.id]);
+        await tx.execute('DELETE FROM friend_basic_info_fields WHERE friend_id = ?', [friend.id]);
+        await tx.execute('DELETE FROM friend_custom_fields WHERE friend_id = ?', [friend.id]);
 
-        const insertPreferenceItem = db.prepare(`
-          INSERT INTO friend_preference_items (id, friend_id, category, value, created_at)
-          VALUES (@id, @friend_id, @category, @value, @created_at)
-        `);
         for (const item of friend.preferenceItems || []) {
-          insertPreferenceItem.run({
+          await tx.execute(`
+            INSERT INTO friend_preference_items (id, friend_id, category, value, created_at)
+            VALUES (@id, @friend_id, @category, @value, @created_at)
+          `, {
             id: item.id,
             friend_id: friend.id,
             category: item.category,
@@ -219,12 +220,11 @@ export function createFriendRepository(database) {
           });
         }
 
-        const insertBasicInfoField = db.prepare(`
-          INSERT INTO friend_basic_info_fields (id, friend_id, label, value, created_at, source_text)
-          VALUES (@id, @friend_id, @label, @value, @created_at, @source_text)
-        `);
         for (const field of friend.basicInfoFields || []) {
-          insertBasicInfoField.run({
+          await tx.execute(`
+            INSERT INTO friend_basic_info_fields (id, friend_id, label, value, created_at, source_text)
+            VALUES (@id, @friend_id, @label, @value, @created_at, @source_text)
+          `, {
             id: field.id,
             friend_id: friend.id,
             label: field.label,
@@ -234,17 +234,16 @@ export function createFriendRepository(database) {
           });
         }
 
-        const insertCustomField = db.prepare(`
-          INSERT INTO friend_custom_fields (
-            id, friend_id, label, value, created_at, include_in_timeline,
-            semantic_type, temporal_scope, extraction_method, source_text, event_time_text
-          ) VALUES (
-            @id, @friend_id, @label, @value, @created_at, @include_in_timeline,
-            @semantic_type, @temporal_scope, @extraction_method, @source_text, @event_time_text
-          )
-        `);
         for (const field of friend.customFields || []) {
-          insertCustomField.run({
+          await tx.execute(`
+            INSERT INTO friend_custom_fields (
+              id, friend_id, label, value, created_at, include_in_timeline,
+              semantic_type, temporal_scope, extraction_method, source_text, event_time_text
+            ) VALUES (
+              @id, @friend_id, @label, @value, @created_at, @include_in_timeline,
+              @semantic_type, @temporal_scope, @extraction_method, @source_text, @event_time_text
+            )
+          `, {
             id: field.id,
             friend_id: friend.id,
             label: field.label,
@@ -263,14 +262,14 @@ export function createFriendRepository(database) {
       return this.getById(friend.id);
     },
 
-    remove(id) {
-      db.prepare('DELETE FROM friends WHERE id = ?').run(id);
+    async remove(id) {
+      await database.execute('DELETE FROM friends WHERE id = ?', [id]);
     },
 
-    replaceAllForUser(userId, friends) {
-      db.prepare('DELETE FROM friends WHERE user_id = ?').run(userId);
+    async replaceAllForUser(userId, friends) {
+      await database.execute('DELETE FROM friends WHERE user_id = ?', [userId]);
       for (const friend of friends) {
-        this.save({
+        await this.save({
           ...friend,
           userId,
         });

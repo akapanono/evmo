@@ -5,12 +5,32 @@ export const THEME_OPTIONS: Array<{
   label: string;
   description: string;
 }> = [
-  { value: 'default', label: '默认配色', description: '当前这套米白暖调配色。' },
-  { value: 'forest', label: '森野配色', description: '偏自然的绿意配色，整体更安静。' },
-  { value: 'sunset', label: '落霞配色', description: '偏暖橘和金色的夕照风格。' },
-  { value: 'ocean', label: '海雾配色', description: '偏蓝灰和水色的清爽风格。' },
+  {
+    value: 'default',
+    label: '暖金森林',
+    description: '米金和深绿的平衡配色，适合默认使用。',
+  },
+  {
+    value: 'forest',
+    label: '清晨林地',
+    description: '更偏自然绿调，整体更柔和、轻松。',
+  },
+  {
+    value: 'sunset',
+    label: '日落琥珀',
+    description: '暖橙和琥珀色更明显，氛围更浓。',
+  },
+  {
+    value: 'ocean',
+    label: '海雾青蓝',
+    description: '偏青蓝和灰绿，观感更清爽克制。',
+  },
 ];
 
+function normalizeThemeScheme(themeScheme: AppSettings['themeScheme'] | string | undefined): AppSettings['themeScheme'] {
+  return themeScheme === 'forest' || themeScheme === 'sunset' || themeScheme === 'ocean' ? themeScheme : 'default';
+}
+
 export function applyThemeScheme(themeScheme: AppSettings['themeScheme']): void {
-  document.documentElement.setAttribute('data-theme', themeScheme || 'default');
+  document.documentElement.setAttribute('data-theme', normalizeThemeScheme(themeScheme));
 }

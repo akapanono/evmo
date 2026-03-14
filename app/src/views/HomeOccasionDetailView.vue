@@ -99,6 +99,25 @@
         </article>
       </section>
 
+      <section v-if="profileChips.length > 0" class="profile-section">
+        <div class="card-heading">
+          <p class="mini-label">推荐画像</p>
+          <h2>系统当前理解的送礼方向</h2>
+        </div>
+        <div class="profile-grid">
+          <article class="profile-card">
+            <span>关系摘要</span>
+            <strong>{{ recommendation.profile?.relationshipSummary || '普通关系' }}</strong>
+          </article>
+          <article class="profile-card">
+            <span>推荐偏好</span>
+            <div class="profile-chip-row">
+              <span v-for="chip in profileChips" :key="chip" class="profile-chip">{{ chip }}</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section class="bucket-section">
         <div class="card-heading">
           <p class="mini-label">礼物推荐</p>
@@ -128,7 +147,10 @@
               >
                 <div>
                   <h3>{{ item.title }}</h3>
-                  <p>{{ item.reason }}</p>
+                  <p>{{ item.reason || '适合作为这个场景下的稳妥选择。' }}</p>
+                  <div v-if="getVisibleMatchTags(item).length > 0" class="gift-match-row">
+                    <span v-for="tag in getVisibleMatchTags(item)" :key="tag" class="gift-match-chip">{{ tag }}</span>
+                  </div>
                 </div>
                 <span>{{ item.priceLabel }}</span>
               </a>
@@ -152,7 +174,6 @@ import { useRoute, useRouter } from 'vue-router';
 import { recommendationService } from '@/services/recommendationService';
 import { useFriendsStore } from '@/stores/friends';
 import { useMemorialDaysStore } from '@/stores/memorialDays';
-import type { Friend } from '@/types/friend';
 import type { OccasionRecommendation, RecommendationScore } from '@/types/recommendation';
 import { getFriendSourceQuery } from '@/utils/friendNavigation';
 import { buildHomeOccasionItem, type OccasionType } from '@/utils/homeOccasions';
@@ -202,6 +223,12 @@ const recommendation = computed(() => {
 const radarScores = computed(() => recommendation.value.scoreCards.slice(0, 5));
 const showRadarChart = computed(() => radarScores.value.length >= 3);
 const giftBuckets = computed(() => recommendation.value.buckets ?? []);
+const profileChips = computed(() => [
+  ...(recommendation.value.profile?.intentTags ?? []).map(formatIntentTag),
+  ...(recommendation.value.profile?.preferredCategories ?? []).map((item) => `偏好${formatCategoryTag(item)}`),
+  ...(recommendation.value.profile?.preferredPriceBuckets ?? []).map((item) => `预算${formatPriceBucketTag(item)}`),
+  ...(recommendation.value.profile?.avoidCategories ?? []).map((item) => `少推${formatCategoryTag(item)}`),
+].filter(Boolean).slice(0, 8));
 
 const radarAxes = computed(() => buildRadarAxes(radarScores.value, 84));
 const radarGridPolygons = computed(() => [0.25, 0.5, 0.75, 1].map((ratio) => buildRadarPolygon(radarScores.value, ratio * 84)));
@@ -281,6 +308,13 @@ function getVisibleBucketItems(bucket: NonNullable<OccasionRecommendation['bucke
   return selectBatch(bucket.items, 3, bucketSeeds.value[bucket.key] ?? 0, bucket.key);
 }
 
+function getVisibleMatchTags(item: NonNullable<OccasionRecommendation['buckets']>[number]['items'][number]): string[] {
+  return (item.matchTags ?? [])
+    .map(formatMatchTag)
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
 function getScoreSignalText(score: RecommendationScore): string {
   const cleaned = (score.matchedSignals ?? [])
     .map((item) => sanitizeMatchedSignal(item))
@@ -350,6 +384,111 @@ function sanitizeMatchedSignal(value: string): string {
     .replace(/\b[a-z]{2,}\b\s*/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function formatMatchTag(value: string): string {
+  const normalized = String(value || '').trim();
+  if (!normalized) return '';
+
+  if (normalized.startsWith('budget:')) {
+    return `预算${formatPriceBucketTag(normalized.slice(7))}`;
+  }
+
+  if (normalized.startsWith('cat:')) {
+    return formatCategoryTag(normalized.slice(4));
+  }
+
+  if (normalized.startsWith('category:')) {
+    return formatCategoryTag(normalized.slice(9));
+  }
+
+  if (normalized.startsWith('dimension:')) {
+    return formatIntentTag(normalized.slice(10));
+  }
+
+  if (normalized.startsWith('keyword:')) {
+    return normalized.slice(8);
+  }
+
+  if (normalized.startsWith('scene:')) {
+    return formatSceneTag(normalized.slice(6));
+  }
+
+  if (normalized.startsWith('style:')) {
+    return formatRecipientStyleTag(normalized.slice(6));
+  }
+
+  return formatIntentTag(normalized) || formatCategoryTag(normalized) || normalized;
+}
+
+function formatIntentTag(value: string): string {
+  const labels: Record<string, string> = {
+    ritualSense: '仪式感优先',
+    practicality: '更看重实用',
+    relaxation: '偏放松疗愈',
+    exploration: '喜欢新鲜体验',
+    companionship: '适合一起参与',
+    aesthetics: '在意审美表达',
+    refinement: '偏精致质感',
+    sweetPreference: '偏甜口味',
+    spicyPreference: '偏重口味',
+    social: '适合社交分享',
+  };
+
+  return labels[value] ?? '';
+}
+
+function formatCategoryTag(value: string): string {
+  const labels: Record<string, string> = {
+    food: '美食饮品',
+    entertainment: '兴趣娱乐',
+    life: '家居生活',
+    social: '社交互动',
+    travel: '出游体验',
+    shopping: '精致好物',
+    ritual: '仪式纪念',
+    other: '通用礼物',
+  };
+
+  return labels[value] ?? '';
+}
+
+function formatPriceBucketTag(value: string): string {
+  const labels: Record<string, string> = {
+    under50: '50元内',
+    '50to100': '50到100元',
+    '100to300': '100到300元',
+    '300to1000': '300到1000元',
+    '1000plus': '1000元以上',
+  };
+
+  return labels[value] ?? value;
+}
+
+function formatSceneTag(value: string): string {
+  const labels: Record<string, string> = {
+    birthday: '适合生日场景',
+    anniversary: '适合纪念日场景',
+    gathering: '适合聚会分享',
+    travel: '适合出游体验',
+    dailyCare: '适合日常关怀',
+    safeChoice: '低风险稳妥款',
+  };
+
+  return labels[value] ?? '';
+}
+
+function formatRecipientStyleTag(value: string): string {
+  const labels: Record<string, string> = {
+    practical: '偏实用',
+    ritual: '偏仪式感',
+    experience: '偏体验型',
+    refined: '偏精致质感',
+    social: '适合社交互动',
+    easygoing: '轻松疗愈型',
+  };
+
+  return labels[value] ?? '';
 }
 </script>
 
@@ -609,6 +748,50 @@ function sanitizeMatchedSignal(value: string): string {
   gap: 14px;
 }
 
+.profile-section {
+  display: grid;
+  gap: 14px;
+}
+
+.profile-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.profile-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--surface-panel) 90%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+}
+
+.profile-card span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.profile-card strong {
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.profile-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profile-chip {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gold) 14%, var(--paper));
+  color: color-mix(in srgb, var(--ink) 84%, var(--gold));
+  font-size: 12px;
+  line-height: 1;
+}
+
 .bucket-card {
   display: grid;
   gap: 12px;
@@ -653,6 +836,22 @@ function sanitizeMatchedSignal(value: string): string {
   font-size: 12px;
   line-height: 1;
   white-space: nowrap;
+}
+
+.gift-match-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.gift-match-chip {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--teal) 12%, var(--paper));
+  color: color-mix(in srgb, var(--ink) 84%, var(--teal));
+  font-size: 12px;
+  line-height: 1;
 }
 
 .empty-panel {

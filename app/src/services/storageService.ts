@@ -6,9 +6,14 @@ import { STORAGE_KEY_AUTH_TOKEN, STORAGE_KEY_AUTH_USER, STORAGE_KEY_SETTINGS } f
 
 function normalizeSettings(settings: AppSettings): AppSettings {
   return {
+    ...DEFAULT_SETTINGS,
     ...settings,
     proxyServerUrl: settings.proxyServerUrl || DEFAULT_SETTINGS.proxyServerUrl,
     themeScheme: settings.themeScheme || DEFAULT_SETTINGS.themeScheme,
+    birthdayReminder: {
+      ...DEFAULT_SETTINGS.birthdayReminder,
+      ...(settings.birthdayReminder || {}),
+    },
   };
 }
 
@@ -65,7 +70,7 @@ export const storageService = {
 
     try {
       const user = JSON.parse(rawUser) as AuthUser;
-      if (!user?.id || !user?.phone) {
+      if (!user?.id) {
         return null;
       }
 

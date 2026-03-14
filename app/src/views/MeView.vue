@@ -1,209 +1,280 @@
 <template>
-  <section
-    ref="screenRef"
-    class="app-screen is-active"
-    @touchstart.passive="handleTouchStart"
-    @touchmove.passive="handleTouchMove"
-    @touchend="handleTouchEnd"
-    @touchcancel="handleTouchEnd"
-  >
-    <div class="pull-indicator" :class="{ visible: pullDistance > 8 || refreshing }">
-      {{ refreshing ? '刷新中...' : pullDistance >= REFRESH_TRIGGER ? '松开刷新' : '下拉刷新' }}
-    </div>
+  <section class="app-screen is-active settings-screen">
+    <div class="settings-shell">
+      <template v-if="!activeSection">
+        <header class="settings-top">
+          <div>
+            <p class="eyebrow">Settings</p>
+            <h1>设置</h1>
+            <p class="subcopy">把账号、提醒、隐私、备份和 AI 接入集中管理。</p>
+          </div>
+        </header>
 
-    <div :style="contentStyle">
-      <div class="topbar">
-        <div>
-          <p class="eyebrow">我的</p>
-          <h1>友记设置</h1>
-        </div>
-      </div>
+        <article class="profile-hero">
+          <Avatar size="xxl" color="ink">{{ displayInitial }}</Avatar>
+          <div class="profile-copy">
+            <h2>{{ displayName }}</h2>
+            <p>{{ profileSummary }}</p>
+          </div>
+        </article>
 
-      <article class="profile-panel">
-        <Avatar size="xxl" color="ink">友记</Avatar>
-        <div>
-          <h2>账号、主题、AI 与云备份</h2>
-          <p>{{ statsSummary }}</p>
-        </div>
-      </article>
-
-      <section class="section-block">
-        <div class="section-head">
-          <h3>账号登录</h3>
-        </div>
-
-        <article class="form-card">
-          <template v-if="authStore.isLoggedIn && authStore.user">
-            <div class="connection-status connected">
-              <strong>已登录</strong>
-              <span>{{ authStore.user.name || authStore.user.phone }}</span>
+        <section class="settings-group">
+          <button type="button" class="setting-row" @click="openAccountEntry">
+            <div>
+              <strong>账号与安全</strong>
+              <span>{{ accountSummary }}</span>
             </div>
-
-            <div class="data-summary single">
-              <div>
-                <strong>{{ authStore.user.name || '未命名用户' }}</strong>
-                <span>{{ authStore.user.phone }}</span>
-              </div>
+          </button>
+          <button type="button" class="setting-row" @click="openSection('appearance')">
+            <div>
+              <strong>外观与首页</strong>
+              <span>{{ appearanceSummary }}</span>
             </div>
+          </button>
+          <button type="button" class="setting-row" @click="openSection('ai')">
+            <div>
+              <strong>AI 与网络</strong>
+              <span>{{ aiSummary }}</span>
+            </div>
+          </button>
+          <button type="button" class="setting-row" @click="openSection('privacy')">
+            <div>
+              <strong>隐私与保护</strong>
+              <span>{{ privacySummary }}</span>
+            </div>
+          </button>
+          <button type="button" class="setting-row" @click="openSection('reminder')">
+            <div>
+              <strong>提醒设置</strong>
+              <span>{{ reminderSummary }}</span>
+            </div>
+          </button>
+          <button type="button" class="setting-row" @click="openSection('data')">
+            <div>
+              <strong>数据与备份</strong>
+              <span>{{ dataSummary }}</span>
+            </div>
+          </button>
+          <button type="button" class="setting-row" @click="openSection('about')">
+            <div>
+              <strong>通用设置</strong>
+              <span>{{ aboutSummary }}</span>
+            </div>
+          </button>
+        </section>
+      </template>
 
+      <template v-else>
+        <header class="detail-top">
+          <button type="button" class="back-btn" @click="closeSection">返回</button>
+          <div>
+            <p class="eyebrow">Section</p>
+            <h1>{{ sectionTitle }}</h1>
+          </div>
+        </header>
+
+        <section v-if="activeSection === 'appearance'" class="detail-stack">
+          <article class="panel-card">
+            <h3>主题风格</h3>
+            <label class="field">
+              <span>主题配色</span>
+              <select v-model="themeScheme" class="model-select" @change="saveAppearanceSettings">
+                <option v-for="item in themeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
+              </select>
+            </label>
+            <div class="theme-preview-grid">
+              <button
+                v-for="item in themeOptions"
+                :key="item.value"
+                type="button"
+                :class="['theme-chip', { active: themeScheme === item.value }]"
+                @click="selectTheme(item.value)"
+              >
+                <span class="theme-dot" :data-theme-dot="item.value"></span>
+                <span>{{ item.label }}</span>
+              </button>
+            </div>
+          </article>
+
+          <article class="panel-card">
+            <h3>首页布局</h3>
+            <label class="field">
+              <span>默认首页</span>
+              <select v-model="startPage" class="model-select" @change="saveAppearanceSettings">
+                <option value="home">首页</option>
+                <option value="calendar">纪念日</option>
+                <option value="friends">好友</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>好友排序方式</span>
+              <select v-model="friendSortMode" class="model-select" @change="saveAppearanceSettings">
+                <option value="viewed">最近查看优先</option>
+                <option value="contact">最近联系优先</option>
+                <option value="name">按姓名排序</option>
+              </select>
+            </label>
             <div class="section-actions-row">
-              <button type="button" class="action-btn" @click="refreshProfile" :disabled="authStore.loading">
-                刷新账号
-              </button>
-              <button type="button" class="action-btn" @click="logout">
-                退出登录
-              </button>
+              <button type="button" class="action-btn primary" @click="saveAppearanceSettings">保存外观设置</button>
             </div>
-          </template>
+          </article>
+        </section>
 
-          <template v-else>
+        <section v-else-if="activeSection === 'ai'" class="detail-stack">
+          <article class="panel-card">
+            <h3>网络接入</h3>
+            <label class="field">
+              <span>后端服务地址</span>
+              <input v-model="proxyServerUrl" type="text" placeholder="例如 https://api.example.com" />
+            </label>
+            <label class="field">
+              <span>AI 回答风格</span>
+              <select v-model="aiStyle" class="model-select">
+                <option value="friendly">温和陪伴</option>
+                <option value="professional">偏专业建议</option>
+                <option value="concise">简短直接</option>
+              </select>
+            </label>
+            <label class="toggle-row">
+              <div>
+                <strong>允许移动网络调用 AI</strong>
+                <span>关闭后仅在 Wi-Fi 环境下走 AI 接口。</span>
+              </div>
+              <input v-model="allowCellularAI" type="checkbox" />
+            </label>
+            <div class="section-actions-row">
+              <button type="button" class="action-btn" @click="resetAISettings">恢复默认</button>
+              <button type="button" class="action-btn" :disabled="testing || !canTestConnection" @click="testConnection">
+                {{ testing ? '测试中...' : '测试连接' }}
+              </button>
+              <button type="button" class="action-btn primary" @click="saveAISettings">保存 AI 设置</button>
+            </div>
+            <p v-if="testResult" :class="['test-result', testResult.success ? 'success' : 'error']">{{ testResult.message }}</p>
+          </article>
+        </section>
+
+        <section v-else-if="activeSection === 'privacy'" class="detail-stack">
+          <article class="panel-card">
+            <h3>隐私保护</h3>
+            <label class="toggle-row">
+              <div>
+                <strong>隐藏敏感信息</strong>
+                <span>在部分界面折叠手机号、隐私备注等内容。</span>
+              </div>
+              <input v-model="hideSensitiveInfo" type="checkbox" />
+            </label>
+            <label class="toggle-row">
+              <div>
+                <strong>进入应用时锁定</strong>
+                <span>再次进入时需要先解锁再查看内容。</span>
+              </div>
+              <input v-model="lockScreen" type="checkbox" />
+            </label>
+            <label class="toggle-row">
+              <div>
+                <strong>启用生物识别入口</strong>
+                <span>为后续指纹或面容解锁预留入口。</span>
+              </div>
+              <input v-model="biometricLock" type="checkbox" />
+            </label>
+            <div class="section-actions-row">
+              <button type="button" class="action-btn primary" @click="savePrivacySettings">保存隐私设置</button>
+            </div>
+          </article>
+        </section>
+
+        <section v-else-if="activeSection === 'reminder'" class="detail-stack">
+          <article class="panel-card">
+            <h3>生日提醒</h3>
+            <label class="toggle-row">
+              <div>
+                <strong>开启生日提醒</strong>
+                <span>在生日临近时主动提醒你准备礼物或联系对方。</span>
+              </div>
+              <input v-model="birthdayReminderEnabled" type="checkbox" />
+            </label>
             <div class="field-grid">
               <label class="field">
-                <span>昵称</span>
-                <input v-model="authName" type="text" placeholder="首次注册可填写" />
+                <span>提前天数</span>
+                <input v-model.number="birthdayReminderDaysBefore" type="number" min="0" max="30" />
               </label>
-
               <label class="field">
-                <span>手机号</span>
-                <input v-model="authPhone" type="text" inputmode="numeric" placeholder="请输入手机号" />
-              </label>
-
-              <label class="field">
-                <span>密码</span>
-                <input v-model="authPassword" type="password" placeholder="请输入密码" />
+                <span>提醒时间</span>
+                <input v-model="birthdayReminderTime" type="time" />
               </label>
             </div>
-
             <div class="section-actions-row">
-              <button type="button" class="action-btn" @click="register" :disabled="authStore.loading">
-                {{ authStore.loading ? '处理中...' : '注册并登录' }}
+              <button type="button" class="action-btn primary" @click="saveReminderSettings">保存提醒设置</button>
+            </div>
+          </article>
+        </section>
+
+        <section v-else-if="activeSection === 'data'" class="detail-stack">
+          <article class="panel-card">
+            <h3>备份策略</h3>
+            <label class="toggle-row">
+              <div>
+                <strong>仅在 Wi-Fi 下备份</strong>
+                <span>避免移动网络下同步大量数据。</span>
+              </div>
+              <input v-model="wifiOnlyBackup" type="checkbox" />
+            </label>
+            <label class="toggle-row">
+              <div>
+                <strong>自动备份</strong>
+                <span>登录后定期把好友和纪念日同步到云端。</span>
+              </div>
+              <input v-model="autoBackup" type="checkbox" />
+            </label>
+            <div class="data-summary">
+              <div>
+                <strong>{{ friendsStore.friends.length }}</strong>
+                <span>位好友</span>
+              </div>
+              <div>
+                <strong>{{ memorialDaysStore.memorialDays.length }}</strong>
+                <span>个纪念日</span>
+              </div>
+            </div>
+            <div class="section-actions-row">
+              <button type="button" class="action-btn" @click="saveDataSettings">保存备份策略</button>
+              <button type="button" class="action-btn" :disabled="backupLoading || !authStore.isLoggedIn" @click="backupToCloud">
+                {{ backupLoading ? '备份中...' : '立即备份' }}
               </button>
-              <button type="button" class="action-btn primary" @click="login" :disabled="authStore.loading">
-                {{ authStore.loading ? '处理中...' : '登录' }}
+              <button type="button" class="action-btn primary" :disabled="restoreLoading || !authStore.isLoggedIn" @click="restoreFromCloud">
+                {{ restoreLoading ? '恢复中...' : '恢复数据' }}
               </button>
             </div>
-          </template>
+            <p v-if="dataMessage" class="test-result success">{{ dataMessage }}</p>
+            <p v-if="dataError" class="test-result error">{{ dataError }}</p>
+          </article>
+        </section>
 
-          <p v-if="authMessage" class="test-result success">{{ authMessage }}</p>
-          <p v-if="authError" class="test-result error">{{ authError }}</p>
-        </article>
-      </section>
-
-      <section class="section-block">
-        <div class="section-head">
-          <h3>外观主题</h3>
-        </div>
-
-        <article class="form-card">
-          <div class="field-grid">
+        <section v-else-if="activeSection === 'about'" class="detail-stack">
+          <article class="panel-card">
+            <h3>通用信息</h3>
             <label class="field">
-              <span>界面配色</span>
-              <select v-model="themeScheme" class="model-select" @change="saveAISettings">
-                <option v-for="item in themeOptions" :key="item.value" :value="item.value">
-                  {{ item.label }}
-                </option>
-              </select>
-              <p class="field-hint">{{ selectedThemeDescription }}</p>
+              <span>显示昵称</span>
+              <input v-model="profileName" type="text" placeholder="例如 小布" />
             </label>
-          </div>
-
-          <div class="theme-preview-grid">
-            <button
-              v-for="item in themeOptions"
-              :key="item.value"
-              type="button"
-              :class="['theme-chip', { active: themeScheme === item.value }]"
-              @click="selectTheme(item.value)"
-            >
-              <span class="theme-dot" :data-theme-dot="item.value"></span>
-              <strong>{{ item.label }}</strong>
-            </button>
-          </div>
-        </article>
-      </section>
-
-      <section class="section-block">
-        <div class="section-head">
-          <h3>AI 服务</h3>
-        </div>
-
-        <article class="form-card">
-          <div :class="['connection-status', connectionSummary.configured ? 'connected' : 'disconnected']">
-            <strong>{{ connectionSummary.configured ? '已配置代理服务' : '尚未配置后端地址' }}</strong>
-            <span>{{ summaryLine }}</span>
-          </div>
-
-          <div class="field-grid">
             <label class="field">
-              <span>代理服务地址</span>
-              <input v-model="proxyServerUrl" type="text" placeholder="http://localhost:9090" />
-              <p class="field-hint">
-                手机真机不能用 `localhost` 访问你电脑上的后端，请改成你电脑在局域网里的地址，例如 `http://192.168.1.23:9090`。
-              </p>
+              <span>设备名称</span>
+              <input v-model="profileDeviceName" type="text" placeholder="例如 我的 Pixel" />
             </label>
-
-            <label class="field">
-              <span>AI 风格</span>
-              <select v-model="aiStyle" class="model-select">
-                <option value="friendly">自然一点</option>
-                <option value="professional">稳一点</option>
-                <option value="concise">简洁一点</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="section-actions-row">
-            <button type="button" class="action-btn" @click="resetAISettings">恢复默认</button>
-            <button type="button" class="action-btn" @click="testConnection" :disabled="testing || !canTestConnection">
-              {{ testing ? '测试中...' : '测试连接' }}
-            </button>
-            <button type="button" class="action-btn primary" @click="saveAISettings">保存</button>
-          </div>
-
-          <p v-if="testResult" :class="['test-result', testResult.success ? 'success' : 'error']">{{ testResult.message }}</p>
-        </article>
-      </section>
-
-      <section class="section-block">
-        <div class="section-head">
-          <h3>云端备份</h3>
-        </div>
-
-        <article class="form-card data-card">
-          <div class="data-summary">
-            <div>
-              <strong>{{ friendsStore.friends.length }}</strong>
-              <span>位朋友</span>
+            <div class="section-actions-row">
+              <button type="button" class="action-btn primary" @click="saveGeneralSettings">保存通用设置</button>
+              <button type="button" class="action-btn" @click="resetAllSettings">恢复默认设置</button>
             </div>
-            <div>
-              <strong>{{ memorialDaysStore.memorialDays.length }}</strong>
-              <span>条纪念日</span>
-            </div>
-          </div>
-
-          <p class="field-hint">
-            原来的导入导出已替换成云端备份与恢复。登录后可把当前设备数据备份到后端，也可以从后端恢复到当前设备。
-          </p>
-
-          <div class="section-actions-row">
-            <button type="button" class="action-btn" @click="backupToCloud" :disabled="backupLoading || !authStore.isLoggedIn">
-              {{ backupLoading ? '备份中...' : '备份到云端' }}
-            </button>
-            <button type="button" class="action-btn primary" @click="restoreFromCloud" :disabled="restoreLoading || !authStore.isLoggedIn">
-              {{ restoreLoading ? '恢复中...' : '从云端恢复' }}
-            </button>
-          </div>
-
-          <p v-if="dataMessage" class="test-result success">{{ dataMessage }}</p>
-          <p v-if="dataError" class="test-result error">{{ dataError }}</p>
-        </article>
-      </section>
+          </article>
+        </section>
+      </template>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import Avatar from '@/components/common/Avatar.vue';
 import { aiService } from '@/services/aiService';
 import { cloudService } from '@/services/cloudService';
@@ -211,55 +282,73 @@ import { useAuthStore } from '@/stores/auth';
 import { useFriendsStore } from '@/stores/friends';
 import { useMemorialDaysStore } from '@/stores/memorialDays';
 import { useSettingsStore } from '@/stores/settings';
-import { DEFAULT_SETTINGS } from '@/types/settings';
+import { DEFAULT_PROXY_SERVER_URL, DEFAULT_SETTINGS } from '@/types/settings';
 import { THEME_OPTIONS } from '@/utils/theme';
 
+type SettingSection = 'appearance' | 'ai' | 'privacy' | 'reminder' | 'data' | 'about' | null;
+
+const router = useRouter();
 const settingsStore = useSettingsStore();
 const friendsStore = useFriendsStore();
 const memorialDaysStore = useMemorialDaysStore();
 const authStore = useAuthStore();
 
-const DEFAULT_PROXY_SERVER_URL = 'http://localhost:9090';
-const REFRESH_TRIGGER = 72;
-
+const activeSection = ref<SettingSection>(null);
 const proxyServerUrl = ref(DEFAULT_PROXY_SERVER_URL);
-const aiStyle = ref<'friendly' | 'professional' | 'concise'>('friendly');
+const aiStyle = ref<typeof DEFAULT_SETTINGS.aiStyle>(DEFAULT_SETTINGS.aiStyle);
 const themeScheme = ref<typeof DEFAULT_SETTINGS.themeScheme>(DEFAULT_SETTINGS.themeScheme);
+const startPage = ref<typeof DEFAULT_SETTINGS.startPage>(DEFAULT_SETTINGS.startPage);
+const friendSortMode = ref<typeof DEFAULT_SETTINGS.friendSortMode>(DEFAULT_SETTINGS.friendSortMode);
+const allowCellularAI = ref(DEFAULT_SETTINGS.allowCellularAI);
+const wifiOnlyBackup = ref(DEFAULT_SETTINGS.wifiOnlyBackup);
+const autoBackup = ref(DEFAULT_SETTINGS.autoBackup);
+const lockScreen = ref(DEFAULT_SETTINGS.lockScreen);
+const hideSensitiveInfo = ref(DEFAULT_SETTINGS.hideSensitiveInfo);
+const biometricLock = ref(DEFAULT_SETTINGS.biometricLock);
+const birthdayReminderEnabled = ref(DEFAULT_SETTINGS.birthdayReminder.enabled);
+const birthdayReminderDaysBefore = ref(DEFAULT_SETTINGS.birthdayReminder.daysBefore);
+const birthdayReminderTime = ref(DEFAULT_SETTINGS.birthdayReminder.time);
+const profileName = ref(DEFAULT_SETTINGS.profileName || '');
+const profileDeviceName = ref(DEFAULT_SETTINGS.profileDeviceName || '');
 const testing = ref(false);
 const backupLoading = ref(false);
 const restoreLoading = ref(false);
 const testResult = ref<{ success: boolean; message: string } | null>(null);
-const authName = ref('');
-const authPhone = ref('');
-const authPassword = ref('');
-const authMessage = ref('');
-const authError = ref('');
 const dataMessage = ref('');
 const dataError = ref('');
-const screenRef = ref<HTMLElement | null>(null);
-const pullDistance = ref(0);
-const refreshing = ref(false);
-let touchStartY = 0;
-let pullActive = false;
 
 const themeOptions = THEME_OPTIONS;
 
-const contentStyle = computed(() => ({
-  transform: pullDistance.value > 0 ? `translateY(${pullDistance.value}px)` : undefined,
-  transition: refreshing.value || pullDistance.value === 0 ? 'transform 180ms ease' : undefined,
-}));
-
-const connectionSummary = computed(() => ({
-  configured: Boolean(proxyServerUrl.value.trim()),
-  baseUrl: proxyServerUrl.value.trim() || DEFAULT_PROXY_SERVER_URL,
-}));
-
-const summaryLine = computed(() => connectionSummary.value.baseUrl);
+const displayName = computed(() => authStore.user?.name || profileName.value || '我的账号');
+const displayInitial = computed(() => displayName.value.slice(0, 1) || '我');
+const profileSummary = computed(() => `${authStore.isLoggedIn ? '已登录' : '未登录'} · ${friendsStore.friends.length} 位好友 · ${memorialDaysStore.memorialDays.length} 个纪念日`);
+const sectionTitle = computed(() => ({
+  appearance: '外观与首页',
+  ai: 'AI 与网络',
+  privacy: '隐私与保护',
+  reminder: '提醒设置',
+  data: '数据与备份',
+  about: '通用设置',
+}[activeSection.value || 'about']));
 const canTestConnection = computed(() => Boolean(proxyServerUrl.value.trim()));
-const selectedThemeDescription = computed(() => (
-  themeOptions.find((item) => item.value === themeScheme.value)?.description ?? ''
-));
-const statsSummary = computed(() => `当前有 ${friendsStore.friends.length} 位朋友，${memorialDaysStore.memorialDays.length} 条纪念日。`);
+const accountSummary = computed(() => {
+  if (!authStore.isLoggedIn) {
+    return '未登录，支持手机号、微信和 QQ 登录';
+  }
+
+  const bindings = [
+    authStore.user?.phone ? '已绑定手机号' : '未绑手机号',
+    authStore.user?.bindings.wechat ? '已绑微信' : null,
+    authStore.user?.bindings.qq ? '已绑QQ' : null,
+  ].filter(Boolean);
+  return bindings.join(' / ');
+});
+const appearanceSummary = computed(() => `${themeOptions.find((item) => item.value === themeScheme.value)?.label || '默认主题'} · 默认首页 ${startPageLabel(startPage.value)}`);
+const aiSummary = computed(() => `${proxyServerUrl.value.trim() ? '已配置服务地址' : '未配置服务地址'} · ${allowCellularAI.value ? '允许移动网络' : '仅 Wi-Fi'}`);
+const privacySummary = computed(() => [hideSensitiveInfo.value ? '隐藏敏感信息' : null, lockScreen.value ? '进入需解锁' : null, biometricLock.value ? '生物识别入口已开' : null].filter(Boolean).join(' / ') || '标准保护');
+const reminderSummary = computed(() => birthdayReminderEnabled.value ? `提前 ${birthdayReminderDaysBefore.value} 天 · ${birthdayReminderTime.value}` : '生日提醒已关闭');
+const dataSummary = computed(() => `${wifiOnlyBackup.value ? '仅 Wi-Fi 备份' : '允许移动网络备份'} · ${autoBackup.value ? '自动备份开启' : '手动备份'}`);
+const aboutSummary = computed(() => `${profileDeviceName.value || '当前设备'} · 好友排序 ${friendSortModeLabel(friendSortMode.value)}`);
 
 onMounted(async () => {
   await Promise.all([
@@ -267,13 +356,55 @@ onMounted(async () => {
     memorialDaysStore.loadMemorialDays(),
     authStore.refreshCurrentUser(),
   ]);
-  loadAISettings();
+  loadSettingsIntoForm();
 });
 
-function loadAISettings(): void {
-  proxyServerUrl.value = settingsStore.settings.proxyServerUrl || DEFAULT_PROXY_SERVER_URL;
-  aiStyle.value = settingsStore.settings.aiStyle;
-  themeScheme.value = settingsStore.settings.themeScheme;
+function loadSettingsIntoForm(): void {
+  const current = settingsStore.settings;
+  proxyServerUrl.value = current.proxyServerUrl || DEFAULT_PROXY_SERVER_URL;
+  aiStyle.value = current.aiStyle;
+  themeScheme.value = current.themeScheme;
+  startPage.value = current.startPage;
+  friendSortMode.value = current.friendSortMode;
+  allowCellularAI.value = current.allowCellularAI;
+  wifiOnlyBackup.value = current.wifiOnlyBackup;
+  autoBackup.value = current.autoBackup;
+  lockScreen.value = current.lockScreen;
+  hideSensitiveInfo.value = current.hideSensitiveInfo;
+  biometricLock.value = current.biometricLock;
+  birthdayReminderEnabled.value = current.birthdayReminder.enabled;
+  birthdayReminderDaysBefore.value = current.birthdayReminder.daysBefore;
+  birthdayReminderTime.value = current.birthdayReminder.time;
+  profileName.value = current.profileName || '';
+  profileDeviceName.value = current.profileDeviceName || '';
+}
+
+function openAccountEntry(): void {
+  void router.push({ path: '/auth', query: { redirect: '/me' } });
+}
+
+function openSection(section: Exclude<SettingSection, null>): void {
+  activeSection.value = section;
+  resetFeedback();
+}
+
+function closeSection(): void {
+  activeSection.value = null;
+  resetFeedback();
+}
+
+function resetFeedback(): void {
+  dataMessage.value = '';
+  dataError.value = '';
+  testResult.value = null;
+}
+
+function saveAppearanceSettings(): void {
+  settingsStore.updateSettings({
+    themeScheme: themeScheme.value,
+    startPage: startPage.value,
+    friendSortMode: friendSortMode.value,
+  });
 }
 
 function saveAISettings(): void {
@@ -281,99 +412,73 @@ function saveAISettings(): void {
   settingsStore.updateSettings({
     proxyServerUrl: proxyServerUrl.value.trim() || DEFAULT_PROXY_SERVER_URL,
     aiStyle: aiStyle.value,
-    themeScheme: themeScheme.value,
+    allowCellularAI: allowCellularAI.value,
+  });
+}
+
+function savePrivacySettings(): void {
+  settingsStore.updateSettings({
+    hideSensitiveInfo: hideSensitiveInfo.value,
+    lockScreen: lockScreen.value,
+    biometricLock: biometricLock.value,
+  });
+}
+
+function saveReminderSettings(): void {
+  settingsStore.updateSettings({
+    birthdayReminder: {
+      enabled: birthdayReminderEnabled.value,
+      daysBefore: Math.max(0, Math.min(30, Number(birthdayReminderDaysBefore.value) || 0)),
+      time: birthdayReminderTime.value || '09:00',
+    },
+  });
+}
+
+function saveDataSettings(): void {
+  settingsStore.updateSettings({
+    wifiOnlyBackup: wifiOnlyBackup.value,
+    autoBackup: autoBackup.value,
+  });
+}
+
+function saveGeneralSettings(): void {
+  settingsStore.updateSettings({
+    profileName: profileName.value.trim() || DEFAULT_SETTINGS.profileName,
+    profileDeviceName: profileDeviceName.value.trim() || DEFAULT_SETTINGS.profileDeviceName,
   });
 }
 
 function resetAISettings(): void {
-  testResult.value = null;
-  settingsStore.updateSettings({
-    proxyServerUrl: DEFAULT_SETTINGS.proxyServerUrl,
-    aiStyle: DEFAULT_SETTINGS.aiStyle,
-    themeScheme: DEFAULT_SETTINGS.themeScheme,
-  });
-  loadAISettings();
+  proxyServerUrl.value = DEFAULT_SETTINGS.proxyServerUrl || DEFAULT_PROXY_SERVER_URL;
+  aiStyle.value = DEFAULT_SETTINGS.aiStyle;
+  allowCellularAI.value = DEFAULT_SETTINGS.allowCellularAI;
+  saveAISettings();
+}
+
+function resetAllSettings(): void {
+  settingsStore.resetSettings();
+  loadSettingsIntoForm();
 }
 
 function selectTheme(value: typeof DEFAULT_SETTINGS.themeScheme): void {
   themeScheme.value = value;
-  saveAISettings();
-}
-
-function resetFeedback(): void {
-  authMessage.value = '';
-  authError.value = '';
-  dataMessage.value = '';
-  dataError.value = '';
-}
-
-function validateAuthForm(): boolean {
-  authError.value = '';
-  if (!authPhone.value.trim()) {
-    authError.value = '请输入手机号。';
-    return false;
-  }
-  if (!authPassword.value.trim()) {
-    authError.value = '请输入密码。';
-    return false;
-  }
-  return true;
-}
-
-async function register(): Promise<void> {
-  resetFeedback();
-  if (!validateAuthForm()) return;
-  try {
-    saveAISettings();
-    await authStore.register({
-      name: authName.value.trim(),
-      phone: authPhone.value.trim(),
-      password: authPassword.value,
-    });
-    authMessage.value = '注册并登录成功。';
-  } catch (error) {
-    authError.value = (error as Error).message;
-  }
-}
-
-async function login(): Promise<void> {
-  resetFeedback();
-  if (!validateAuthForm()) return;
-  try {
-    saveAISettings();
-    await authStore.login({
-      phone: authPhone.value.trim(),
-      password: authPassword.value,
-    });
-    authMessage.value = '登录成功。';
-  } catch (error) {
-    authError.value = (error as Error).message;
-  }
-}
-
-async function refreshProfile(): Promise<void> {
-  resetFeedback();
-  try {
-    await authStore.refreshCurrentUser();
-    authMessage.value = '账号信息已刷新。';
-  } catch (error) {
-    authError.value = (error as Error).message;
-  }
-}
-
-function logout(): void {
-  authStore.logout();
-  authMessage.value = '已退出登录。';
+  settingsStore.updateSettings({
+    themeScheme: value,
+  });
 }
 
 async function testConnection(): Promise<void> {
   testing.value = true;
   testResult.value = null;
+
   try {
     saveAISettings();
     testResult.value = await aiService.testProxyConnection();
   } catch (error) {
-    testResult.value = { success: false, message: `测试失败：${(error as Error).message}` };
+    testResult.value = {
+      success: false,
+      message: `测试失败：${(error as Error).message}`,
+    };
   } finally {
     testing.value = false;
   }
@@ -382,10 +487,11 @@ async function testConnection(): Promise<void> {
 async function backupToCloud(): Promise<void> {
   resetFeedback();
   backupLoading.value = true;
+
   try {
-    saveAISettings();
+    saveDataSettings();
     const result = await cloudService.backupToCloud();
-    dataMessage.value = `已备份到云端：${result.savedAt}`;
+    dataMessage.value = `备份完成：${result.savedAt}`;
   } catch (error) {
     dataError.value = `备份失败：${(error as Error).message}`;
   } finally {
@@ -396,8 +502,8 @@ async function backupToCloud(): Promise<void> {
 async function restoreFromCloud(): Promise<void> {
   resetFeedback();
   restoreLoading.value = true;
+
   try {
-    saveAISettings();
     const result = await cloudService.restoreFromCloud();
     if (result.settings) {
       settingsStore.updateSettings(result.settings);
@@ -406,8 +512,8 @@ async function restoreFromCloud(): Promise<void> {
       friendsStore.loadFriends(),
       memorialDaysStore.loadMemorialDays(),
     ]);
-    loadAISettings();
-    dataMessage.value = `已从云端恢复：${result.restoredAt}`;
+    loadSettingsIntoForm();
+    dataMessage.value = `恢复完成：${result.restoredAt}`;
   } catch (error) {
     dataError.value = `恢复失败：${(error as Error).message}`;
   } finally {
@@ -415,156 +521,208 @@ async function restoreFromCloud(): Promise<void> {
   }
 }
 
-async function refreshPage(): Promise<void> {
-  if (refreshing.value) return;
-  refreshing.value = true;
-  try {
-    await Promise.all([
-      friendsStore.loadFriends(),
-      memorialDaysStore.loadMemorialDays(),
-      authStore.refreshCurrentUser(),
-    ]);
-    loadAISettings();
-  } finally {
-    refreshing.value = false;
-  }
+function startPageLabel(value: typeof DEFAULT_SETTINGS.startPage): string {
+  return value === 'calendar' ? '纪念日' : value === 'friends' ? '好友' : '首页';
 }
 
-function handleTouchStart(event: TouchEvent): void {
-  if (screenRef.value?.scrollTop) {
-    pullActive = false;
-    pullDistance.value = 0;
-    return;
-  }
-  touchStartY = event.touches[0]?.clientY ?? 0;
-  pullActive = true;
-}
-
-function handleTouchMove(event: TouchEvent): void {
-  if (!pullActive || refreshing.value) return;
-  const currentY = event.touches[0]?.clientY ?? touchStartY;
-  const deltaY = currentY - touchStartY;
-  if (deltaY <= 0) {
-    pullDistance.value = 0;
-    return;
-  }
-  pullDistance.value = Math.min(96, deltaY * 0.42);
-}
-
-async function handleTouchEnd(): Promise<void> {
-  if (!pullActive) {
-    pullDistance.value = 0;
-    return;
-  }
-  pullActive = false;
-  const shouldRefresh = pullDistance.value >= REFRESH_TRIGGER;
-  pullDistance.value = 0;
-  if (shouldRefresh) {
-    await refreshPage();
-  }
+function friendSortModeLabel(value: typeof DEFAULT_SETTINGS.friendSortMode): string {
+  return value === 'contact' ? '最近联系' : value === 'name' ? '姓名顺序' : '最近查看';
 }
 </script>
 
 <style scoped>
-.pull-indicator {
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  height: 0;
+.settings-screen {
+  overflow-y: auto;
+  padding: 20px 16px 36px;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--gold) 18%, transparent), transparent 28%),
+    linear-gradient(180deg, color-mix(in srgb, var(--body-grad-start) 96%, var(--paper)), color-mix(in srgb, var(--body-grad-end) 94%, var(--paper)));
+}
+
+.settings-shell,
+.detail-stack,
+.field-grid,
+.data-summary {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-top,
+.detail-top,
+.profile-hero,
+.panel-card,
+.settings-group {
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--card-soft) 96%, transparent);
+  box-shadow: 0 18px 40px var(--nav-shadow);
+}
+
+.settings-top,
+.detail-top,
+.profile-hero,
+.panel-card {
+  padding: 18px;
+}
+
+.profile-hero {
   display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  overflow: hidden;
-  color: var(--muted);
+  gap: 16px;
+  align-items: center;
+}
+
+.eyebrow {
+  margin: 0;
   font-size: 12px;
-  opacity: 0;
-  transition: height 180ms ease, opacity 180ms ease;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
-.pull-indicator.visible {
-  height: 28px;
-  opacity: 1;
+.subcopy,
+.profile-copy p,
+.setting-row span,
+.field-hint,
+.toggle-row span {
+  color: var(--muted);
 }
 
-.model-select {
+.settings-top h1,
+.detail-top h1,
+.profile-copy h2,
+.panel-card h3 {
+  margin: 6px 0 0;
+  color: var(--ink);
+}
+
+.settings-group {
+  overflow: hidden;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 18px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.setting-row:last-child {
+  border-bottom: 0;
+}
+
+.setting-row strong,
+.toggle-row strong {
+  display: block;
+  color: var(--ink);
+}
+
+.detail-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.back-btn,
+.action-btn,
+.theme-chip {
+  border: 0;
+  border-radius: 18px;
+  font: inherit;
+}
+
+.back-btn {
+  min-width: 72px;
+  height: 40px;
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.panel-card {
+  display: grid;
+  gap: 14px;
+}
+
+.field-grid,
+.data-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-panel) 90%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+}
+
+.toggle-row input {
+  width: 18px;
+  height: 18px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field span {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.field input,
+.field select {
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 14px;
+  border-radius: 16px;
+  padding: 13px 14px;
   background: var(--white);
   color: var(--ink);
   font: inherit;
 }
 
-.field-hint {
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.connection-status {
-  display: grid;
-  gap: 4px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  margin-bottom: 14px;
-}
-
-.connection-status.connected {
-  background: color-mix(in srgb, var(--teal) 10%, transparent);
-  color: var(--teal);
-}
-
-.connection-status.disconnected {
-  background: var(--danger-bg);
-  color: var(--danger-text);
-}
-
-.connection-status span {
-  font-size: 12px;
-}
-
 .section-actions-row {
-  margin-top: 14px;
   display: flex;
-  gap: 10px;
   flex-wrap: wrap;
+  gap: 10px;
 }
 
-.data-card {
-  display: grid;
-  gap: 14px;
+.action-btn {
+  min-height: 42px;
+  padding: 0 16px;
+  background: var(--surface-3);
+  color: var(--ink);
 }
 
-.data-summary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.data-summary.single {
-  grid-template-columns: 1fr;
+.action-btn.primary {
+  background: var(--ink);
+  color: var(--white-soft);
 }
 
 .data-summary > div {
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 14px;
   display: grid;
   gap: 6px;
+  padding: 14px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-panel) 90%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
 }
 
 .data-summary strong {
+  color: var(--ink);
   font-size: 24px;
 }
 
-.data-summary span {
-  color: var(--muted);
-}
-
 .theme-preview-grid {
-  margin-top: 14px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
@@ -576,7 +734,6 @@ async function handleTouchEnd(): Promise<void> {
   gap: 10px;
   width: 100%;
   padding: 12px 14px;
-  border-radius: 18px;
   background: var(--surface-1);
   color: var(--ink);
 }
@@ -593,28 +750,16 @@ async function handleTouchEnd(): Promise<void> {
   flex: 0 0 auto;
 }
 
-.theme-dot[data-theme-dot='default'] {
-  background: linear-gradient(135deg, #dc6c56, #2f8a82);
-}
-
-.theme-dot[data-theme-dot='forest'] {
-  background: linear-gradient(135deg, #6e8f52, #4e8a68);
-}
-
-.theme-dot[data-theme-dot='sunset'] {
-  background: linear-gradient(135deg, #d96e4d, #d79b42);
-}
-
-.theme-dot[data-theme-dot='ocean'] {
-  background: linear-gradient(135deg, #4d8aac, #5f8f8c);
-}
+.theme-dot[data-theme-dot='default'] { background: linear-gradient(135deg, #dc6c56, #2f8a82); }
+.theme-dot[data-theme-dot='forest'] { background: linear-gradient(135deg, #6e8f52, #4e8a68); }
+.theme-dot[data-theme-dot='sunset'] { background: linear-gradient(135deg, #d96e4d, #d79b42); }
+.theme-dot[data-theme-dot='ocean'] { background: linear-gradient(135deg, #4d8aac, #5f8f8c); }
 
 .test-result {
-  margin-top: 12px;
+  margin: 0;
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: 12px;
   font-size: 14px;
-  text-align: center;
 }
 
 .test-result.success {
@@ -627,10 +772,21 @@ async function handleTouchEnd(): Promise<void> {
   color: var(--danger-text);
 }
 
-@media (max-width: 520px) {
-  .section-actions-row,
+@media (max-width: 640px) {
+  .profile-hero,
+  .detail-top,
+  .toggle-row,
+  .setting-row {
+    align-items: flex-start;
+  }
+
+  .field-grid,
   .data-summary,
   .theme-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section-actions-row {
     display: grid;
     grid-template-columns: 1fr;
   }

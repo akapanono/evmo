@@ -40,26 +40,98 @@ export function getEnv(name, fallback = '') {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
+function getEnvList(name, fallback = []) {
+  const value = getEnv(name, '');
+  if (!value) {
+    return fallback;
+  }
+
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function getEnvNumber(name, fallback) {
+  const value = Number(getEnv(name, String(fallback)));
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function getRequiredEnv(name, { disallow = [] } = {}) {
+  const value = getEnv(name, '');
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+
+  if (disallow.includes(value)) {
+    throw new Error(`Unsafe value for environment variable: ${name}`);
+  }
+
+  return value;
+}
+
+function getDatabaseConfig() {
+  const client = getEnv('DATABASE_CLIENT', 'sqlite').toLowerCase();
+  if (!['sqlite', 'mysql'].includes(client)) {
+    throw new Error(`Unsupported DATABASE_CLIENT: ${client}`);
+  }
+
+  const database = {
+    client,
+    host: getEnv('DATABASE_HOST', '127.0.0.1'),
+    port: Number(getEnv('DATABASE_PORT', '3306')),
+    user: getEnv('DATABASE_USER', ''),
+    password: getEnv('DATABASE_PASSWORD', ''),
+    name: getEnv('DATABASE_NAME', 'youji'),
+  };
+
+  if (client === 'mysql') {
+    if (!database.host) {
+      throw new Error('Missing required environment variable for MySQL: DATABASE_HOST');
+    }
+    if (!database.user) {
+      throw new Error('Missing required environment variable for MySQL: DATABASE_USER');
+    }
+    if (!database.password) {
+      throw new Error('Missing required environment variable for MySQL: DATABASE_PASSWORD');
+    }
+    if (!database.name) {
+      throw new Error('Missing required environment variable for MySQL: DATABASE_NAME');
+    }
+  }
+
+  return database;
+}
+
 export const config = {
   port: Number(getEnv('PORT', '9090')),
   rootDir,
   admin: {
-    username: getEnv('ADMIN_USERNAME', 'admin'),
-    password: getEnv('ADMIN_PASSWORD', 'change-me'),
-    tokenSecret: getEnv('ADMIN_TOKEN_SECRET', 'change-me-too'),
+    username: getRequiredEnv('ADMIN_USERNAME'),
+    password: getRequiredEnv('ADMIN_PASSWORD', { disallow: ['change-me'] }),
+    tokenSecret: getRequiredEnv('ADMIN_TOKEN_SECRET', { disallow: ['change-me-too'] }),
   },
   ai: {
     baseUrl: getEnv('AI_BASE_URL', ''),
     apiKey: getEnv('AI_API_KEY', ''),
     model: getEnv('AI_MODEL', ''),
   },
-  database: {
-    client: getEnv('DATABASE_CLIENT', 'sqlite').toLowerCase(),
-    host: getEnv('DATABASE_HOST', '127.0.0.1'),
-    port: Number(getEnv('DATABASE_PORT', '3306')),
-    user: getEnv('DATABASE_USER', ''),
-    password: getEnv('DATABASE_PASSWORD', ''),
-    name: getEnv('DATABASE_NAME', 'youji'),
+  database: getDatabaseConfig(),
+  security: {
+    corsAllowedOrigins: getEnvList('CORS_ALLOW_ORIGINS', [
+      'http://127.0.0.1:3000',
+      'http://localhost:3000',
+      'http://127.0.0.1:5173',
+      'http://localhost:5173',
+      'http://127.0.0.1:9090',
+      'http://localhost:9090',
+      'http://localhost',
+      'https://localhost',
+      'capacitor://localhost',
+    ]),
+    bodyLimitBytes: getEnvNumber('MAX_BODY_SIZE_BYTES', 1024 * 1024),
+    rateLimitWindowMs: getEnvNumber('RATE_LIMIT_WINDOW_MS', 60 * 1000),
+    rateLimitMaxRequests: getEnvNumber('RATE_LIMIT_MAX_REQUESTS', 60),
   },
 };
 

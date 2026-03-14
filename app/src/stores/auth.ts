@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { cloudService } from '@/services/cloudService';
 import { storageService } from '@/services/storageService';
-import type { AuthUser } from '@/types/auth';
+import type { AuthProvider, AuthUser } from '@/types/auth';
 
 export const useAuthStore = defineStore('auth', () => {
   const session = ref(storageService.getAuthSession());
@@ -21,11 +21,21 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function updateUser(nextUser: AuthUser): void {
+    if (!session.value?.token) {
+      return;
+    }
+
+    persistSession({
+      token: session.value.token,
+      user: nextUser,
+    });
+  }
+
   async function register(input: { name?: string; phone: string; password: string }): Promise<void> {
     loading.value = true;
     try {
-      const nextSession = await cloudService.register(input);
-      persistSession(nextSession);
+      persistSession(await cloudService.register(input));
     } finally {
       loading.value = false;
     }
@@ -34,8 +44,43 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(input: { phone: string; password: string }): Promise<void> {
     loading.value = true;
     try {
-      const nextSession = await cloudService.login(input);
-      persistSession(nextSession);
+      persistSession(await cloudService.login(input));
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function loginWithProvider(input: { provider: AuthProvider; providerId: string; displayName?: string }): Promise<void> {
+    loading.value = true;
+    try {
+      persistSession(await cloudService.providerLogin(input));
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function bindPhoneWithCode(input: { phone: string; code: string }): Promise<void> {
+    loading.value = true;
+    try {
+      updateUser(await cloudService.bindPhoneWithCode(input));
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function bindProvider(input: { provider: AuthProvider; providerId: string }): Promise<void> {
+    loading.value = true;
+    try {
+      updateUser(await cloudService.bindProvider(input));
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function unbindProvider(provider: AuthProvider): Promise<void> {
+    loading.value = true;
+    try {
+      updateUser(await cloudService.unbindProvider(provider));
     } finally {
       loading.value = false;
     }
@@ -47,11 +92,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     try {
-      const nextUser = await cloudService.getCurrentUser();
-      persistSession({
-        token: session.value.token,
-        user: nextUser,
-      });
+      updateUser(await cloudService.getCurrentUser());
     } catch {
       persistSession(null);
     }
@@ -68,6 +109,10 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     register,
     login,
+    loginWithProvider,
+    bindPhoneWithCode,
+    bindProvider,
+    unbindProvider,
     refreshCurrentUser,
     logout,
   };

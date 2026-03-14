@@ -1,4 +1,5 @@
 import { database } from './database/index.mjs';
+import crypto from 'node:crypto';
 import { createFriendRepository } from './repositories/friend-repository.mjs';
 import { createMemorialRepository } from './repositories/memorial-repository.mjs';
 import { createProductRepository } from './repositories/product-repository.mjs';
@@ -41,6 +42,9 @@ function buildSeedProducts() {
       tags: derived.tags,
       matchDimensions: derived.matchDimensions,
       targetRelationships: derived.targetRelationships,
+      giftScenes: derived.giftScenes,
+      recipientStyles: derived.recipientStyles,
+      riskLevel: derived.riskLevel,
       createdAt: now,
       updatedAt: now,
     };
@@ -52,17 +56,17 @@ async function ensureDefaultProducts() {
     return;
   }
   defaultProductsEnsured = true;
-  const current = productRepository.list();
+  const current = await productRepository.list();
   const seedProducts = buildSeedProducts();
   if (current.length === 0) {
-    productRepository.saveAll(seedProducts);
+    await productRepository.saveAll(seedProducts);
     return;
   }
 
   const existingIds = new Set(current.map((item) => item.id));
   const missingSeedProducts = seedProducts.filter((item) => !existingIds.has(item.id));
   if (missingSeedProducts.length > 0) {
-    productRepository.upsertMany(missingSeedProducts);
+    await productRepository.upsertMany(missingSeedProducts);
   }
 }
 
@@ -86,7 +90,10 @@ export async function getFriendsByUserId(userId) {
 }
 
 export async function saveFriend(friend) {
-  return friendRepository.save(friend);
+  return friendRepository.save({
+    ...friend,
+    id: friend?.id || crypto.randomUUID(),
+  });
 }
 
 export async function deleteFriend(id) {
@@ -112,6 +119,10 @@ export async function getUserById(id) {
 
 export async function getUserByPhone(phone) {
   return userRepository.getByPhone(phone);
+}
+
+export async function getUserByProvider(provider, providerId) {
+  return userRepository.getByProvider(provider, providerId);
 }
 
 export async function saveUser(user) {
@@ -143,7 +154,10 @@ export async function getMemorialDaysByUserId(userId) {
 }
 
 export async function saveMemorialDay(memorialDay) {
-  return memorialRepository.save(memorialDay);
+  return memorialRepository.save({
+    ...memorialDay,
+    id: memorialDay?.id || crypto.randomUUID(),
+  });
 }
 
 export async function deleteMemorialDay(id) {
@@ -151,21 +165,21 @@ export async function deleteMemorialDay(id) {
 }
 
 export async function replaceUserBackup(userId, payload) {
-  friendRepository.replaceAllForUser(userId, Array.isArray(payload?.friends) ? payload.friends : []);
-  memorialRepository.replaceAllForUser(userId, Array.isArray(payload?.memorialDays) ? payload.memorialDays : []);
-  systemConfigRepository.saveUserSettings(userId, payload?.settings ?? {});
+  await friendRepository.replaceAllForUser(userId, Array.isArray(payload?.friends) ? payload.friends : []);
+  await memorialRepository.replaceAllForUser(userId, Array.isArray(payload?.memorialDays) ? payload.memorialDays : []);
+  await systemConfigRepository.saveUserSettings(userId, payload?.settings ?? {});
 }
 
 export async function getUserBackup(userId) {
   return {
-    friends: friendRepository.listByUserId(userId),
-    memorialDays: memorialRepository.listByUserId(userId),
-    settings: systemConfigRepository.getUserSettings(userId, {}),
+    friends: await friendRepository.listByUserId(userId),
+    memorialDays: await memorialRepository.listByUserId(userId),
+    settings: await systemConfigRepository.getUserSettings(userId, {}),
   };
 }
 
 export async function getAdminUserDetail(userId) {
-  const user = userRepository.getById(userId);
+  const user = await userRepository.getById(userId);
   if (!user) {
     return undefined;
   }

@@ -1,11 +1,15 @@
+function normalizeDefaultProxyServerUrl(value: string | undefined): string {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed.replace(/\/+$/, '') : '';
+}
+
+export const DEFAULT_PROXY_SERVER_URL = normalizeDefaultProxyServerUrl(import.meta.env.VITE_PROXY_SERVER_URL);
+
 export interface AppSettings {
   profileName?: string;
   profilePhone?: string;
   profileDeviceName?: string;
 
-  aiAccessMode: 'direct' | 'proxy';
-  openaiApiKey?: string;
-  openaiBaseUrl?: string;
   openaiModel: string;
   proxyServerUrl?: string;
   proxyProviderId?: string;
@@ -18,21 +22,30 @@ export interface AppSettings {
 
   lockScreen: boolean;
   hideSensitiveInfo: boolean;
+  biometricLock: boolean;
 
   aiStyle: 'friendly' | 'professional' | 'concise';
   themeScheme: 'default' | 'forest' | 'sunset' | 'ocean';
   defaultQuestions: string[];
   friendSortMode: 'name' | 'contact' | 'viewed';
+
+  loginPreference: 'auto' | 'phone' | 'wechat' | 'qq';
+  wechatConnected: boolean;
+  qqConnected: boolean;
+  boundPhone: string;
+
+  startPage: 'home' | 'calendar' | 'friends';
+  allowCellularAI: boolean;
+  wifiOnlyBackup: boolean;
+  autoBackup: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   profileName: '我的账号',
   profilePhone: '',
   profileDeviceName: '当前设备',
-  aiAccessMode: 'proxy',
-  openaiBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
   openaiModel: 'ep-20260309112425-mwdsp',
-  proxyServerUrl: 'http://localhost:9090',
+  proxyServerUrl: DEFAULT_PROXY_SERVER_URL,
   proxyProviderId: '',
   birthdayReminder: {
     enabled: true,
@@ -41,12 +54,21 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   lockScreen: false,
   hideSensitiveInfo: false,
+  biometricLock: false,
   aiStyle: 'friendly',
   themeScheme: 'default',
   defaultQuestions: [
-    '你最近在忙什么？',
-    '你现在最想聊什么？',
-    '我现在联系你合适吗？',
+    '最近适合怎么和 TA 打开话题？',
+    '我该怎么更自然地表达关心？',
+    '如果我想准备一份礼物，应该从哪里下手？',
   ],
   friendSortMode: 'viewed',
+  loginPreference: 'auto',
+  wechatConnected: false,
+  qqConnected: false,
+  boundPhone: '',
+  startPage: 'home',
+  allowCellularAI: true,
+  wifiOnlyBackup: true,
+  autoBackup: false,
 };

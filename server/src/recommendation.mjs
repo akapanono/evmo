@@ -1,83 +1,54 @@
-const SOURCE_WEIGHT = {
-  preference: 18,
-  stable: 15,
-  memorial: 14,
-  relationship: 13,
-  persona: 11,
-  basic: 9,
-};
-
 const PRICE_BUCKETS = [
-  { key: 'under50', label: '50元以内' },
-  { key: '50to100', label: '50-100元' },
-  { key: '100to300', label: '100-300元' },
-  { key: '300to1000', label: '300-1000元' },
-  { key: '1000plus', label: '1000元以上' },
+  { key: 'under50', label: '50 元以下' },
+  { key: '50to100', label: '50-100 元' },
+  { key: '100to300', label: '100-300 元' },
+  { key: '300to1000', label: '300-1000 元' },
+  { key: '1000plus', label: '1000 元以上' },
 ];
 
 const DIMENSION_RULES = [
-  {
-    key: 'stimulation',
-    label: '刺激度',
-    keywords: ['游戏', '电竞', '开黑', '英雄联盟', '王者', '第五人格', '桌游', '牌', '竞技', 'livehouse', '蹦迪'],
-  },
-  {
-    key: 'refinement',
-    label: '精致感',
-    keywords: ['香氛', '香水', '蜡烛', '护肤', '化妆', '口红', '饰品', '质感', '高级', '精致', '审美'],
-  },
-  {
-    key: 'sweetPreference',
-    label: '甜感偏好',
-    keywords: ['甜', '巧克力', '蛋糕', '奶茶', '零食', '水果', '糖', '布丁', '甜品'],
-  },
-  {
-    key: 'spicyPreference',
-    label: '辣感偏好',
-    keywords: ['辣', '火锅', '串串', '烧烤', '麻辣', '川菜', '湘菜'],
-  },
-  {
-    key: 'ritualSense',
-    label: '仪式感',
-    keywords: ['生日', '纪念日', '礼盒', '鲜花', '相册', '照片', '纪念', '惊喜', '庆祝', '仪式感'],
-  },
-  {
-    key: 'companionship',
-    label: '陪伴感',
-    keywords: ['一起', '陪', '聚会', '约饭', '聊天', '见面', '分享', '朋友', '相处', '桌游'],
-  },
-  {
-    key: 'practicality',
-    label: '实用度',
-    keywords: ['实用', '通勤', '办公', '收纳', '杯子', '数码', '键盘', '耳机', '家用', '出行'],
-  },
-  {
-    key: 'aesthetics',
-    label: '审美度',
-    keywords: ['好看', '拍照', '穿搭', '设计', '颜值', '风格', '艺术', '音乐', '周边'],
-  },
-  {
-    key: 'relaxation',
-    label: '松弛感',
-    keywords: ['放松', '安静', '助眠', '香薰', '泡澡', '疗愈', '舒缓', '咖啡', '茶'],
-  },
-  {
-    key: 'exploration',
-    label: '探索欲',
-    keywords: ['旅行', '旅游', '露营', 'citywalk', '飞机', '新鲜', '尝试', '体验', '打卡'],
-  },
+  { key: 'sweetPreference', label: '甜口偏好', keywords: ['甜', '蛋糕', '巧克力', '奶茶', '甜点', '糖'] },
+  { key: 'spicyPreference', label: '辣味偏好', keywords: ['辣', '火锅', '烧烤', '川菜', '麻辣'] },
+  { key: 'practicality', label: '实用导向', keywords: ['实用', '办公', '效率', '日常', '家居', '收纳', '工具'] },
+  { key: 'ritualSense', label: '仪式感', keywords: ['礼盒', '纪念', '花束', '惊喜', '庆祝', '仪式感'] },
+  { key: 'aesthetics', label: '审美表达', keywords: ['设计', '香氛', '精致', '好看', '高级', '美感'] },
+  { key: 'companionship', label: '陪伴互动', keywords: ['一起', '陪伴', '聚会', '分享', '互动', '见面'] },
+  { key: 'exploration', label: '体验探索', keywords: ['旅行', '出游', '体验', '探索', '城市漫游', '尝试'] },
+  { key: 'relaxation', label: '放松治愈', keywords: ['治愈', '放松', '助眠', '舒缓', '松弛', '轻松'] },
+  { key: 'stimulation', label: '新鲜刺激', keywords: ['游戏', '电竞', '刺激', '潮玩', '热闹', 'livehouse'] },
+  { key: 'refinement', label: '精致品质', keywords: ['品质', '高端', '质感', '定制', '收藏', '精品'] },
 ];
 
-const CATEGORY_KEYWORDS = {
-  food: ['吃', '喝', '水果', '零食', '蔬菜', '酒席', '奶茶', '火锅', '咖啡', '甜品'],
-  entertainment: ['游戏', '英雄联盟', '第五人格', '桌游', '牌', '音乐', '电影', '周边', '动漫'],
-  life: ['生活', '香薰', '助眠', '家居', '收纳', '舒适', '放松'],
-  social: ['聚会', '见面', '约饭', '分享', '朋友', '社交', '啤酒'],
-  travel: ['旅行', '露营', '飞机', '出行', '打卡', 'citywalk'],
-  shopping: ['护肤', '化妆', '精致', '饰品', '高级', '奢侈品'],
-  ritual: ['生日', '纪念日', '礼物', '礼盒', '相册', '鲜花', '纪念'],
-  other: ['解压', '陪伴', '心意'],
+const CATEGORY_HINTS = {
+  food: ['零食', '饮料', '甜点', '火锅', '咖啡', '奶茶'],
+  entertainment: ['游戏', '潮玩', '桌游', '模型', '票券', '体验'],
+  life: ['家居', '香薰', '收纳', '日用', '办公', '护理'],
+  social: ['聚会', '分享', '多人', '见面', '社交'],
+  travel: ['旅行', '出游', '户外', '漫游', '城市探索'],
+  shopping: ['美妆', '配饰', '香氛', '设计感', '高级感'],
+  ritual: ['礼盒', '花束', '纪念', '庆祝', '仪式感'],
+  other: ['通用', '稳妥', '百搭'],
 };
+
+const SCENE_HINTS = {
+  birthday: ['生日', '庆生', '蛋糕', '生日礼物'],
+  anniversary: ['纪念日', '周年', '节日', '特别日子'],
+  gathering: ['聚会', '见面', '一起吃', '一起玩'],
+  travel: ['旅行', '出游', 'citywalk', '周末玩'],
+  dailyCare: ['日常', '照顾', '关心', '陪伴'],
+  safeChoice: ['通用', '稳妥', '不容易出错'],
+};
+
+const STYLE_HINTS = {
+  practical: ['实用', '效率', '办公', '家居', '耐用'],
+  ritual: ['仪式感', '惊喜', '浪漫', '礼物'],
+  experience: ['体验', '探索', '旅行', '约会'],
+  refined: ['精致', '设计感', '审美', '高级'],
+  social: ['聚会', '分享', '氛围', '社交'],
+  easygoing: ['轻松', '治愈', '舒服', '放松'],
+};
+
+const PRICE_RANK = new Map(PRICE_BUCKETS.map((item, index) => [item.key, index]));
 
 export function buildOccasionRecommendation({
   friend,
@@ -87,13 +58,21 @@ export function buildOccasionRecommendation({
   previewGiftLimit = 3,
 }) {
   const signals = collectSignals(friend, memorial);
-  const scoreCards = buildScoreCards(signals, topScoreLimit);
-  const rankedProducts = rankProducts(products, scoreCards, signals, friend, memorial);
+  const scoreCards = buildScoreCards(signals).slice(0, topScoreLimit);
+  const intentProfile = buildIntentProfile(friend, memorial, scoreCards);
+  const rankedProducts = rankProducts(products, intentProfile, signals);
 
   return {
     gifts: rankedProducts.slice(0, Math.max(previewGiftLimit, 12)).map((item) => item.title),
     scoreCards,
-    buckets: buildBuckets(rankedProducts),
+    buckets: buildBuckets(rankedProducts, intentProfile),
+    profile: {
+      relationshipSummary: intentProfile.relationshipSummary,
+      intentTags: intentProfile.intentTags,
+      preferredCategories: intentProfile.preferredCategories,
+      preferredPriceBuckets: intentProfile.preferredPriceBuckets,
+      avoidCategories: intentProfile.avoidCategories,
+    },
     updatedAt: new Date().toISOString(),
     source: 'system',
   };
@@ -113,77 +92,48 @@ export function buildServerOccasionRecommendation(input = {}) {
   });
 }
 
-function buildScoreCards(signals, topScoreLimit) {
-  return DIMENSION_RULES
-    .map((rule) => {
-      const matchedSignals = [];
-      const matchedSources = new Set();
-      let score = 0;
-
-      for (const signal of signals) {
-        const matchedKeywords = rule.keywords.filter((keyword) => signal.text.includes(keyword));
-        if (matchedKeywords.length === 0) continue;
-        matchedSources.add(signal.source);
-        if (!matchedSignals.includes(signal.raw)) {
-          matchedSignals.push(signal.raw);
-        }
-        score += (SOURCE_WEIGHT[signal.source] ?? 8) * matchedKeywords.length;
-      }
-
-      if (matchedSignals.length >= 2) score += 8;
-      if (matchedSignals.length >= 3) score += 10;
-      if (matchedSources.size >= 2) score += 8;
-
-      return {
-        key: rule.key,
-        label: rule.label,
-        score: Math.min(Math.round(score), 100),
-        matchedSignals: matchedSignals.slice(0, 4),
-      };
-    })
-    .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, topScoreLimit);
-}
-
 function mergeFriendsForRecommendation(friends) {
   return {
-    relationship: friends.map((item) => item.relationship).filter(Boolean).join(' '),
-    gender: friends.map((item) => item.gender).filter(Boolean).join(' '),
-    notes: friends.map((item) => item.notes).filter(Boolean).join(' '),
+    relationship: friends.map((item) => item.relationship).filter(Boolean).join(' / '),
+    notes: friends.map((item) => item.notes).filter(Boolean).join(' / '),
     preferences: friends.flatMap((item) => item.preferences ?? []),
     preferenceItems: friends.flatMap((item) => item.preferenceItems ?? []),
     basicInfoFields: friends.flatMap((item) => item.basicInfoFields ?? []),
     customFields: friends.flatMap((item) => item.customFields ?? []),
     aiProfile: {
+      overview: friends.map((item) => item.aiProfile?.overview).filter(Boolean).join(' / '),
       traits: friends.flatMap((item) => item.aiProfile?.traits ?? []),
       tasteProfile: friends.flatMap((item) => item.aiProfile?.tasteProfile ?? []),
       interactionStyle: friends.flatMap((item) => item.aiProfile?.interactionStyle ?? []),
+      boundaries: friends.flatMap((item) => item.aiProfile?.boundaries ?? []),
     },
   };
 }
 
 function collectSignals(friend = {}, memorial = null) {
   const values = [];
+
   pushSignal(values, friend.relationship, 'relationship');
-  pushSignal(values, friend.gender, 'basic');
-  pushSignal(values, friend.notes, 'stable');
+  pushSignal(values, friend.notes, 'notes');
+  pushSignal(values, friend.aiProfile?.overview, 'persona');
 
   for (const item of friend.preferences ?? []) {
     pushSignal(values, item, 'preference');
   }
+
   for (const item of friend.preferenceItems ?? []) {
     pushSignal(values, item.value, 'preference');
+    pushSignal(values, item.category, 'preference');
   }
+
   for (const field of friend.basicInfoFields ?? []) {
     pushSignal(values, `${field.label} ${field.value}`, 'basic');
   }
+
   for (const field of friend.customFields ?? []) {
-    if (field.temporalScope === 'stable') {
-      pushSignal(values, field.value, 'stable');
-      pushSignal(values, `${field.label} ${field.value}`, 'stable');
-    }
+    pushSignal(values, `${field.label} ${field.value}`, field.temporalScope === 'stable' ? 'stable' : 'timebound');
   }
+
   for (const item of friend.aiProfile?.traits ?? []) {
     pushSignal(values, item, 'persona');
   }
@@ -192,6 +142,9 @@ function collectSignals(friend = {}, memorial = null) {
   }
   for (const item of friend.aiProfile?.interactionStyle ?? []) {
     pushSignal(values, item, 'persona');
+  }
+  for (const item of friend.aiProfile?.boundaries ?? []) {
+    pushSignal(values, item, 'boundary');
   }
 
   if (memorial) {
@@ -202,28 +155,13 @@ function collectSignals(friend = {}, memorial = null) {
   return values;
 }
 
-function collectPreferenceSignals(friend = {}, memorial = null) {
-  const values = [];
-
-  for (const item of friend.preferences ?? []) {
-    pushSignal(values, item, 'preference');
-  }
-  for (const item of friend.preferenceItems ?? []) {
-    pushSignal(values, item.value, 'preference');
+function pushSignal(target, text, source) {
+  const raw = typeof text === 'string' ? text.trim() : '';
+  if (!raw) {
+    return;
   }
 
-  if (memorial?.name) {
-    pushSignal(values, memorial.name, 'memorial');
-  }
-
-  return values;
-}
-
-function pushSignal(values, text, source) {
-  if (typeof text !== 'string') return;
-  const raw = text.trim();
-  if (!raw) return;
-  values.push({
+  target.push({
     raw,
     text: normalizeText(raw),
     source,
@@ -238,159 +176,351 @@ function normalizeText(value) {
     .trim();
 }
 
-function splitKeywords(text) {
-  return normalizeText(text)
-    .split(/\s+/)
-    .map((item) => item.trim())
-    .filter((item) => item.length >= 2);
-}
+function buildScoreCards(signals) {
+  return DIMENSION_RULES
+    .map((rule) => {
+      const matchedSignals = [];
+      let score = 0;
 
-function buildKeywordPool(signals, scoreCards, friend = {}, memorial = null) {
-  const keywords = new Set();
-
-  for (const signal of signals) {
-    if (signal.text && signal.text.length <= 16) keywords.add(signal.text);
-    for (const keyword of splitKeywords(signal.raw)) {
-      keywords.add(keyword);
-    }
-  }
-
-  for (const score of scoreCards) {
-    keywords.add(normalizeText(score.label));
-    for (const signal of score.matchedSignals ?? []) {
-      for (const keyword of splitKeywords(signal)) {
-        keywords.add(keyword);
-      }
-    }
-  }
-
-  for (const item of friend.preferenceItems ?? []) {
-    if (item.value) keywords.add(normalizeText(item.value));
-    if (item.category) keywords.add(normalizeText(item.category));
-  }
-
-  if (memorial?.name) {
-    const normalizedName = normalizeText(memorial.name);
-    if (normalizedName.length <= 16) {
-      keywords.add(normalizedName);
-    }
-  }
-  if (memorial?.note) {
-    for (const keyword of splitKeywords(memorial.note)) {
-      keywords.add(keyword);
-    }
-  }
-
-  return [...keywords]
-    .filter((item) => item && item.length >= 2 && item.length <= 16)
-    .slice(0, 40);
-}
-
-function buildRelationshipKeywords(friend = {}) {
-  const relationship = normalizeText(friend.relationship);
-  if (!relationship) return [];
-  return [...new Set([relationship, ...splitKeywords(relationship)])];
-}
-
-function buildSearchText(product) {
-  return [
-    product.title,
-    product.summary,
-    ...(product.tags ?? []),
-    ...(product.attributes ?? []),
-    ...(CATEGORY_KEYWORDS[product.category] ?? []),
-  ]
-    .map(normalizeText)
-    .filter(Boolean)
-    .join(' ');
-}
-
-function getDimensionScoreMap(scoreCards) {
-  return new Map(scoreCards.map((item) => [item.key, item]));
-}
-
-function rankProducts(products, scoreCards, signals, friend = {}, memorial = null) {
-  const activeProducts = Array.isArray(products) ? products.filter((item) => item?.status === 'active') : [];
-  if (activeProducts.length === 0) {
-    return [];
-  }
-
-  const preferenceSignals = collectPreferenceSignals(friend, memorial);
-  const preferenceKeywordPool = buildKeywordPool(preferenceSignals, scoreCards, friend, memorial);
-  const keywordPool = buildKeywordPool(signals, scoreCards, friend, memorial);
-  const relationshipKeywords = buildRelationshipKeywords(friend);
-  const dimensionMap = getDimensionScoreMap(scoreCards);
-  const featureProfile = buildFeatureProfile(scoreCards, signals, friend, memorial);
-  const candidates = generateCandidates(activeProducts, keywordPool, relationshipKeywords, dimensionMap, featureProfile);
-
-  const ranked = candidates
-    .map((product) => {
-      const matchedDimensions = Array.isArray(product.matchDimensions)
-        ? product.matchDimensions
-            .map((item) => dimensionMap.get(item))
-            .filter(Boolean)
-            .sort((a, b) => b.score - a.score)
-        : [];
-
-      const dimensionScore = matchedDimensions.reduce(
-        (total, item) => total + Math.max(10, Math.round(item.score * 0.55)),
-        0,
-      );
-
-      let keywordScore = 0;
-      const matchedKeywords = [];
-      for (const keyword of keywordPool) {
-        if (!keyword || keyword.length < 2) continue;
-        if (!product._searchText.includes(keyword)) continue;
-        matchedKeywords.push(keyword);
-        keywordScore += keyword.length >= 4 ? 14 : 8;
-      }
-
-      const matchedPreferenceKeywords = [];
-      for (const keyword of preferenceKeywordPool) {
-        if (!keyword || keyword.length < 2) continue;
-        if (!product._searchText.includes(keyword)) continue;
-        matchedPreferenceKeywords.push(keyword);
-      }
-
-      let relationshipScore = 0;
-      if (Array.isArray(product.targetRelationships) && product.targetRelationships.length > 0) {
-        for (const keyword of relationshipKeywords) {
-          if (product.targetRelationships.some((item) => normalizeText(item) === keyword)) {
-            relationshipScore += 12;
-          }
+      for (const signal of signals) {
+        const hitCount = rule.keywords.filter((keyword) => signal.text.includes(normalizeText(keyword))).length;
+        if (hitCount === 0) {
+          continue;
         }
+
+        if (!matchedSignals.includes(signal.raw)) {
+          matchedSignals.push(signal.raw);
+        }
+
+        score += hitCount * getSourceWeight(signal.source);
       }
 
-      const categoryScore = (CATEGORY_KEYWORDS[product.category] ?? []).reduce((total, keyword) => (
-        keywordPool.includes(normalizeText(keyword)) ? total + 4 : total
-      ), 0);
-      const featureScore = (featureProfile.categoryWeights[product.category] ?? 0) * 6;
+      return {
+        key: rule.key,
+        label: rule.label,
+        score: Math.min(score, 100),
+        matchedSignals: matchedSignals.slice(0, 4),
+      };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score);
+}
 
-      const totalScore = dimensionScore + keywordScore + relationshipScore + categoryScore + featureScore;
-      const leadDimension = matchedDimensions[0];
-      const leadReason = matchedPreferenceKeywords.slice(0, 3).join(' / ')
-        || matchedKeywords.slice(0, 3).join(' / ')
-        || '关键词';
+function getSourceWeight(source) {
+  if (source === 'preference') return 18;
+  if (source === 'memorial') return 16;
+  if (source === 'persona') return 14;
+  if (source === 'relationship') return 12;
+  if (source === 'stable') return 11;
+  return 8;
+}
+
+function buildIntentProfile(friend = {}, memorial = null, scoreCards = []) {
+  const relationshipSummary = String(friend.relationship || memorial?.name || '普通关系').trim() || '普通关系';
+  const intentTags = scoreCards.slice(0, 4).map((item) => item.key);
+  const preferredCategories = inferPreferredCategories(friend, memorial, intentTags);
+  const preferredScenes = inferPreferredScenes(memorial, intentTags, preferredCategories);
+  const preferredRecipientStyles = inferPreferredStyles(intentTags, preferredCategories);
+  const preferredPriceBuckets = inferPreferredPriceBuckets(friend, memorial, preferredCategories, preferredScenes);
+  const avoidCategories = inferAvoidCategories(intentTags, preferredCategories);
+
+  return {
+    relationshipSummary,
+    intentTags,
+    preferredCategories,
+    preferredScenes,
+    preferredRecipientStyles,
+    preferredPriceBuckets,
+    avoidCategories,
+  };
+}
+
+function inferPreferredCategories(friend = {}, memorial = null, intentTags = []) {
+  const scores = new Map(Object.keys(CATEGORY_HINTS).map((key) => [key, 0]));
+  const combinedText = normalizeText([
+    friend.relationship,
+    friend.notes,
+    ...(friend.preferences ?? []),
+    ...(friend.preferenceItems ?? []).flatMap((item) => [item.category, item.value]),
+    memorial?.name,
+    memorial?.note,
+  ].filter(Boolean).join(' '));
+
+  for (const [category, keywords] of Object.entries(CATEGORY_HINTS)) {
+    for (const keyword of keywords) {
+      if (combinedText.includes(normalizeText(keyword))) {
+        scores.set(category, (scores.get(category) ?? 0) + 2);
+      }
+    }
+  }
+
+  if (intentTags.includes('sweetPreference') || intentTags.includes('spicyPreference')) scores.set('food', (scores.get('food') ?? 0) + 2);
+  if (intentTags.includes('practicality') || intentTags.includes('relaxation')) scores.set('life', (scores.get('life') ?? 0) + 2);
+  if (intentTags.includes('ritualSense')) scores.set('ritual', (scores.get('ritual') ?? 0) + 3);
+  if (intentTags.includes('companionship')) scores.set('social', (scores.get('social') ?? 0) + 2);
+  if (intentTags.includes('exploration')) scores.set('travel', (scores.get('travel') ?? 0) + 2);
+  if (intentTags.includes('aesthetics') || intentTags.includes('refinement')) scores.set('shopping', (scores.get('shopping') ?? 0) + 2);
+  if (intentTags.includes('stimulation')) scores.set('entertainment', (scores.get('entertainment') ?? 0) + 2);
+
+  return [...scores.entries()]
+    .filter(([, score]) => score > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([category]) => category)
+    .slice(0, 3);
+}
+
+function inferPreferredScenes(memorial = null, intentTags = [], preferredCategories = []) {
+  const text = normalizeText(`${memorial?.name || ''} ${memorial?.note || ''}`);
+  const scenes = new Set(['safeChoice']);
+
+  if (text.includes('生日')) scenes.add('birthday');
+  if (text.includes('纪念') || text.includes('周年')) scenes.add('anniversary');
+  if (preferredCategories.includes('social') || intentTags.includes('companionship')) scenes.add('gathering');
+  if (preferredCategories.includes('travel') || intentTags.includes('exploration')) scenes.add('travel');
+  if (preferredCategories.includes('life') || intentTags.includes('practicality') || intentTags.includes('relaxation')) scenes.add('dailyCare');
+
+  return [...scenes];
+}
+
+function inferPreferredStyles(intentTags = [], preferredCategories = []) {
+  const styles = new Set();
+
+  if (preferredCategories.includes('life') || intentTags.includes('practicality')) styles.add('practical');
+  if (preferredCategories.includes('ritual') || intentTags.includes('ritualSense')) styles.add('ritual');
+  if (preferredCategories.includes('travel') || intentTags.includes('exploration')) styles.add('experience');
+  if (preferredCategories.includes('shopping') || intentTags.includes('aesthetics') || intentTags.includes('refinement')) styles.add('refined');
+  if (preferredCategories.includes('social') || intentTags.includes('companionship')) styles.add('social');
+  if (intentTags.includes('relaxation')) styles.add('easygoing');
+
+  return [...styles];
+}
+
+function inferPreferredPriceBuckets(friend = {}, memorial = null, preferredCategories = [], preferredScenes = []) {
+  const buckets = new Set();
+  const relationText = normalizeText(friend.relationship);
+  const memorialText = normalizeText(`${memorial?.name || ''} ${memorial?.note || ''}`);
+
+  if (preferredCategories.includes('food')) buckets.add('50to100');
+  if (preferredCategories.includes('life') || preferredCategories.includes('shopping')) buckets.add('100to300');
+  if (preferredCategories.includes('travel') || preferredScenes.includes('anniversary')) buckets.add('300to1000');
+  if (preferredCategories.includes('ritual')) buckets.add('100to300');
+  if (relationText.includes('对象') || relationText.includes('恋人') || memorialText.includes('周年')) buckets.add('300to1000');
+
+  if (buckets.size === 0) {
+    buckets.add('100to300');
+  }
+
+  return [...buckets];
+}
+
+function inferAvoidCategories(intentTags = [], preferredCategories = []) {
+  const avoid = new Set();
+
+  if (intentTags.includes('practicality')) avoid.add('ritual');
+  if (intentTags.includes('relaxation')) avoid.add('entertainment');
+  if (intentTags.includes('sweetPreference')) avoid.add('travel');
+
+  return [...avoid].filter((item) => !preferredCategories.includes(item));
+}
+
+function rankProducts(products = [], intentProfile, signals = []) {
+  const keywordPool = buildKeywordPool(signals);
+
+  const ranked = products
+    .filter((item) => item?.status === 'active')
+    .filter((item) => passesRecommendationFilters(item, intentProfile, keywordPool))
+    .map((product) => {
+      const searchText = buildProductSearchText(product);
+      const categoryScore = intentProfile.preferredCategories.includes(product.category) ? 24 : 0;
+      const sceneScore = countMatches(product.giftScenes, intentProfile.preferredScenes) * 14;
+      const styleScore = countMatches(product.recipientStyles, intentProfile.preferredRecipientStyles) * 12;
+      const budgetScore = intentProfile.preferredPriceBuckets.includes(product.priceBucket) ? 12 : getBudgetDistancePenalty(product.priceBucket, intentProfile.preferredPriceBuckets);
+      const keywordHits = keywordPool.filter((keyword) => searchText.includes(keyword));
+      const keywordScore = keywordHits.length * 8;
+      const relationScore = countMatches(product.targetRelationships, [intentProfile.relationshipSummary]) * 10;
+      const avoidPenalty = intentProfile.avoidCategories.includes(product.category) ? 24 : 0;
+
+      const totalScore = categoryScore + sceneScore + styleScore + budgetScore + keywordScore + relationScore - avoidPenalty;
+      const leadReason = keywordHits.slice(0, 2).join(' / ') || '当前场景';
 
       return {
         ...product,
         _score: totalScore,
-        _reason: leadDimension
-          ? `更偏向 ${leadDimension.label}，参考了 ${leadReason}`
-          : `和 ${leadReason} 更相关`,
+        _matchTags: buildMatchTags(product, intentProfile, keywordHits),
+        _reason: buildReason(product, intentProfile, leadReason),
       };
     })
     .filter((item) => item._score > 0)
-    .sort((a, b) => {
-      if (b._score !== a._score) return b._score - a._score;
-      return String(a.title).localeCompare(String(b.title), 'zh-CN');
-    });
+    .sort((a, b) => b._score - a._score || String(a.title).localeCompare(String(b.title), 'zh-CN'));
 
-  return rerankForDiversity(ranked).map(({ _searchText, ...item }) => item);
+  return rerankForDiversity(ranked);
 }
 
-function buildBuckets(rankedProducts) {
+function buildKeywordPool(signals) {
+  const keywords = new Set();
+
+  for (const signal of signals) {
+    for (const word of normalizeText(signal.raw).split(/\s+/)) {
+      if (word.length >= 2) {
+        keywords.add(word);
+      }
+    }
+  }
+
+  return [...keywords].slice(0, 30);
+}
+
+function buildProductSearchText(product) {
+  return normalizeText([
+    product.title,
+    product.summary,
+    ...(product.tags ?? []),
+    ...(product.attributes ?? []),
+    ...(product.giftScenes ?? []),
+    ...(product.recipientStyles ?? []),
+    ...(CATEGORY_HINTS[product.category] ?? []),
+  ].join(' '));
+}
+
+function passesRecommendationFilters(product, intentProfile, keywordPool) {
+  const scenes = Array.isArray(product.giftScenes) ? product.giftScenes : [];
+  const styles = Array.isArray(product.recipientStyles) ? product.recipientStyles : [];
+  const attributes = Array.isArray(product.attributes) ? product.attributes : [];
+  const titleText = normalizeText(`${product.title || ''} ${product.summary || ''}`);
+
+  if (!product.link) return false;
+
+  if (intentProfile.preferredScenes.includes('anniversary') && !scenes.includes('anniversary') && !scenes.includes('safeChoice')) {
+    return false;
+  }
+
+  if (intentProfile.preferredScenes.includes('birthday') && scenes.length > 0 && !scenes.includes('birthday') && !scenes.includes('safeChoice')) {
+    return false;
+  }
+
+  if (intentProfile.preferredRecipientStyles.includes('practical') && product.category === 'ritual' && !styles.includes('practical')) {
+    return false;
+  }
+
+  if (intentProfile.preferredRecipientStyles.includes('experience') && !styles.includes('experience') && product.category === 'other') {
+    return false;
+  }
+
+  if (intentProfile.intentTags.includes('sweetPreference') && attributes.includes('spicy')) {
+    return false;
+  }
+
+  if (intentProfile.intentTags.includes('spicyPreference') && titleText.includes('甜') && !keywordPool.includes('甜')) {
+    return false;
+  }
+
+  return true;
+}
+
+function getBudgetDistancePenalty(bucket, preferredBuckets = []) {
+  if (!preferredBuckets.length) return 0;
+
+  const currentRank = PRICE_RANK.get(bucket) ?? 2;
+  const nearest = preferredBuckets
+    .map((item) => Math.abs((PRICE_RANK.get(item) ?? 2) - currentRank))
+    .sort((a, b) => a - b)[0] ?? 0;
+
+  return Math.max(0, 8 - nearest * 4);
+}
+
+function countMatches(left = [], right = []) {
+  if (!Array.isArray(left) || !Array.isArray(right)) {
+    return 0;
+  }
+
+  const rightSet = new Set(right.map((item) => normalizeText(item)));
+  return left.reduce((count, item) => count + (rightSet.has(normalizeText(item)) ? 1 : 0), 0);
+}
+
+function buildMatchTags(product, intentProfile, keywordHits) {
+  const tags = new Set();
+
+  if (intentProfile.preferredCategories.includes(product.category)) tags.add(`cat:${product.category}`);
+  if (intentProfile.preferredPriceBuckets.includes(product.priceBucket)) tags.add(`budget:${product.priceBucket}`);
+
+  for (const scene of product.giftScenes ?? []) {
+    if (intentProfile.preferredScenes.includes(scene)) tags.add(`scene:${scene}`);
+  }
+
+  for (const style of product.recipientStyles ?? []) {
+    if (intentProfile.preferredRecipientStyles.includes(style)) tags.add(`style:${style}`);
+  }
+
+  for (const keyword of keywordHits.slice(0, 2)) {
+    tags.add(`keyword:${keyword}`);
+  }
+
+  return [...tags];
+}
+
+function buildReason(product, intentProfile, leadReason) {
+  const matchedScene = (product.giftScenes ?? []).find((item) => intentProfile.preferredScenes.includes(item));
+  const matchedStyle = (product.recipientStyles ?? []).find((item) => intentProfile.preferredRecipientStyles.includes(item));
+
+  if (matchedScene && matchedStyle) {
+    return `适合${sceneLabel(matchedScene)}，也更贴合${styleLabel(matchedStyle)}这类偏好`;
+  }
+
+  if (matchedScene) {
+    return `更适合${sceneLabel(matchedScene)}场景，并且和“${leadReason}”更相关`;
+  }
+
+  if (matchedStyle) {
+    return `更贴合${styleLabel(matchedStyle)}这类偏好，整体更稳妥`;
+  }
+
+  return `和“${leadReason}”这类偏好更接近`;
+}
+
+function sceneLabel(value) {
+  return {
+    birthday: '生日',
+    anniversary: '纪念日',
+    gathering: '聚会见面',
+    travel: '旅行出游',
+    dailyCare: '日常关心',
+    safeChoice: '通用送礼',
+  }[value] || value;
+}
+
+function styleLabel(value) {
+  return {
+    practical: '偏实用',
+    ritual: '偏仪式感',
+    experience: '偏体验型',
+    refined: '偏精致审美',
+    social: '偏社交氛围',
+    easygoing: '偏轻松治愈',
+  }[value] || value;
+}
+
+function rerankForDiversity(items) {
+  const categorySeen = new Map();
+  const priceSeen = new Map();
+
+  return items
+    .map((item) => {
+      const nextScore = item._score
+        - (categorySeen.get(item.category) ?? 0) * 6
+        - (priceSeen.get(item.priceBucket) ?? 0) * 3;
+
+      categorySeen.set(item.category, (categorySeen.get(item.category) ?? 0) + 1);
+      priceSeen.set(item.priceBucket, (priceSeen.get(item.priceBucket) ?? 0) + 1);
+
+      return {
+        ...item,
+        _score: nextScore,
+      };
+    })
+    .sort((a, b) => b._score - a._score || String(a.title).localeCompare(String(b.title), 'zh-CN'));
+}
+
+function buildBuckets(rankedProducts, intentProfile) {
   return PRICE_BUCKETS
     .map((bucket) => ({
       key: bucket.key,
@@ -404,104 +534,14 @@ function buildBuckets(rankedProducts) {
           priceLabel: product.priceLabel || bucket.label,
           link: product.link || 'about:blank',
           reason: product._reason,
+          matchTags: product._matchTags,
         })),
     }))
-    .filter((bucket) => bucket.items.length > 0);
-}
-
-function generateCandidates(products, keywordPool, relationshipKeywords, dimensionMap, featureProfile) {
-  return products
-    .map((product) => {
-      const searchText = buildSearchText(product);
-      const dimensionHits = Array.isArray(product.matchDimensions)
-        ? product.matchDimensions.filter((item) => dimensionMap.has(item)).length
-        : 0;
-      const keywordHits = keywordPool.reduce((count, keyword) => (
-        keyword && searchText.includes(keyword) ? count + 1 : count
-      ), 0);
-      const relationshipHits = Array.isArray(product.targetRelationships)
-        ? relationshipKeywords.reduce((count, keyword) => (
-            product.targetRelationships.some((item) => normalizeText(item) === keyword) ? count + 1 : count
-          ), 0)
-        : 0;
-      const featureHits = featureProfile.categoryWeights[product.category] ?? 0;
-
-      return {
-        ...product,
-        _searchText: searchText,
-        _candidateScore: (dimensionHits * 16) + (keywordHits * 12) + (relationshipHits * 10) + (featureHits * 8),
-      };
-    })
-    .filter((product) => product._candidateScore > 0)
-    .sort((a, b) => b._candidateScore - a._candidateScore)
-    .slice(0, 120);
-}
-
-function buildFeatureProfile(scoreCards, signals, friend = {}, memorial = null) {
-  const categoryWeights = {
-    food: 0,
-    entertainment: 0,
-    life: 0,
-    social: 0,
-    travel: 0,
-    shopping: 0,
-    ritual: 0,
-    other: 0,
-  };
-
-  for (const item of friend.preferenceItems ?? []) {
-    if (item.category === 'food') categoryWeights.food += 2;
-    if (item.category === 'entertainment') categoryWeights.entertainment += 2;
-    if (item.category === 'lifestyle') categoryWeights.life += 2;
-    if (item.category === 'social') categoryWeights.social += 2;
-    if (item.category === 'travel') categoryWeights.travel += 2;
-    if (item.category === 'shopping') categoryWeights.shopping += 2;
-    if (item.category === 'other') categoryWeights.other += 1;
-  }
-
-  for (const score of scoreCards) {
-    if (score.key === 'sweetPreference' || score.key === 'spicyPreference') categoryWeights.food += 2;
-    if (score.key === 'stimulation') categoryWeights.entertainment += 2;
-    if (score.key === 'companionship') categoryWeights.social += 2;
-    if (score.key === 'practicality' || score.key === 'relaxation') categoryWeights.life += 2;
-    if (score.key === 'exploration') categoryWeights.travel += 2;
-    if (score.key === 'refinement' || score.key === 'aesthetics') categoryWeights.shopping += 2;
-    if (score.key === 'ritualSense') categoryWeights.ritual += 2;
-  }
-
-  const memorialText = normalizeText(`${memorial?.name || ''} ${memorial?.note || ''}`);
-  if (memorialText.includes('生日') || memorialText.includes('纪念')) {
-    categoryWeights.ritual += 2;
-  }
-
-  for (const signal of signals) {
-    if (signal.text.includes('水果') || signal.text.includes('零食') || signal.text.includes('蔬菜')) categoryWeights.food += 1;
-    if (signal.text.includes('游戏') || signal.text.includes('英雄联盟') || signal.text.includes('第五人格')) categoryWeights.entertainment += 1;
-    if (signal.text.includes('飞机') || signal.text.includes('旅行') || signal.text.includes('露营')) categoryWeights.travel += 1;
-    if (signal.text.includes('音乐') || signal.text.includes('奢侈品') || signal.text.includes('护肤')) categoryWeights.shopping += 1;
-  }
-
-  return { categoryWeights };
-}
-
-function rerankForDiversity(items) {
-  const categorySeen = new Map();
-  const bucketSeen = new Map();
-
-  return [...items]
-    .sort((a, b) => b._score - a._score)
-    .map((item) => {
-      const categoryPenalty = (categorySeen.get(item.category) ?? 0) * 6;
-      const bucketPenalty = (bucketSeen.get(item.priceBucket) ?? 0) * 3;
-      return {
-        ...item,
-        _score: item._score - categoryPenalty - bucketPenalty,
-      };
-    })
-    .sort((a, b) => b._score - a._score)
-    .map((item) => {
-      categorySeen.set(item.category, (categorySeen.get(item.category) ?? 0) + 1);
-      bucketSeen.set(item.priceBucket, (bucketSeen.get(item.priceBucket) ?? 0) + 1);
-      return item;
+    .filter((bucket) => bucket.items.length > 0)
+    .sort((a, b) => {
+      const aPreferred = intentProfile.preferredPriceBuckets.includes(a.key) ? 1 : 0;
+      const bPreferred = intentProfile.preferredPriceBuckets.includes(b.key) ? 1 : 0;
+      if (bPreferred !== aPreferred) return bPreferred - aPreferred;
+      return (PRICE_RANK.get(a.key) ?? 0) - (PRICE_RANK.get(b.key) ?? 0);
     });
 }

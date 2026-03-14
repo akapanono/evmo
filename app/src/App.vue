@@ -40,7 +40,7 @@ import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router';
 import BottomNav from '@/components/layout/BottomNav.vue';
 import FloatingButton from '@/components/layout/FloatingButton.vue';
 import { useFriendsStore } from '@/stores/friends';
-import { getFriendBackPath, getFriendBackTarget, getFriendDetailRoute, getFriendSourcePageFromRoute } from '@/utils/friendNavigation';
+import { getFriendBackTarget, getFriendDetailRoute, getFriendSourcePageFromRoute } from '@/utils/friendNavigation';
 
 const route = useRoute();
 const router = useRouter();

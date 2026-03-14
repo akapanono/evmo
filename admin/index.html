@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>友记管理系统</title>
+    <title>友记管理后台</title>
     <link rel="stylesheet" href="/admin/styles.css" />
   </head>
   <body>
@@ -11,12 +11,12 @@
       <aside class="sidebar">
         <div>
           <p class="eyebrow">YouJi Admin</p>
-          <h1>友记管理系统</h1>
+          <h1>友记管理后台</h1>
         </div>
         <nav class="menu">
-          <button class="menu-item is-active" data-panel="overview">概览</button>
-          <button class="menu-item" data-panel="users">用户</button>
-          <button class="menu-item" data-panel="products">商品</button>
+          <button class="menu-item is-active" data-panel="overview">后台概览</button>
+          <button class="menu-item" data-panel="users">用户管理</button>
+          <button class="menu-item" data-panel="products">商品管理</button>
           <button class="menu-item" data-panel="system">API 配置</button>
         </nav>
       </aside>
@@ -25,13 +25,13 @@
         <section id="loginPanel" class="panel login-panel">
           <form id="loginForm" class="card auth-card">
             <p class="eyebrow">后台登录</p>
-            <h2>登录友记管理系统</h2>
+            <h2>登录友记管理后台</h2>
             <label class="field">
-              <span>账号</span>
+              <span>管理员账号</span>
               <input id="usernameInput" value="admin" />
             </label>
             <label class="field">
-              <span>密码</span>
+              <span>管理员密码</span>
               <input id="passwordInput" type="password" />
             </label>
             <button id="loginBtn" class="primary-btn" type="submit">登录</button>
@@ -51,15 +51,15 @@
           <section data-view="overview" class="panel-view">
             <div class="stats">
               <article class="card stat-card">
-                <span>用户数</span>
+                <span>用户总数</span>
                 <strong id="userCount">0</strong>
               </article>
               <article class="card stat-card">
-                <span>商品数</span>
+                <span>商品总数</span>
                 <strong id="productCount">0</strong>
               </article>
               <article class="card stat-card">
-                <span>AI 服务</span>
+                <span>AI 服务状态</span>
                 <strong id="aiStatus">未配置</strong>
               </article>
             </div>
@@ -103,8 +103,8 @@
               <article class="card detail-card">
                 <div class="section-head compact">
                   <div>
-                    <p class="eyebrow">朋友</p>
-                    <h4>关联朋友</h4>
+                    <p class="eyebrow">好友</p>
+                    <h4>关联好友</h4>
                   </div>
                 </div>
                 <div id="userFriends" class="list compact-list"></div>
@@ -134,7 +134,7 @@
             <div class="card form-card search-card">
               <label class="field">
                 <span>搜索商品</span>
-                <input id="productSearchInput" type="text" placeholder="按商品名、分类、标签或简介搜索" />
+                <input id="productSearchInput" type="text" placeholder="按商品标题、摘要、标签或分类搜索" />
               </label>
             </div>
 
@@ -153,7 +153,7 @@
             <div class="card form-card">
               <div class="grid two">
                 <label class="field">
-                  <span>商品名称</span>
+                  <span>商品标题</span>
                   <input id="productTitle" />
                 </label>
                 <label class="field">
@@ -161,31 +161,42 @@
                   <select id="productCategory"></select>
                 </label>
                 <label class="field">
-                  <span>预算区间</span>
+                  <span>价格区间</span>
                   <select id="productPriceBucket"></select>
                 </label>
                 <label class="field">
-                  <span>状态</span>
+                  <span>商品状态</span>
                   <select id="productStatus"></select>
                 </label>
               </div>
 
               <div class="field">
                 <span>商品属性</span>
-                <p class="muted">只选商品本身的属性，系统会自动推导标签、匹配维度和适用关系。</p>
+                <p class="muted">可多选。系统会根据这些属性补充推荐标签、匹配维度和适用关系。</p>
                 <div id="productAttributes" class="option-grid"></div>
+              </div>
+
+              <div class="grid two">
+                <div class="field">
+                  <span>适合送礼场景</span>
+                  <div id="productGiftScenes" class="option-grid"></div>
+                </div>
+                <div class="field">
+                  <span>适合的人群风格</span>
+                  <div id="productRecipientStyles" class="option-grid"></div>
+                </div>
               </div>
 
               <article class="card detail-card preview-card">
                 <div class="section-head compact">
                   <div>
-                    <p class="eyebrow">自动分析</p>
-                    <h4>系统将保存这些结果</h4>
+                    <p class="eyebrow">系统推导</p>
+                    <h4>推荐运营结果预览</h4>
                   </div>
                 </div>
 
                 <div class="field">
-                  <span>标签</span>
+                  <span>系统标签</span>
                   <div id="productDerivedTags" class="pill-row"></div>
                 </div>
 
@@ -198,6 +209,14 @@
                   <span>适用关系</span>
                   <div id="productDerivedRelationships" class="pill-row"></div>
                 </div>
+                <div class="field">
+                  <span>推荐场景</span>
+                  <div id="productDerivedScenes" class="pill-row"></div>
+                </div>
+                <div class="field">
+                  <span>推荐风格</span>
+                  <div id="productDerivedStyles" class="pill-row"></div>
+                </div>
               </article>
 
               <label class="field">
@@ -205,7 +224,7 @@
                 <input id="productLink" />
               </label>
               <label class="field">
-                <span>简介</span>
+                <span>商品摘要</span>
                 <textarea id="productSummary" rows="3"></textarea>
               </label>
               <div class="actions">

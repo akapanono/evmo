@@ -1,12 +1,12 @@
-export function createSystemConfigRepository(database, fallbackValue) {
-  const db = database.getDb();
+import { buildUpsertClause } from '../database/sql-helpers.mjs';
 
+export function createSystemConfigRepository(database, fallbackValue) {
   return {
-    getAppConfig() {
+    async getAppConfig() {
       return database.getConfigRow('app', fallbackValue);
     },
 
-    saveAppConfig(nextConfig) {
+    async saveAppConfig(nextConfig) {
       const value = {
         ...fallbackValue,
         ...nextConfig,
@@ -21,16 +21,16 @@ export function createSystemConfigRepository(database, fallbackValue) {
         updatedAt: new Date().toISOString(),
       };
 
-      database.saveConfigRow('app', value, value.updatedAt);
+      await database.saveConfigRow('app', value, value.updatedAt);
       return value;
     },
 
-    getUserSettings(userId, fallbackSettings = {}) {
-      const row = db.prepare(`
+    async getUserSettings(userId, fallbackSettings = {}) {
+      const row = await database.queryOne(`
         SELECT settings_json
         FROM user_settings
         WHERE user_id = ?
-      `).get(userId);
+      `, [userId]);
 
       if (!row?.settings_json) {
         return fallbackSettings;
@@ -43,15 +43,13 @@ export function createSystemConfigRepository(database, fallbackValue) {
       }
     },
 
-    saveUserSettings(userId, settings) {
+    async saveUserSettings(userId, settings) {
       const now = new Date().toISOString();
-      db.prepare(`
+      await database.execute(`
         INSERT INTO user_settings (user_id, settings_json, created_at, updated_at)
         VALUES (?, ?, ?, ?)
-        ON CONFLICT(user_id) DO UPDATE SET
-          settings_json = excluded.settings_json,
-          updated_at = excluded.updated_at
-      `).run(userId, JSON.stringify(settings ?? {}), now, now);
+        ${buildUpsertClause(database, ['user_id'], ['settings_json', 'updated_at'])}
+      `, [userId, JSON.stringify(settings ?? {}), now, now]);
 
       return settings;
     },
