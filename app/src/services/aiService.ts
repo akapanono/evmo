@@ -35,6 +35,17 @@ interface ProfileGuidance {
   contextSummary: string;
 }
 
+function getAuthHeaders(): Record<string, string> {
+  const session = storageService.getAuthSession();
+  if (!session?.token) {
+    throw new Error('请先登录。');
+  }
+
+  return {
+    Authorization: `Bearer ${session.token}`,
+  };
+}
+
 const LEGACY_DEFAULT_QUESTIONS = [
   '她最近适合聊什么？',
   '送她什么更合适？',
@@ -334,7 +345,10 @@ function createClient(_settings: AppSettings): never {
 async function postToProxy<T>(path: string, body: Record<string, unknown>, settings: AppSettings): Promise<T> {
   const response = await fetch(`${getProxyBaseUrl(settings)}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
     body: JSON.stringify(body),
   });
 
@@ -354,7 +368,10 @@ async function postToProxyStream(
 ): Promise<string> {
   const response = await fetch(`${getProxyBaseUrl(settings)}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
     body: JSON.stringify({
       ...body,
       stream: true,
