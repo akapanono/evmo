@@ -227,6 +227,7 @@ const els = {
   userDetailPanel: document.querySelector('#userDetailPanel'),
   userDetailTitle: document.querySelector('#userDetailTitle'),
   userMeta: document.querySelector('#userMeta'),
+  toggleMemberBtn: document.querySelector('#toggleMemberBtn'),
   userFriends: document.querySelector('#userFriends'),
   userMemorialDays: document.querySelector('#userMemorialDays'),
   backToUsersBtn: document.querySelector('#backToUsersBtn'),
@@ -319,6 +320,7 @@ function bindUsers() {
     activatePanel('users');
   });
   els.userSearchInput.addEventListener('input', filterUsers);
+  els.toggleMemberBtn?.addEventListener('click', toggleUserMembership);
 }
 
 function bindProducts() {
@@ -469,6 +471,9 @@ function renderUserDetail() {
 
   els.userDetailTitle.textContent = detail.user.name || '查看用户';
   els.userMeta.innerHTML = '';
+  if (els.toggleMemberBtn) {
+    els.toggleMemberBtn.textContent = detail.user.isMember ? '取消会员' : '设为会员';
+  }
 
   const metaItems = [
     ['用户 ID', detail.user.id],
@@ -509,6 +514,24 @@ function renderUserDetail() {
 async function loadProducts() {
   state.products = await api('/api/products');
   filterProducts();
+}
+
+async function toggleUserMembership() {
+  const detail = state.userDetail;
+  if (!detail) {
+    return;
+  }
+
+  try {
+    await api(`/api/admin/users/${detail.user.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isMember: !detail.user.isMember }),
+    });
+    await loadUsers();
+    await loadUserDetail(detail.user.id);
+  } catch (error) {
+    els.systemMessage.textContent = error.message;
+  }
 }
 
 function filterProducts() {
@@ -783,7 +806,7 @@ async function saveSystemConfig() {
 async function testAiConnection() {
   els.systemMessage.textContent = '测试中...';
   try {
-    await api('/api/ai/test', {
+    await api('/api/admin/ai/test', {
       method: 'POST',
       body: JSON.stringify({}),
     });

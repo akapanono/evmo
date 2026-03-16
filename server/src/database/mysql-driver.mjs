@@ -34,6 +34,7 @@ const MYSQL_MIGRATIONS = [
     phone VARCHAR(64),
     email VARCHAR(191),
     status VARCHAR(32) NOT NULL DEFAULT 'active',
+    is_member TINYINT(1) NOT NULL DEFAULT 0,
     password_hash VARCHAR(255),
     security_question_1 VARCHAR(191),
     security_answer_hash_1 VARCHAR(255),
@@ -229,6 +230,7 @@ async function executeWithNamedParams(connection, sql, params = []) {
 async function ensureUsersTableShape() {
   const columns = [
     ['username', 'VARCHAR(64)'],
+    ['is_member', 'TINYINT(1) NOT NULL DEFAULT 0'],
     ['security_question_1', 'VARCHAR(191)'],
     ['security_answer_hash_1', 'VARCHAR(255)'],
     ['security_question_2', 'VARCHAR(191)'],

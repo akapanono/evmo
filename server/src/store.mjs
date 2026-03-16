@@ -188,6 +188,7 @@ export async function getAdminUserDetail(userId) {
       name: user.name,
       email: user.email,
       status: user.status,
+      isMember: user.isMember,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     },

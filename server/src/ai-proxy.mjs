@@ -126,7 +126,6 @@ export async function forwardChatStream({ systemConfig = null, body, res }) {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache, no-transform',
     Connection: 'keep-alive',
-    'Access-Control-Allow-Origin': '*',
   });
 
   const reader = response.body.getReader();

@@ -10,6 +10,7 @@ export function createUserRepository(database) {
           name: row.name || '',
           email: row.email || '',
           status: row.status || 'active',
+          isMember: Boolean(row.is_member),
           passwordHash: row.password_hash || '',
           securityQuestion1: row.security_question_1 || '',
           securityAnswerHash1: row.security_answer_hash_1 || '',
@@ -45,13 +46,13 @@ export function createUserRepository(database) {
 
       await database.execute(`
         INSERT INTO users (
-          id, username, name, email, status, password_hash,
+          id, username, name, email, status, is_member, password_hash,
           security_question_1, security_answer_hash_1,
           security_question_2, security_answer_hash_2,
           security_question_3, security_answer_hash_3,
           created_at, updated_at
         ) VALUES (
-          @id, @username, @name, @email, @status, @password_hash,
+          @id, @username, @name, @email, @status, @is_member, @password_hash,
           @security_question_1, @security_answer_hash_1,
           @security_question_2, @security_answer_hash_2,
           @security_question_3, @security_answer_hash_3,
@@ -62,6 +63,7 @@ export function createUserRepository(database) {
           'name',
           'email',
           'status',
+          'is_member',
           'password_hash',
           'security_question_1',
           'security_answer_hash_1',
@@ -78,6 +80,7 @@ export function createUserRepository(database) {
         name: user.name || '',
         email: user.email || '',
         status: user.status || 'active',
+        is_member: user.isMember ? 1 : 0,
         password_hash: user.passwordHash || '',
         security_question_1: user.securityQuestion1 || '',
         security_answer_hash_1: user.securityAnswerHash1 || '',

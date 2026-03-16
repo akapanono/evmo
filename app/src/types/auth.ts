@@ -8,6 +8,7 @@ export interface AuthUser {
   name: string;
   username: string;
   hasPassword: boolean;
+  isMember: boolean;
 }
 
 export interface AuthSession {

@@ -83,6 +83,7 @@ export function runMigrations() {
       phone TEXT,
       email TEXT,
       status TEXT NOT NULL DEFAULT 'active',
+      is_member INTEGER NOT NULL DEFAULT 0,
       password_hash TEXT,
       security_question_1 TEXT,
       security_answer_hash_1 TEXT,
@@ -255,6 +256,7 @@ export function runMigrations() {
 
 function ensureUsersTableShape() {
   addColumnIfMissing('users', 'username', 'TEXT');
+  addColumnIfMissing('users', 'is_member', 'INTEGER NOT NULL DEFAULT 0');
   addColumnIfMissing('users', 'password_hash', 'TEXT');
   addColumnIfMissing('users', 'security_question_1', 'TEXT');
   addColumnIfMissing('users', 'security_answer_hash_1', 'TEXT');

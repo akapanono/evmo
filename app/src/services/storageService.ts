@@ -8,7 +8,9 @@ function normalizeSettings(settings: AppSettings): AppSettings {
   return {
     ...DEFAULT_SETTINGS,
     ...settings,
-    proxyServerUrl: DEFAULT_PROXY_SERVER_URL,
+    proxyServerUrl: settings.proxyServerUrl?.trim()
+      ? settings.proxyServerUrl.trim().replace(/\/+$/, '')
+      : DEFAULT_PROXY_SERVER_URL,
     themeScheme: settings.themeScheme || DEFAULT_SETTINGS.themeScheme,
     birthdayReminder: {
       ...DEFAULT_SETTINGS.birthdayReminder,

@@ -27,7 +27,7 @@
             type="button"
             class="chip"
             @click="askPresetQuestion(preset)"
-            :disabled="aiStore.loading"
+            :disabled="aiStore.loading || !canUseAI"
           >
             {{ preset }}
           </button>
@@ -85,17 +85,20 @@
             rows="2"
             placeholder="输入你想说的话"
             @keydown.enter.exact.prevent="handleSend"
-            :disabled="aiStore.loading"
+            :disabled="aiStore.loading || !canUseAI"
           ></textarea>
           <button
             type="button"
             class="send-btn"
             @click="handleSend"
-            :disabled="!question.trim() || aiStore.loading"
+            :disabled="!question.trim() || aiStore.loading || !canUseAI"
           >
             {{ aiStore.loading ? '发送中...' : '发送' }}
           </button>
         </label>
+        <p v-if="!canUseAI" class="error-message">
+          仅会员可使用 AI 对话。
+        </p>
       </div>
     </div>
   </section>
@@ -124,6 +127,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAIStore } from '@/stores/ai';
+import { useAuthStore } from '@/stores/auth';
 import { useFriendsStore } from '@/stores/friends';
 import { useMemorialDaysStore } from '@/stores/memorialDays';
 import type { Friend } from '@/types/friend';
@@ -134,6 +138,7 @@ const router = useRouter();
 const friendsStore = useFriendsStore();
 const memorialDaysStore = useMemorialDaysStore();
 const aiStore = useAIStore();
+const authStore = useAuthStore();
 
 const friend = ref<Friend | null>(null);
 const question = ref('');
@@ -142,6 +147,7 @@ const defaultQuestions = aiStore.getDefaultQuestions();
 const sourcePage = computed(() => getFriendSourcePageFromRoute(route));
 
 const hasMessages = computed(() => aiStore.messages.length > 0);
+const canUseAI = computed(() => Boolean(authStore.user?.isMember));
 const messageSignature = computed(() => aiStore.messages.map((message) => `${message.role}:${message.content}`).join('\n'));
 const contextTags = computed(() => {
   if (!friend.value) {
@@ -201,7 +207,7 @@ async function askPresetQuestion(preset: string): Promise<void> {
 }
 
 async function handleSend(): Promise<void> {
-  if (!friend.value || !question.value.trim() || aiStore.loading) {
+  if (!friend.value || !question.value.trim() || aiStore.loading || !canUseAI.value) {
     return;
   }
 

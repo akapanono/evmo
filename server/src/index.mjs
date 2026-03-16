@@ -116,12 +116,33 @@ function requireUserId(req, res) {
   return userId;
 }
 
+async function requireMemberUser(req, res) {
+  const userId = requireUserId(req, res);
+  if (!userId) {
+    return null;
+  }
+
+  const user = await getUserById(userId);
+  if (!user) {
+    json(res, 401, { ok: false, error: 'User not found.' });
+    return null;
+  }
+
+  if (!user.isMember) {
+    json(res, 403, { ok: false, error: 'AI is available to members only.' });
+    return null;
+  }
+
+  return { userId, user };
+}
+
 function buildAuthUser(user) {
   return {
     id: user.id,
     name: user.name,
     username: user.username,
     hasPassword: Boolean(user.passwordHash),
+    isMember: Boolean(user.isMember),
   };
 }
 
@@ -424,6 +445,7 @@ async function handleApiRoutes(req, res, url) {
         name: user.name,
         email: user.email,
         status: user.status,
+        isMember: user.isMember,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         friendCount: backup.friends.length,
@@ -444,6 +466,39 @@ async function handleApiRoutes(req, res, url) {
     }
 
     json(res, 200, { ok: true, data: detail });
+    return true;
+  }
+
+  if (req.method === 'PATCH' && url.pathname.startsWith('/api/admin/users/')) {
+    const userId = url.pathname.slice('/api/admin/users/'.length);
+    const currentUser = await getUserById(userId);
+    if (!currentUser) {
+      json(res, 404, { ok: false, error: 'User not found' });
+      return true;
+    }
+
+    const body = await readBody(req);
+    const nextUser = await saveUser({
+      ...currentUser,
+      isMember: typeof body.isMember === 'boolean' ? body.isMember : currentUser.isMember,
+      status: typeof body.status === 'string' && body.status.trim() ? body.status.trim() : currentUser.status,
+      updatedAt: new Date().toISOString(),
+    });
+
+    auditLog(req, 'admin_user_updated', { status: 'ok', userId, isMember: nextUser.isMember });
+    json(res, 200, {
+      ok: true,
+      data: {
+        id: nextUser.id,
+        username: nextUser.username,
+        name: nextUser.name,
+        email: nextUser.email,
+        status: nextUser.status,
+        isMember: nextUser.isMember,
+        createdAt: nextUser.createdAt,
+        updatedAt: nextUser.updatedAt,
+      },
+    });
     return true;
   }
 
@@ -724,17 +779,27 @@ async function handleApiRoutes(req, res, url) {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/ai/test') {
+    const membership = await requireMemberUser(req, res);
+    if (!membership) {
+      return true;
+    }
+
     const body = await readBody(req);
     const systemConfig = await getSystemConfig();
-    auditLog(req, 'ai_test_requested', { status: 'ok' });
+    auditLog(req, 'ai_test_requested', { status: 'ok', userId: membership.userId });
     json(res, 200, { ok: true, data: await testChatConnection({ systemConfig, body }) });
     return true;
   }
 
   if (req.method === 'POST' && url.pathname === '/api/ai/chat') {
+    const membership = await requireMemberUser(req, res);
+    if (!membership) {
+      return true;
+    }
+
     const body = await readBody(req);
     const systemConfig = await getSystemConfig();
-    auditLog(req, 'ai_chat_requested', { status: 'ok', stream: Boolean(body.stream) });
+    auditLog(req, 'ai_chat_requested', { status: 'ok', stream: Boolean(body.stream), userId: membership.userId });
 
     if (body.stream) {
       await forwardChatStream({ systemConfig, body, res });
@@ -742,6 +807,14 @@ async function handleApiRoutes(req, res, url) {
     }
 
     json(res, 200, { ok: true, data: await forwardChat({ systemConfig, body }) });
+    return true;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/admin/ai/test') {
+    const body = await readBody(req);
+    const systemConfig = await getSystemConfig();
+    auditLog(req, 'admin_ai_test_requested', { status: 'ok' });
+    json(res, 200, { ok: true, data: await testChatConnection({ systemConfig, body }) });
     return true;
   }
 
@@ -799,8 +872,6 @@ const server = createServer(async (req, res) => {
       const publicPaths = new Set([
         '/api/health',
         '/api/admin/login',
-        '/api/ai/test',
-        '/api/ai/chat',
         '/api/auth/register',
         '/api/auth/login',
         '/api/auth/password-reset/questions',
